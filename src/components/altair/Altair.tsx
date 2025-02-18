@@ -13,11 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
-import { useEffect, useRef, useState, memo } from "react";
+import React, { useEffect, useRef, useState, memo } from "react";
 import vegaEmbed from "vega-embed";
 import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { ToolCall } from "../../multimodal-live-types";
+import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
+import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
+
+interface AltairProps {
+  examSimulator?: ExamSimulator;
+}
 
 const declaration: FunctionDeclaration = {
   name: "render_altair",
@@ -35,9 +40,21 @@ const declaration: FunctionDeclaration = {
   },
 };
 
-function AltairComponent() {
+function AltairComponent({ examSimulator }: AltairProps) {
   const [jsonString, setJSONString] = useState<string>("");
   const { client, setConfig } = useLiveAPIContext();
+
+  // Log the examSimulator if provided
+  useEffect(() => {
+    if (examSimulator) {
+      console.log("Altair component received examSimulator:", examSimulator);
+    }
+  }, [examSimulator]);
+
+  const examTitle = examSimulator?.title ?? "";
+  const learningGoals = examSimulator?.learningGoals ?? "";
+  const gradeCriteria = examSimulator?.gradeCriteria ?? "";
+  const feedback = examSimulator?.feedback ?? "";
 
   useEffect(() => {
     setConfig({
@@ -51,30 +68,36 @@ function AltairComponent() {
       systemInstruction: {
         parts: [
           {
-            text: 'You are my helpful assistant. Any time I ask you for a graph call the "render_altair" function I have provided you. Dont ask for additional information just make your best judgement.',
+            text: `You are an experienced lecturer running a ${examTitle} exam. 
+            The competencies you are examining are:
+            ${learningGoals}
+            
+            Here is how you should grade the exam:
+            ${gradeCriteria}
+
+            Here is how you should give feedback:
+            ${feedback}
+
+            You dont have time to evaluate all learning goals so pick some of them and ask about that. 
+            Ask about the student's thinking, and also examine if the student understands the code he/she is writing. When done, give the student a grade.`,
           },
         ],
       },
       tools: [
-        // there is a free-tier quota for search
         { googleSearch: {} },
         { functionDeclarations: [declaration] },
       ],
     });
-  }, [setConfig]);
+  }, [setConfig, examTitle, learningGoals, gradeCriteria, feedback]);
 
   useEffect(() => {
     const onToolCall = (toolCall: ToolCall) => {
-      console.log(`got toolcall`, toolCall);
-      const fc = toolCall.functionCalls.find(
-        (fc) => fc.name === declaration.name,
-      );
+      console.log("got toolcall", toolCall);
+      const fc = toolCall.functionCalls.find((fc) => fc.name === declaration.name);
       if (fc) {
         const str = (fc.args as any).json_graph;
         setJSONString(str);
       }
-      // send data for the response of your tool call
-      // in this case Im just saying it was successful
       if (toolCall.functionCalls.length) {
         setTimeout(
           () =>
@@ -101,6 +124,7 @@ function AltairComponent() {
       vegaEmbed(embedRef.current, JSON.parse(jsonString));
     }
   }, [embedRef, jsonString]);
+
   return <div className="vega-embed" ref={embedRef} />;
 }
 
