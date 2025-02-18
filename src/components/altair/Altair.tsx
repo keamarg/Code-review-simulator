@@ -53,8 +53,21 @@ function AltairComponent({ examSimulator }: AltairProps) {
 
   const examTitle = examSimulator?.title ?? "";
   const learningGoals = examSimulator?.learningGoals ?? "";
-  const gradeCriteria = examSimulator?.gradeCriteria ?? "";
+  let gradeCriteria = examSimulator?.gradeCriteria ?? "";
   const feedback = examSimulator?.feedback ?? "";
+  const task = examSimulator?.task ?? "";
+
+  if(gradeCriteria === '7-skala') {
+    gradeCriteria = `12 	Den fremragende præstation 	Karakteren 12 gives for den fremragende præstation, der demonstrerer udtømmende opfyldelse af fagets mål, med ingen eller få uvæsentlige mangler 	A
+10 	Den fortrinlige præstation 	Karakteren 10 gives for den fortrinlige præstation, der demonstrerer omfattende opfyldelse af fagets mål, med nogle mindre væsentlige mangler 	B
+7 	Den gode præstation 	Karakteren 7 gives for den gode præstation, der demonstrerer opfyldelse af fagets mål, med en del mangler 	C
+4 	Den jævne præstation 	Karakteren 4 gives for den jævne præstation, der demonstrerer en mindre grad af opfyldelse af fagets mål, med adskillige væsentlige mangler 	D
+02 	Den tilstrækkelige præstation 	Karakteren 02 gives for den tilstrækkelige præstation, der demonstrerer den minimalt acceptable grad af opfyldelse af fagets mål 	E
+00 	Den utilstrækkelige præstation 	Karakteren 00 gives for den utilstrækkelige præstation, der ikke demonstrerer en acceptabel grad af opfyldelse af fagets mål 	Fx
+-3 	Den ringe præstation 	Karakteren -3 gives for den helt uacceptable præstation 	F`
+  } else if(gradeCriteria === 'bestået-ikke-bestået') {
+    gradeCriteria = `Bestået/Ikke bestået`
+  }
 
   useEffect(() => {
     setConfig({
@@ -69,6 +82,13 @@ function AltairComponent({ examSimulator }: AltairProps) {
         parts: [
           {
             text: `You are an experienced lecturer running a ${examTitle} exam. 
+
+            Here is how the exam should proceed:
+            1. Start the exam by introducing yourself and the exam.
+            2. Given the task. Come up with a specific task for the student to solve. 
+            3. Run the exam, asking questions and evaluating the student's competencies.
+            4. Give the student a grade and feedback.
+
             The competencies you are examining are:
             ${learningGoals}
             
@@ -78,8 +98,15 @@ function AltairComponent({ examSimulator }: AltairProps) {
             Here is how you should give feedback:
             ${feedback}
 
-            You dont have time to evaluate all learning goals so pick some of them and ask about that. 
-            Ask about the student's thinking, and also examine if the student understands the code he/she is writing. When done, give the student a grade.`,
+            Here is the task for the exam:
+            ${task}
+
+            Important notes about conducting the exam:
+            - You dont have time to evaluate all learning goals so pick some of them and ask about that
+            - Ask about the student's thinking,encourage them to think aloud 
+            - examine if the student understands the code he/she is writing.
+            - Please never explain what code is doing. You are running an exam so you need to focus on evaluating the students competencies within the learning goals!
+            `,
           },
         ],
       },

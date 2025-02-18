@@ -75,7 +75,7 @@ export default function ExamEditor() {
         }}
         className="space-y-4"
       >
-        <div>
+        <div className="mb-12">
           <label className="block text-black text-sm font-bold mb-1">Title:</label>
           <input
             type="text"
@@ -84,7 +84,7 @@ export default function ExamEditor() {
             className="border rounded w-full py-2 px-3 text-black"
           />
         </div>
-        <div>
+        <div className="mb-10">
           <label className="block text-black text-sm font-bold mb-1">Exam Task:</label>
           <textarea
             value={task}
@@ -92,25 +92,20 @@ export default function ExamEditor() {
             className="border rounded w-full py-2 px-3 text-black h-24"
           />
         </div>
-        <div>
-          <label className="block text-black text-sm font-bold mb-1">Format:</label>
-          <input
-            type="text"
-            value={format}
-            onChange={(e) => setFormat(e.target.value)}
-            className="border rounded w-full py-2 px-3 text-black"
-          />
-        </div>
-        <div>
+        {/* Grade Criteria Dropdown */}
+        <div className="mb-10">
           <label className="block text-black text-sm font-bold mb-1">Grade Criteria:</label>
-          <input
-            type="text"
+          <select
             value={gradeCriteria}
             onChange={(e) => setGradeCriteria(e.target.value)}
             className="border rounded w-full py-2 px-3 text-black"
-          />
+          >
+            <option value="">Select grade</option>
+            <option value="7-skala">7-trinsskalaen</option>
+            <option value="bestået-ikke-bestået">Bestået/ikke bestået</option>
+          </select>
         </div>
-        <div>
+        <div className="mb-10">
           <label className="block text-black text-sm font-bold mb-1">Feedback:</label>
           <textarea
             value={feedback}
@@ -118,7 +113,7 @@ export default function ExamEditor() {
             className="border rounded w-full py-2 px-3 text-black h-24"
           />
         </div>
-        <div>
+        {/* <div className="mb-10">
           <label className="block text-black text-sm font-bold mb-1">Duration (minutes):</label>
           <input
             type="number"
@@ -126,8 +121,8 @@ export default function ExamEditor() {
             onChange={(e) => setDuration(Number(e.target.value))}
             className="border rounded w-full py-2 px-3 text-black"
           />
-        </div>
-        <div>
+        </div> */}
+        <div className="mb-10">
           <label className="block text-black text-sm font-bold mb-1">Learning Goals:</label>
           <textarea
             value={learningGoals}
