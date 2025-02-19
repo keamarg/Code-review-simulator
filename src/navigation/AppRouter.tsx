@@ -11,7 +11,7 @@ export function AppRouter() {
     <ExamSimulatorProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<Dashboard />} />
           <Route path="/live" element={<LivePage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/create" element={<ExamEditor />} />
