@@ -6,6 +6,7 @@ import SidePanel from "../components/side-panel/SidePanel";
 import { Altair } from "../components/altair/Altair";
 import ControlTray from "../components/control-tray/ControlTray";
 import cn from "classnames";
+import Layout from "../components/layout/Layout";
 
 const API_KEY = process.env.REACT_APP_GEMINI_API_KEY as string;
 if (typeof API_KEY !== "string") {
@@ -22,52 +23,55 @@ export default function LivePage() {
   const id = searchParams.get("id") || undefined;
 
   const { examSimulators } = useExamSimulators();
-  // Find the matching examSimulator by id, or fall back to the first one  
   const examSimulator =
     (id && examSimulators.find((exam) => exam.id === id)) || examSimulators[0];
-  
+
   console.log(examSimulator);
-    
+
   return (
-    <LiveAPIProvider url={uri} apiKey={API_KEY}>
-      
-      <div className="streaming-console">
-        {/* <SidePanel /> */}
-        <main>
-          <div className="">
-          <h1 className="mb-4 font-bold text-2xl">Welcome to your {examSimulator.title} exam</h1>
-            <h2>To get started 
-            <ol className="list-[auto] list-outside ml-4 pl-4">
-              <li>Click on the blue Play button ▶️</li>
-              <li>Share your screen 🖥️</li>
-              <li>Say hi to your AI examiner 👋</li>
-            </ol>
+    <Layout>
+      <LiveAPIProvider url={uri} apiKey={API_KEY}>
+        <div className="streaming-console">
+          {/* <SidePanel /> */}
+          <main>
+            <div className="">
+              <h1 className="mb-4 font-bold text-2xl">
+                Welcome to your {examSimulator.title} exam
+              </h1>
+              <h2>
+                To get started{" "}
+                <ol className="list-[auto] list-outside ml-4 pl-4">
+                  <li>Click on the blue Play button ▶️</li>
+                  <li>Share your screen 🖥️</li>
+                  <li>Say hi to your AI examiner 👋</li>
+                </ol>
               </h2>
-            <Altair examSimulator={examSimulator} />
-            <video
-              className={cn( {
-                hidden: !videoRef.current || !videoStream,
-              })}
-              style={{
-                width: "20%",
-                position: "fixed",
-                bottom: "25px",
-                right: "25px",
-              }}
-              ref={videoRef}
-              autoPlay
-              playsInline
-            />
-          </div>
-          <ControlTray
-            videoRef={videoRef}
-            supportsVideo={true}
-            onVideoStreamChange={setVideoStream}
-          >
-            {/* put your own buttons here */}
-          </ControlTray>
-        </main>
-      </div>
-    </LiveAPIProvider>
+              <Altair examSimulator={examSimulator} />
+              <video
+                className={cn({
+                  hidden: !videoRef.current || !videoStream,
+                })}
+                style={{
+                  width: "20%",
+                  position: "fixed",
+                  bottom: "25px",
+                  right: "25px",
+                }}
+                ref={videoRef}
+                autoPlay
+                playsInline
+              />
+            </div>
+            <ControlTray
+              videoRef={videoRef}
+              supportsVideo={true}
+              onVideoStreamChange={setVideoStream}
+            >
+              {/* put your own buttons here */}
+            </ControlTray>
+          </main>
+        </div>
+      </LiveAPIProvider>
+    </Layout>
   );
 }
