@@ -20,7 +20,7 @@ import { AppRouter } from "./navigation/AppRouter";
 
 function App() {
   return (
-    <div>
+    <div className="bg-white">
       <AppRouter />
     </div>
   );

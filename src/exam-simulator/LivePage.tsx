@@ -30,16 +30,30 @@ export default function LivePage() {
     
   return (
     <LiveAPIProvider url={uri} apiKey={API_KEY}>
-      <h1>Velkommen til din {examSimulator.title} eksamen</h1>
+      
       <div className="streaming-console">
-        <SidePanel />
+        {/* <SidePanel /> */}
         <main>
-          <div className="main-app-area">
+          <div className="">
+          <h1 className="mb-4 font-bold text-2xl">Welcome to your {examSimulator.title} exam</h1>
+            <h2>To get started 
+            <ol className="list-[auto] list-outside ml-4 pl-4">
+              <li>Click on the blue Play button ▶️</li>
+              <li>Share your screen 🖥️</li>
+              <li>Say hi to your AI examiner 👋</li>
+            </ol>
+              </h2>
             <Altair examSimulator={examSimulator} />
             <video
-              className={cn("stream", {
+              className={cn( {
                 hidden: !videoRef.current || !videoStream,
               })}
+              style={{
+                width: "20%",
+                position: "fixed",
+                bottom: "25px",
+                right: "25px",
+              }}
               ref={videoRef}
               autoPlay
               playsInline
