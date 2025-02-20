@@ -163,7 +163,7 @@ function ControlTray({
         <button
           ref={connectButtonRef}
           className={cn(
-            "transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg mb-6 py-5 px-8 cursor-pointer"
+            "transition duration-200 ease-in-out focus:outline-none rounded border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg mb-12 py-5 px-8 cursor-pointer"
           )}
           onClick={connected ? disconnect : connect}
         >

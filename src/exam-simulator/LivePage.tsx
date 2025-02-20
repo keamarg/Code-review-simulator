@@ -2,7 +2,6 @@ import React, { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LiveAPIProvider } from "../contexts/LiveAPIContext";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
-import SidePanel from "../components/side-panel/SidePanel";
 import { Altair } from "../components/altair/Altair";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
 import ControlTray from "../components/control-tray/ControlTray";
