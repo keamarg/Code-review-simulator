@@ -4,6 +4,7 @@ import { LiveAPIProvider } from "../contexts/LiveAPIContext";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
 import SidePanel from "../components/side-panel/SidePanel";
 import { Altair } from "../components/altair/Altair";
+import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
 import ControlTray from "../components/control-tray/ControlTray";
 import cn from "classnames";
 import Layout from "../components/layout/Layout";
@@ -31,20 +32,15 @@ export default function LivePage() {
   return (
     <Layout>
       <LiveAPIProvider url={uri} apiKey={API_KEY}>
-        <div className="streaming-console">
+        <div className="streaming-console max-w-2xl mx-auto">
           {/* <SidePanel /> */}
           <main>
             <div className="">
-              <h1 className="mb-4 font-bold text-2xl">
+              <h1 className="mb-8 font-bold text-2xl">
                 Welcome to your {examSimulator.title} exam
               </h1>
-              <h2>
-                To get started{" "}
-                <ol className="list-[auto] list-outside ml-4 pl-4">
-                  <li>Click on the blue Play button ▶️</li>
-                  <li>Share your screen 🖥️</li>
-                  <li>Say hi to your AI examiner 👋</li>
-                </ol>
+              <h2 className="mb-12 line-clamp-2">
+                <strong>Task: </strong>{examSimulator.task}
               </h2>
               <Altair examSimulator={examSimulator} />
               <video
@@ -61,14 +57,15 @@ export default function LivePage() {
                 autoPlay
                 playsInline
               />
+              <ControlTrayCustom
+                videoRef={videoRef}
+                supportsVideo={true}
+                onVideoStreamChange={setVideoStream}
+              >
+                {/* put your own buttons here */}
+              </ControlTrayCustom>
+
             </div>
-            <ControlTray
-              videoRef={videoRef}
-              supportsVideo={true}
-              onVideoStreamChange={setVideoStream}
-            >
-              {/* put your own buttons here */}
-            </ControlTray>
           </main>
         </div>
       </LiveAPIProvider>

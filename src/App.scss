@@ -127,11 +127,11 @@ body {
   }
 
   .disabled {
-    pointer-events: none;
+    /* pointer-events: none;
 
     >* {
       pointer-events: none;
-    }
+    } */
   }
 
   main {

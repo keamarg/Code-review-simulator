@@ -20,6 +20,9 @@ import { ToolCall } from "../../multimodal-live-types";
 import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
 
+const EXAM_DURATION_IN_MINUTES = 8;
+const EXAM_DURATION_IN_MS = EXAM_DURATION_IN_MINUTES * 60 * 1000;
+
 interface AltairProps {
   examSimulator?: ExamSimulator;
 }
@@ -42,7 +45,45 @@ const declaration: FunctionDeclaration = {
 
 function AltairComponent({ examSimulator }: AltairProps) {
   const [jsonString, setJSONString] = useState<string>("");
-  const { client, setConfig } = useLiveAPIContext();
+  const { client, setConfig, connected } = useLiveAPIContext();
+
+ /*  useEffect(() => {
+    setInterval(() => {
+      console.log(connected);
+      
+    }, 1000);
+  }, [connected]); */
+
+  useEffect(() => {
+    if (!connected) return; // only schedule if the client is connected
+
+    // Original exam introduction message after 5 seconds
+    const introTimer = setTimeout(() => {
+      client.send([{ text: "Please introduce the exam" }]);
+    }, 1 * 1000);
+
+    // Send message after 5 minutes (300000 ms) for the student
+    const halfExamTimer = setTimeout(() => {
+      alert("Half exam passed. Informing the student about remaining time.");
+      client.send([
+        { text: "Half of the exam has passed, and there are 4 minutes remaining." },
+      ]);
+    }, Math.floor(EXAM_DURATION_IN_MS / 2));
+
+    // Send message after 9 minutes (540000 ms) for the examiner
+    const gradingTimer = setTimeout(() => {
+      alert("Exam nearing end. Requesting grade and feedback from examiner.");
+      client.send([
+        { text: "Exam time is almost up. Please provide a grade and feedback." },
+      ]);
+    }, EXAM_DURATION_IN_MS - (60 * 1000));
+
+    return () => {
+      clearTimeout(introTimer);
+      clearTimeout(halfExamTimer);
+      clearTimeout(gradingTimer);
+    };
+  }, [client, connected]);
 
   // Log the examSimulator if provided
   useEffect(() => {
@@ -50,6 +91,8 @@ function AltairComponent({ examSimulator }: AltairProps) {
       console.log("Altair component received examSimulator:", examSimulator);
     }
   }, [examSimulator]);
+
+
 
   const examTitle = examSimulator?.title ?? "";
   const learningGoals = examSimulator?.learningGoals ?? "";
@@ -81,11 +124,11 @@ function AltairComponent({ examSimulator }: AltairProps) {
       systemInstruction: {
         parts: [
           {
-            text: `You are an experienced lecturer running a ${examTitle} exam. 
+            text: `You are an experienced lecturer running a ${EXAM_DURATION_IN_MINUTES} minute ${examTitle} exam. 
 
 Here is how the exam should proceed:
-1. Start the exam by introducing yourself, the exam and the steps of the exam.
-2. Given the task. Come up with a specific task for the student to solve. 
+1. Start the exam by introducing yourself, the exam and the steps of the exam. If relevant ask the student to share their screen
+2. Given the task. Come up with a specific task for the student to solve in 9 minutes (1 minute for grade and feedback). Please just explain the student the first part of the task. And then built on that, when the student have completed that.
 3. Run the exam, asking questions and evaluating the student's competencies.
 4. Give the student a grade and feedback.
 
