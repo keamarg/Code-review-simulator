@@ -19,6 +19,7 @@ import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { ToolCall } from "../../multimodal-live-types";
 import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
+import getQuestions from "./../../exam-simulator/utils/getGithubRepoFiles.js";
 
 const EXAM_DURATION_IN_MINUTES = 8;
 const EXAM_DURATION_IN_MS = EXAM_DURATION_IN_MINUTES * 60 * 1000;
@@ -45,21 +46,40 @@ const declaration: FunctionDeclaration = {
   },
 };
 
-function AltairComponent({ examSimulator }: AltairProps) {
+function GithubRepo({ examSimulator }: AltairProps) {
   const [jsonString, setJSONString] = useState<string>("");
   const { client, setConfig, connected } = useLiveAPIContext();
 
+  // New states for repo URL and its contents.
+  const [repoUrl, setRepoUrl] = useState<string>("");
+  const [repoContents, setRepoContents] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  // New: use examinerType from examSimulator; default to "Friendly"
   const examinerType = examSimulator?.examinerType ?? "Friendly";
-  
- /*  useEffect(() => {
-    setInterval(() => {
-      console.log(connected);
-      
-    }, 1000);
-  }, [connected]); */
+
+  // Fetch repository files when connected and the repoUrl is provided.
+  useEffect(() => {
+    if (connected && repoUrl.trim() !== "") {
+      setLoading(true);
+      getQuestions(repoUrl, learningGoals)
+        .then((contents) => {
+          setRepoContents(contents);
+        })
+        .catch((err) => {
+          console.error("Error fetching repo files:", err);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [connected, repoUrl]);
 
   useEffect(() => {
-    if (!connected) return; // only schedule if the client is connected
+    if (!connected) return; // wait until connected
+
+    // If a repo URL is provided, wait for its contents to be fetched before scheduling messages.
+    if (repoUrl.trim() !== "" && repoContents === "") return;
 
     // Original exam introduction message after 5 seconds
     const introTimer = setTimeout(() => {
@@ -87,7 +107,7 @@ function AltairComponent({ examSimulator }: AltairProps) {
       clearTimeout(halfExamTimer);
       clearTimeout(gradingTimer);
     };
-  }, [client, connected]);
+  }, [client, connected, repoUrl, repoContents]);
 
   // Log the examSimulator if provided
   useEffect(() => {
@@ -96,9 +116,6 @@ function AltairComponent({ examSimulator }: AltairProps) {
     }
   }, [examSimulator]);
   
-
-
-
   const examTitle = examSimulator?.title ?? "";
   const learningGoals = examSimulator?.learningGoals ?? "";
   let gradeCriteria = examSimulator?.gradeCriteria ?? "";
@@ -118,24 +135,12 @@ function AltairComponent({ examSimulator }: AltairProps) {
   } else if(gradeCriteria === 'no-grade') {
     gradeCriteria = `The student should not get a grade!`
   }
-
-  useEffect(() => {
-    setConfig({
-      model: "models/gemini-2.0-flash-exp",
-      generationConfig: {
-        responseModalities: "audio",
-        speechConfig: {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
-        },
-      },
-      systemInstruction: {
-        parts: [
-          {
-            text: `You are a ${examinerType.toLowerCase()} examiner running a ${EXAM_DURATION_IN_MINUTES} minute ${examSimulator?.title || "exam"} exam. 
+    const prompt = `You are a ${examinerType.toLowerCase()} examiner running a ${EXAM_DURATION_IN_MINUTES} minute ${examSimulator?.title || "exam"} exam.
 
 Here is how the exam should proceed:
-1. Start the exam by introducing yourself, the exam and the steps of the exam. If relevant ask the student to share their screen
-2. Given the task. Come up with a specific task for the student to solve in ${EXAM_DURATION_ACTIVE_EXAM} minutes (1 minute for grade and feedback). Please just explain the student the first part of the task. And then built on that, when the student have completed that.
+1. Start the exam by introducing yourself, the exam and the steps of the exam. If relevant ask the student to share their screen.
+2. Given the task. Come up with a specific task for the student to solve in ${EXAM_DURATION_ACTIVE_EXAM} minutes (1 minute for grade and feedback). Some questions have been prepared for you that you can use as you see fit. 
+  - Please just explain the student the first part of the task. And then built on that.
 3. Run the exam, asking questions and evaluating the student's competencies.
 4. Give the student a grade and feedback.
 
@@ -151,15 +156,32 @@ ${feedback}
 Here is the task for the exam:
 ${task}
 
+Prepared Questions:
+${repoContents}
+
 Important notes about conducting the exam:
-- You dont have time to evaluate all learning goals so pick some of them and ask about that
-- Ask about the student's thinking, encourage them to think aloud 
-- examine if the student understands the code he/she is writing.
-- Please never explain what code is doing. You are running an exam so you need to focus on evaluating the students competencies within the learning goals!
+You dont have time to evaluate all learning goals so pick some of them and ask about that.
+- Ask about the student's thinking, encourage them to think aloud.
+- Examine if the student understands the code he/she is writing.
+- Please never explain what code is doing. You are running an exam so you need to focus on evaluating the students' competencies.
 - Dont say what the student have done. Just say things like: "that looks good"
 - If the student is doing well ask harder questions. If the student is struggling ask easier questions.
-- If the student is stuck, give hints to help the student move forward.
-            `,
+- If the student is stuck, give hints to help the student move forward.`
+    
+    useEffect(() => {
+    setConfig({
+      model: "models/gemini-2.0-flash-exp",
+      generationConfig: {
+        responseModalities: "audio",
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
+        },
+      },
+      systemInstruction: {
+        parts: [
+          {
+            // The examinerType feeds into the prompt below.
+            text: prompt,
           },
         ],
       },
@@ -168,7 +190,7 @@ Important notes about conducting the exam:
         { functionDeclarations: [declaration] },
       ],
     });
-  }, [setConfig]);
+  }, [setConfig, examSimulator, examinerType, repoContents]);
 
   useEffect(() => {
     const onToolCall = (toolCall: ToolCall) => {
@@ -205,7 +227,13 @@ Important notes about conducting the exam:
     }
   }, [embedRef, jsonString]);
 
-  return <div className="vega-embed" ref={embedRef} />;
+  return (<div className="flex flex-col mb-12">
+    <label className="mb-4" htmlFor="github-repo">Insert your github repo here</label>
+    <input id="github-repo" placeholder="Insert github repo" className="border p-2 mb-4" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
+    {loading && (
+        <p className="text-gray-500 text-center">Loading repository contents...</p>
+      )}
+  </div>);
 }
 
-export const Altair = memo(AltairComponent);
+export const Altair = GithubRepo;

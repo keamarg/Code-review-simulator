@@ -2,9 +2,10 @@ import React, { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LiveAPIProvider } from "../contexts/LiveAPIContext";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
-import { Altair } from "../components/altair/Altair";
+// Import both components – note that GithubRepo and Altair come from different files now.
+import { Altair as AltairStandard } from "../components/altair/Altair";
+import { Altair as GithubRepo } from "../components/altair/GithubRepo";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
-import ControlTray from "../components/control-tray/ControlTray";
 import cn from "classnames";
 import Layout from "../components/layout/Layout";
 
@@ -28,20 +29,26 @@ export default function LivePage() {
 
   console.log(examSimulator);
 
+// {/* <AltairStandard examSimulator={examSimulator} /> */}
+
   return (
     <Layout>
       <LiveAPIProvider url={uri} apiKey={API_KEY}>
         <div className="streaming-console max-w-2xl mx-auto">
-          {/* <SidePanel /> */}
           <main>
-            <div className="">
-              <h1 className="mb-8 font-bold text-2xl">
+            <div>
+              <h1 className="mb-8 font-bold text-2xl text-black">
                 Welcome to your {examSimulator.title} exam
               </h1>
-              <h2 className="mb-12 line-clamp-2">
-                <strong>Task: </strong>{examSimulator.task}
+              <h2 className="mb-16 line-clamp-2 text-black">
+                <strong>Task: </strong>
+                {examSimulator.task}
               </h2>
-              <Altair examSimulator={examSimulator} />
+              {examSimulator.examType === "Github Repo" ? (
+                <GithubRepo examSimulator={examSimulator} />
+              ) : (
+                <AltairStandard />
+              )}
               <video
                 className={cn({
                   hidden: !videoRef.current || !videoStream,
@@ -61,9 +68,8 @@ export default function LivePage() {
                 supportsVideo={true}
                 onVideoStreamChange={setVideoStream}
               >
-                {/* put your own buttons here */}
+                
               </ControlTrayCustom>
-
             </div>
           </main>
         </div>

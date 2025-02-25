@@ -9,7 +9,9 @@ export type ExamSimulator = {
   feedback: string;
   duration: number;
   learningGoals: string;
-  task: string; // New task field where teacher writes the exam task
+  task: string; // Exam task written by the teacher
+  examType: string;
+  examinerType: string;
 };
 
 interface ExamSimulatorContextValue {

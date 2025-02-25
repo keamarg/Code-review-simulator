@@ -19,13 +19,17 @@ export default function ExamEditor() {
   });
   const [learningGoals, setLearningGoals] = useState(exam ? exam.learningGoals : "");
   const [task, setTask] = useState(exam ? exam.task : "");
+  // New state for exam type ("Standard" or "Github Repo")
+  const [examType, setExamType] = useState(exam ? exam.examType : "Standard");
+  // New state for examiner type ("Friendly", "Strict", or "Challenging")
+  const [examinerType, setExaminerType] = useState(exam ? exam.examinerType : "Friendly");
 
   const isEditMode = examId !== "" && exam !== undefined;
 
   const handleSave = () => {
     if (isEditMode) {
       const updatedExam: ExamSimulator = {
-        id: exam.id,
+        ...exam,
         title,
         format,
         gradeCriteria,
@@ -33,6 +37,8 @@ export default function ExamEditor() {
         duration,
         learningGoals,
         task,
+        examType,
+        examinerType,
       };
       setExamSimulators((prev) =>
         prev.map((e) => (e.id === exam.id ? updatedExam : e))
@@ -48,6 +54,8 @@ export default function ExamEditor() {
         duration,
         learningGoals,
         task,
+        examType,
+        examinerType,
       };
       setExamSimulators((prev) => [...prev, newExam]);
       alert("Exam created!");
@@ -66,7 +74,7 @@ export default function ExamEditor() {
 
   return (
     <Layout>
-        <div className="p-4 max-w-7xl mx-auto px-4 py-6">
+        <div className="p-4  max-w-2xl mx-auto px-4 py-6">
         <h1 className="text-3xl font-bold mb-6">
             {isEditMode ? "Edit Exam" : "Create Exam"}
         </h1>
@@ -94,6 +102,18 @@ export default function ExamEditor() {
                 className="border rounded w-full py-2 px-3 text-black h-24"
             />
             </div>
+            {/* New Exam Type Dropdown */}
+            <div className="mb-10">
+            <label className="block text-black text-sm font-bold mb-1">Exam Type:</label>
+            <select
+                value={examType}
+                onChange={(e) => setExamType(e.target.value)}
+                className="border rounded w-full py-2 px-3 text-black"
+            >
+                <option value="Standard">Standard</option>
+                <option value="Github Repo">Github Repo</option>
+            </select>
+            </div>
             {/* Grade Criteria Dropdown */}
             <div className="mb-10">
             <label className="block text-black text-sm font-bold mb-1">Grade Criteria:</label>
@@ -103,8 +123,22 @@ export default function ExamEditor() {
                 className="border rounded w-full py-2 px-3 text-black"
             >
                 <option value="">Select grade</option>
+                <option value="no-grade">Ingen karaktergivning</option>
                 <option value="7-skala">7-trinsskalaen</option>
                 <option value="bestået-ikke-bestået">Bestået/ikke bestået</option>
+            </select>
+            </div>
+            {/* New Examiner Type Dropdown */}
+            <div className="mb-10">
+            <label className="block text-black text-sm font-bold mb-1">Examiner Type:</label>
+            <select
+                value={examinerType}
+                onChange={(e) => setExaminerType(e.target.value)}
+                className="border rounded w-full py-2 px-3 text-black"
+            >
+                <option value="Friendly">Friendly</option>
+                <option value="Strict">Strict</option>
+                <option value="Challenging">Challenging</option>
             </select>
             </div>
             <div className="mb-10">
@@ -115,7 +149,7 @@ export default function ExamEditor() {
                 className="border rounded w-full py-2 px-3 text-black h-24"
             />
             </div>
-            {/* <div className="mb-10">
+{/* <div className="mb-10">
             <label className="block text-black text-sm font-bold mb-1">Duration (minutes):</label>
             <input
                 type="number"
@@ -135,7 +169,7 @@ export default function ExamEditor() {
             <div className="flex items-center space-x-4">
             <button 
                 type="submit"
-                className="bg-blue-500 hover:bg-blue-700 text-black font-bold py-2 px-4 rounded"
+                className="bg-blue-500 hover:bg-blue-700 text-black font-bold py-2 px-4 rounded cursor-pointer"
             >
                 {isEditMode ? "Update Exam" : "Create Exam"}
             </button>
@@ -143,7 +177,7 @@ export default function ExamEditor() {
                 <button
                 type="button"
                 onClick={handleDelete}
-                className="bg-red-500 hover:bg-red-700 text-black font-bold py-2 px-4 rounded"
+                className="bg-red-500 hover:bg-red-700 text-black font-bold py-2 px-4 rounded cursor-pointer"
                 >
                 Delete Exam
                 </button>

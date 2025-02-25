@@ -158,12 +158,12 @@ function ControlTray({
 
   return (
     <section className="control-tray flex flex-col items-center">
-      
+      <canvas style={{ display: "none" }} ref={renderCanvasRef} />
       <div className="connection-button-container flex justify-center">
         <button
           ref={connectButtonRef}
           className={cn(
-            "transition duration-200 ease-in-out focus:outline-none rounded border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg mb-12 py-5 px-8 cursor-pointer"
+            "transition duration-200 ease-in-out focus:outline-none rounded border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg mb-6 py-5 px-8 cursor-pointer"
           )}
           onClick={connected ? disconnect : connect}
         >
@@ -171,7 +171,7 @@ function ControlTray({
         </button>
       </div>
 
-      <nav className={cn("actions-nav flex justify-between w-48", { disabled: !connected })}>
+      <nav className={cn("actions-nav flex justify-between w-36", { disabled: !connected })}>
         <button
           className={cn("action-button mic-button transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center")}
           onClick={() => setMuted(!muted)}
@@ -181,11 +181,10 @@ function ControlTray({
           ) : (
             <span className="material-symbols-outlined filled">mic_off</span>
           )}
+          <div className="action-button no-action p-2 flex items-center text-gray-800">
+            <AudioPulse volume={volume} active={connected} hover={false} />
+          </div>
         </button>
-
-        <div className="action-button no-action p-2 border border-gray-300 rounded flex items-center">
-          <AudioPulse volume={volume} active={connected} hover={false} />
-        </div>
 
         {supportsVideo && (
           <>
