@@ -24,13 +24,13 @@ A modern application that helps students prepare for oral exams by simulating re
 ### Getting Started
 1. Clone this repository to your local machine
    ```bash
-   git clone https://github.com/your-username/multimodal-exam-simulator.git
+   git clone https://github.com/behu-kea/Exam-simulator.git
    cd multimodal-exam-simulator
-2. Get a Google Gemini API key
-- Visit: https://aistudio.google.com/apikey
-- Follow the instructions to create your API key
+2. Get a Google Gemini API key and an OpenAI key
+- Visit: https://aistudio.google.com/apikey- Follow the instructions to create your API key
+- Visit: https://platform.openai.com/settings/organization/api-keys to get an OpenAI key
 
-3. Create a .env file in the project root and add your API key `REACT_APP_GEMINI_API_KEY=your_api_key_here`
+3. Add the keys to the .env file in the project root. DONT COMMIT THE KEYS!!!
 
 4. Install dependencies and start the application
 ````
