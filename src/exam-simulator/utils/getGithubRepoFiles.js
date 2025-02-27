@@ -65,9 +65,9 @@ ${repoContents}
 And the following learning goals:
 ${learningGoals}
 
-Please provide a list of exam questions that cover the learning goals effectively. Some of the questions should refer to specific files. Only answer with the questions
+Please provide a list of exam questions that cover the learning goals effectively. Some of the questions should refer to specific files. When referring to the files add the full path. Only answer with the questions
 
-It is an 8 minute exam.
+It is an 9 minute exam.
   `.trim();
 
   const payload = {

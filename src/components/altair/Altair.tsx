@@ -20,10 +20,7 @@ import { ToolCall } from "../../multimodal-live-types";
 import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
 
-const EXAM_DURATION_IN_MINUTES = 8;
-const EXAM_DURATION_IN_MS = EXAM_DURATION_IN_MINUTES * 60 * 1000;
-const EXAM_DURATION_ACTIVE_EXAM = EXAM_DURATION_IN_MS - (60 * 1000)
-
+const EXAM_DURATION_IN_MINUTES = 8; // default duration
 
 interface AltairProps {
   examSimulator?: ExamSimulator;
@@ -48,46 +45,41 @@ const declaration: FunctionDeclaration = {
 function AltairComponent({ examSimulator }: AltairProps) {
   const [jsonString, setJSONString] = useState<string>("");
   const { client, setConfig, connected } = useLiveAPIContext();
-
   const examinerType = examSimulator?.examinerType ?? "Friendly";
   
- /*  useEffect(() => {
-    setInterval(() => {
-      console.log(connected);
-      
-    }, 1000);
-  }, [connected]); */
-
+  // Calculate dynamic exam duration based on examSimulator. Use fallback if not provided.
+  const examDurationInMinutes = examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
+  const examDurationInMs = examDurationInMinutes * 60 * 1000;
+  const examDurationActiveExam = examDurationInMs - 60 * 1000;
+  
   useEffect(() => {
     if (!connected) return; // only schedule if the client is connected
 
-    // Original exam introduction message after 5 seconds
+    // Original exam introduction message after 1 second
     const introTimer = setTimeout(() => {
       client.send([{ text: "Please introduce the exam" }]);
     }, 1 * 1000);
 
-    // Send message after 5 minutes (300000 ms) for the student
+    // Send message at half the exam duration
     const halfExamTimer = setTimeout(() => {
-      //alert("Half exam passed. Informing the student about remaining time.");
       client.send([
-        { text: "Half of the exam has passed, and there are 4 minutes remaining." },
+        { text: "Half of the exam has passed, and there are 4 minutes remaining. Dont tell the student about this message, just carry on" },
       ]);
-    }, Math.floor(EXAM_DURATION_IN_MS / 2));
+    }, Math.floor(examDurationInMs / 2));
 
-    // Send message after 9 minutes (540000 ms) for the examiner
+    // Send message for grading near the end of the exam
     const gradingTimer = setTimeout(() => {
-      //alert("Exam nearing end. Requesting grade and feedback from examiner.");
       client.send([
         { text: "Exam time is almost up. Please provide a grade and feedback." },
       ]);
-    }, EXAM_DURATION_IN_MS - (60 * 1000));
+    }, examDurationInMs - (60 * 1000));
 
     return () => {
       clearTimeout(introTimer);
       clearTimeout(halfExamTimer);
       clearTimeout(gradingTimer);
     };
-  }, [client, connected]);
+  }, [client, connected, examDurationInMs]);
 
   // Log the examSimulator if provided
   useEffect(() => {
@@ -95,9 +87,6 @@ function AltairComponent({ examSimulator }: AltairProps) {
       console.log("Altair component received examSimulator:", examSimulator);
     }
   }, [examSimulator]);
-  
-
-
 
   const examTitle = examSimulator?.title ?? "";
   const learningGoals = examSimulator?.learningGoals ?? "";
@@ -119,23 +108,11 @@ function AltairComponent({ examSimulator }: AltairProps) {
     gradeCriteria = `The student should not get a grade!`
   }
 
-  useEffect(() => {
-    setConfig({
-      model: "models/gemini-2.0-flash-exp",
-      generationConfig: {
-        responseModalities: "audio",
-        speechConfig: {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
-        },
-      },
-      systemInstruction: {
-        parts: [
-          {
-            text: `You are a ${examinerType.toLowerCase()} examiner running a ${EXAM_DURATION_IN_MINUTES} minute ${examSimulator?.title || "exam"} exam. 
+  const prompt = `You are a ${examinerType.toLowerCase()} examiner running a ${examDurationInMinutes} minute ${examSimulator?.title || "exam"} exam. 
 
 Here is how the exam should proceed:
 1. Start the exam by introducing yourself, the exam and the steps of the exam. If relevant ask the student to share their screen
-2. Given the task. Come up with a specific task for the student to solve in ${EXAM_DURATION_ACTIVE_EXAM} minutes (1 minute for grade and feedback). Please just explain the student the first part of the task. And then built on that, when the student have completed that.
+2. Given the task. Come up with a specific task for the student to solve in ${examDurationActiveExam / 60000} minutes (1 minute for grade and feedback). Please just explain the student the first part of the task. And then built on that, when the student have completed that.
 3. Run the exam, asking questions and evaluating the student's competencies.
 4. Give the student a grade and feedback.
 
@@ -158,8 +135,21 @@ Important notes about conducting the exam:
 - Please never explain what code is doing. You are running an exam so you need to focus on evaluating the students competencies within the learning goals!
 - Dont say what the student have done. Just say things like: "that looks good"
 - If the student is doing well ask harder questions. If the student is struggling ask easier questions.
-- If the student is stuck, give hints to help the student move forward.
-            `,
+- If the student is stuck, give hints to help the student move forward.`;
+
+  useEffect(() => {
+    setConfig({
+      model: "models/gemini-2.0-flash-exp",
+      generationConfig: {
+        responseModalities: "audio",
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
+        },
+      },
+      systemInstruction: {
+        parts: [
+          {
+            text: prompt,
           },
         ],
       },

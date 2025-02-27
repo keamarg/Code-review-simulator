@@ -24,12 +24,9 @@ export default function LivePage() {
   const id = searchParams.get("id") || undefined;
 
   const { examSimulators } = useExamSimulators();
+  
   const examSimulator =
     (id && examSimulators.find((exam) => exam.id === id)) || examSimulators[0];
-
-  console.log(examSimulator);
-
-// {/* <AltairStandard examSimulator={examSimulator} /> */}
 
   return (
     <Layout>
@@ -47,7 +44,7 @@ export default function LivePage() {
               {examSimulator.examType === "Github Repo" ? (
                 <GithubRepo examSimulator={examSimulator} />
               ) : (
-                <AltairStandard />
+                <AltairStandard examSimulator={examSimulator} />
               )}
               <video
                 className={cn({

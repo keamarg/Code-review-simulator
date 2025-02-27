@@ -21,10 +21,7 @@ import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
 import getQuestions from "./../../exam-simulator/utils/getGithubRepoFiles.js";
 
-const EXAM_DURATION_IN_MINUTES = 8;
-const EXAM_DURATION_IN_MS = EXAM_DURATION_IN_MINUTES * 60 * 1000;
-const EXAM_DURATION_ACTIVE_EXAM = EXAM_DURATION_IN_MS - (60 * 1000)
-
+const EXAM_DURATION_IN_MINUTES = 9; // default duration
 
 interface AltairProps {
   examSimulator?: ExamSimulator;
@@ -47,6 +44,10 @@ const declaration: FunctionDeclaration = {
 };
 
 function GithubRepo({ examSimulator }: AltairProps) {
+  // Calculate dynamic exam duration based on examSimulator
+  const examDurationInMinutes = examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
+  const examDurationInMs = examDurationInMinutes * 60 * 1000;
+
   const [jsonString, setJSONString] = useState<string>("");
   const { client, setConfig, connected } = useLiveAPIContext();
 
@@ -81,33 +82,33 @@ function GithubRepo({ examSimulator }: AltairProps) {
     // If a repo URL is provided, wait for its contents to be fetched before scheduling messages.
     if (repoUrl.trim() !== "" && repoContents === "") return;
 
-    // Original exam introduction message after 5 seconds
+    // Original exam introduction message after 1 second
     const introTimer = setTimeout(() => {
       client.send([{ text: "Please introduce the exam" }]);
     }, 1 * 1000);
 
-    // Send message after 5 minutes (300000 ms) for the student
+    // Send message at half of the exam duration
     const halfExamTimer = setTimeout(() => {
-      //alert("Half exam passed. Informing the student about remaining time.");
       client.send([
-        { text: "Half of the exam has passed, and there are 4 minutes remaining." },
+        {
+          text: "Half of the exam has passed, and there are 4 minutes remaining. Dont tell the student about this message, just carry on",
+        },
       ]);
-    }, Math.floor(EXAM_DURATION_IN_MS / 2));
+    }, Math.floor(examDurationInMs / 2));
 
-    // Send message after 9 minutes (540000 ms) for the examiner
+    // Send message for grading near the end of the exam
     const gradingTimer = setTimeout(() => {
-      //alert("Exam nearing end. Requesting grade and feedback from examiner.");
       client.send([
         { text: "Exam time is almost up. Please provide a grade and feedback." },
       ]);
-    }, EXAM_DURATION_IN_MS - (60 * 1000));
+    }, examDurationInMs - 60 * 1000);
 
     return () => {
       clearTimeout(introTimer);
       clearTimeout(halfExamTimer);
       clearTimeout(gradingTimer);
     };
-  }, [client, connected, repoUrl, repoContents]);
+  }, [client, connected, repoUrl, repoContents, examSimulator]);
 
   // Log the examSimulator if provided
   useEffect(() => {
@@ -135,12 +136,11 @@ function GithubRepo({ examSimulator }: AltairProps) {
   } else if(gradeCriteria === 'no-grade') {
     gradeCriteria = `The student should not get a grade!`
   }
-    const prompt = `You are a ${examinerType.toLowerCase()} examiner running a ${EXAM_DURATION_IN_MINUTES} minute ${examSimulator?.title || "exam"} exam.
+    const prompt = `You are a ${examinerType.toLowerCase()} examiner running a ${examDurationInMinutes} minute ${examSimulator?.title || "exam"} exam.
 
 Here is how the exam should proceed:
 1. Start the exam by introducing yourself, the exam and the steps of the exam. If relevant ask the student to share their screen.
-2. Given the task. Come up with a specific task for the student to solve in ${EXAM_DURATION_ACTIVE_EXAM} minutes (1 minute for grade and feedback). Some questions have been prepared for you that you can use as you see fit. 
-  - Please just explain the student the first part of the task. And then built on that.
+2. Start asking the questions prepared for you under Prepared Questions.
 3. Run the exam, asking questions and evaluating the student's competencies.
 4. Give the student a grade and feedback.
 
@@ -231,7 +231,7 @@ You dont have time to evaluate all learning goals so pick some of them and ask a
     <label className="mb-4" htmlFor="github-repo">Insert your github repo here</label>
     <input id="github-repo" placeholder="Insert github repo" className="border p-2 mb-4" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
     {loading && (
-        <p className="text-gray-500 text-center">Loading repository contents...</p>
+        <p className="text-gray-500 text-center">Preparing your exam...</p>
       )}
   </div>);
 }
