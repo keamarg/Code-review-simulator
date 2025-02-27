@@ -25,6 +25,7 @@ const EXAM_DURATION_IN_MINUTES = 9; // default duration
 
 interface AltairProps {
   examSimulator?: ExamSimulator;
+  onVoiceStart?: () => void;
 }
 
 const declaration: FunctionDeclaration = {
@@ -43,20 +44,18 @@ const declaration: FunctionDeclaration = {
   },
 };
 
-function GithubRepo({ examSimulator }: AltairProps) {
+function GithubRepo({ examSimulator, onVoiceStart }: AltairProps) {
+  const [jsonString, setJSONString] = useState<string>("");
+  const { client, setConfig, connected } = useLiveAPIContext();
+  
   // Calculate dynamic exam duration based on examSimulator
   const examDurationInMinutes = examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
   const examDurationInMs = examDurationInMinutes * 60 * 1000;
-
-  const [jsonString, setJSONString] = useState<string>("");
-  const { client, setConfig, connected } = useLiveAPIContext();
-
+  
   // New states for repo URL and its contents.
   const [repoUrl, setRepoUrl] = useState<string>("");
   const [repoContents, setRepoContents] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-
-  // New: use examinerType from examSimulator; default to "Friendly"
   const examinerType = examSimulator?.examinerType ?? "Friendly";
 
   // Fetch repository files when connected and the repoUrl is provided.
@@ -74,25 +73,23 @@ function GithubRepo({ examSimulator }: AltairProps) {
           setLoading(false);
         });
     }
-  }, [connected, repoUrl]);
+  }, [connected, repoUrl, examSimulator]);
 
   useEffect(() => {
-    if (!connected) return; // wait until connected
-
-    // If a repo URL is provided, wait for its contents to be fetched before scheduling messages.
+    if (!connected) return;
     if (repoUrl.trim() !== "" && repoContents === "") return;
 
     // Original exam introduction message after 1 second
     const introTimer = setTimeout(() => {
       client.send([{ text: "Please introduce the exam" }]);
+      // Call the onVoiceStart callback when voice starts
+      if (onVoiceStart) onVoiceStart();
     }, 1 * 1000);
 
-    // Send message at half of the exam duration
+    // Send message at half the exam duration
     const halfExamTimer = setTimeout(() => {
       client.send([
-        {
-          text: "Half of the exam has passed, and there are 4 minutes remaining. Dont tell the student about this message, just carry on",
-        },
+        { text: "Half of the exam has passed, and there are 4 minutes remaining. Dont tell the student about this message, just carry on" },
       ]);
     }, Math.floor(examDurationInMs / 2));
 
@@ -101,14 +98,14 @@ function GithubRepo({ examSimulator }: AltairProps) {
       client.send([
         { text: "Exam time is almost up. Please provide a grade and feedback." },
       ]);
-    }, examDurationInMs - 60 * 1000);
+    }, examDurationInMs - (60 * 1000));
 
     return () => {
       clearTimeout(introTimer);
       clearTimeout(halfExamTimer);
       clearTimeout(gradingTimer);
     };
-  }, [client, connected, repoUrl, repoContents, examSimulator]);
+  }, [client, connected, repoUrl, repoContents, examDurationInMs, onVoiceStart]);
 
   // Log the examSimulator if provided
   useEffect(() => {
@@ -236,4 +233,4 @@ You dont have time to evaluate all learning goals so pick some of them and ask a
   </div>);
 }
 
-export const Altair = GithubRepo;
+export const Altair = memo(GithubRepo);

@@ -2,9 +2,9 @@ import React, { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LiveAPIProvider } from "../contexts/LiveAPIContext";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
-// Import both components – note that GithubRepo and Altair come from different files now.
 import { Altair as AltairStandard } from "../components/altair/Altair";
 import { Altair as GithubRepo } from "../components/altair/GithubRepo";
+import { CountdownTimer } from "../components/CountdownTimer";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
 import cn from "classnames";
 import Layout from "../components/layout/Layout";
@@ -22,11 +22,20 @@ export default function LivePage() {
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [searchParams] = useSearchParams();
   const id = searchParams.get("id") || undefined;
-
   const { examSimulators } = useExamSimulators();
-  
+
   const examSimulator =
     (id && examSimulators.find((exam) => exam.id === id)) || examSimulators[0];
+
+  // Calc exam duration (in ms) using examSimulator settings, fallback to 8 minutes.
+  const examDurationInMinutes = examSimulator?.duration || 8;
+  const examDurationInMs = examDurationInMinutes * 60 * 1000;
+
+  // New state to start the countdown only when voice has started.
+  const [voiceStarted, setVoiceStarted] = useState(false);
+  
+  // Create a single handler for both exam types
+  const handleVoiceStart = () => setVoiceStarted(true);
 
   return (
     <Layout>
@@ -41,10 +50,24 @@ export default function LivePage() {
                 <strong>Task: </strong>
                 {examSimulator.task}
               </h2>
+              
+              {/* Countdown timer for both exam types */}
+              <CountdownTimer
+                totalMs={examDurationInMs}
+                autoStart={false}
+                startTrigger={voiceStarted}
+              />
+              
               {examSimulator.examType === "Github Repo" ? (
-                <GithubRepo examSimulator={examSimulator} />
+                <GithubRepo
+                  examSimulator={examSimulator}
+                  onVoiceStart={handleVoiceStart}
+                />
               ) : (
-                <AltairStandard examSimulator={examSimulator} />
+                <AltairStandard
+                  examSimulator={examSimulator}
+                  onVoiceStart={handleVoiceStart}
+                />
               )}
               <video
                 className={cn({
@@ -64,9 +87,7 @@ export default function LivePage() {
                 videoRef={videoRef}
                 supportsVideo={true}
                 onVideoStreamChange={setVideoStream}
-              >
-                
-              </ControlTrayCustom>
+              />
             </div>
           </main>
         </div>

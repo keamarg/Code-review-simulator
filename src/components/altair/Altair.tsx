@@ -24,6 +24,7 @@ const EXAM_DURATION_IN_MINUTES = 8; // default duration
 
 interface AltairProps {
   examSimulator?: ExamSimulator;
+  onVoiceStart?: () => void; // Added this prop to match GithubRepo
 }
 
 const declaration: FunctionDeclaration = {
@@ -42,7 +43,7 @@ const declaration: FunctionDeclaration = {
   },
 };
 
-function AltairComponent({ examSimulator }: AltairProps) {
+function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
   const [jsonString, setJSONString] = useState<string>("");
   const { client, setConfig, connected } = useLiveAPIContext();
   const examinerType = examSimulator?.examinerType ?? "Friendly";
@@ -58,6 +59,8 @@ function AltairComponent({ examSimulator }: AltairProps) {
     // Original exam introduction message after 1 second
     const introTimer = setTimeout(() => {
       client.send([{ text: "Please introduce the exam" }]);
+      // Call the onVoiceStart callback when voice starts
+      if (onVoiceStart) onVoiceStart();
     }, 1 * 1000);
 
     // Send message at half the exam duration
@@ -79,7 +82,7 @@ function AltairComponent({ examSimulator }: AltairProps) {
       clearTimeout(halfExamTimer);
       clearTimeout(gradingTimer);
     };
-  }, [client, connected, examDurationInMs]);
+  }, [client, connected, examDurationInMs, onVoiceStart]);
 
   // Log the examSimulator if provided
   useEffect(() => {
@@ -131,7 +134,7 @@ ${task}
 Important notes about conducting the exam:
 - You dont have time to evaluate all learning goals so pick some of them and ask about that
 - Ask about the student's thinking, encourage them to think aloud 
-- examine if the student understands the code he/she is writing.
+- examine if the student understands the code he/she is writing
 - Please never explain what code is doing. You are running an exam so you need to focus on evaluating the students competencies within the learning goals!
 - Dont say what the student have done. Just say things like: "that looks good"
 - If the student is doing well ask harder questions. If the student is struggling ask easier questions.
