@@ -53,7 +53,9 @@ export default function Layout({ children }: LayoutProps) {
           <a href="mailto:behu@kea.dk" className="underline">
             Benjamin Hughes
           </a>{" "}
-          for questions
+          for questions. 
+          <br/>
+          Give feedback here: <a target="_blank" className="underline" href="https://forms.office.com/e/NpfLHm1gb6">https://forms.office.com/e/NpfLHm1gb6</a>
         </div>
       </footer>
     </div>
