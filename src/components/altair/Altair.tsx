@@ -19,6 +19,7 @@ import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { ToolCall } from "../../multimodal-live-types";
 import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
+import { getExaminerQuestions } from "../../exam-simulator/utils/getExaminerQuestions";
 
 const EXAM_DURATION_IN_MINUTES = 8; // default duration
 
@@ -27,24 +28,10 @@ interface AltairProps {
   onVoiceStart?: () => void; // Added this prop to match GithubRepo
 }
 
-const declaration: FunctionDeclaration = {
-  name: "render_altair",
-  description: "Displays an altair graph in json format.",
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      json_graph: {
-        type: SchemaType.STRING,
-        description:
-          "JSON STRING representation of the graph to render. Must be a string, not a json object",
-      },
-    },
-    required: ["json_graph"],
-  },
-};
-
 function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
   const [jsonString, setJSONString] = useState<string>("");
+  // New state variable to store the task for the student
+  const [studentTask, setStudentTask] = useState<string>("");
   const { client, setConfig, connected } = useLiveAPIContext();
   const examinerType = examSimulator?.examinerType ?? "Friendly";
   
@@ -155,50 +142,46 @@ Important notes about conducting the exam:
             text: prompt,
           },
         ],
-      },
-      tools: [
-        { googleSearch: {} },
-        { functionDeclarations: [declaration] },
-      ],
+      }
     });
   }, [setConfig]);
 
-  useEffect(() => {
-    const onToolCall = (toolCall: ToolCall) => {
-      console.log("got toolcall", toolCall);
-      const fc = toolCall.functionCalls.find((fc) => fc.name === declaration.name);
-      if (fc) {
-        const str = (fc.args as any).json_graph;
-        setJSONString(str);
-      }
-      if (toolCall.functionCalls.length) {
-        setTimeout(
-          () =>
-            client.sendToolResponse({
-              functionResponses: toolCall.functionCalls.map((fc) => ({
-                response: { output: { success: true } },
-                id: fc.id,
-              })),
-            }),
-          200,
-        );
-      }
-    };
-    client.on("toolcall", onToolCall);
-    return () => {
-      client.off("toolcall", onToolCall);
-    };
-  }, [client]);
-
-  const embedRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (embedRef.current && jsonString) {
-      vegaEmbed(embedRef.current, JSON.parse(jsonString));
+  const prepareExamQuestions = async () => {
+    if (!examSimulator?.learningGoals) return;
+    
+    try {
+      const examContent = await getExaminerQuestions(
+        examSimulator.learningGoals,
+        examDurationInMinutes,
+        examSimulator.title,
+        examSimulator.task
+      );
+      
+      // Send the examiner questions to the AI examiner
+      client.send([
+        { text: `Here are suggested questions for the exam:\n${examContent["questions-examiner"]}\n\nPlease use these as a guide when examining the student.` }
+      ]);
+      
+      // Display the task for the student in the UI.
+      setStudentTask(examContent["task-student"]);
+      
+      console.log("Exam content prepared:", examContent);
+    } catch (error) {
+      console.error("Failed to prepare exam content:", error);
     }
-  }, [embedRef, jsonString]);
+  };
 
-  return <div className="vega-embed" ref={embedRef} />;
+  return (
+    <div>
+      <div className="vega-embed" />
+      {studentTask && (
+        <div className="student-task">
+          <h3>Exam Task for Student</h3>
+          <div dangerouslySetInnerHTML={{ __html: studentTask }} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 export const Altair = memo(AltairComponent);
