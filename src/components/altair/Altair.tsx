@@ -135,6 +135,7 @@ Important notes about conducting the exam:
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
         },
+        
       },
       systemInstruction: {
         parts: [
