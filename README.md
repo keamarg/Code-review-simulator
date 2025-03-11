@@ -30,7 +30,7 @@ A modern application that helps students prepare for oral exams by simulating re
 - Visit: https://aistudio.google.com/apikey Follow the instructions to create your API key
 - Visit: https://platform.openai.com/settings/organization/api-keys to get an OpenAI key
 
-3. Add the keys to the .env file in the project root. DONT COMMIT THE KEYS!!!
+3. Create a `.env` file and add the keys to the .env file in the project root.
 
 4. Install dependencies and start the application
 ````
