@@ -39,25 +39,21 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
   const examDurationInMinutes = examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
   const examDurationInMs = examDurationInMinutes * 60 * 1000;
   const examDurationActiveExam = examDurationInMs - 60 * 1000;
+  const HalfWaySeconds = Math.floor(examDurationInMs / 2)
   
   useEffect(() => {
     if (!connected) return; // only schedule if the client is connected
-
-    // Original exam introduction message after 1 second
+    
     const introTimer = setTimeout(() => {
       client.send([{ text: "Please introduce the exam" }]);
-      // Call the onVoiceStart callback when voice starts
-      if (onVoiceStart) onVoiceStart();
-    }, 1 * 1000);
+    }, 1000);
 
-    // Send message at half the exam duration
     const halfExamTimer = setTimeout(() => {
       client.send([
-        { text: "Half of the exam has passed, and there are 4 minutes remaining. Dont tell the student about this message, just carry on" },
+        { text: `Half of the exam has passed, and there are ${HalfWaySeconds} minutes remaining. Dont tell the student about this message, just carry on` },
       ]);
-    }, Math.floor(examDurationInMs / 2));
+    }, HalfWaySeconds);
 
-    // Send message for grading near the end of the exam
     const gradingTimer = setTimeout(() => {
       client.send([
         { text: "Exam time is almost up. Please provide a grade and feedback." },
@@ -69,14 +65,7 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
       clearTimeout(halfExamTimer);
       clearTimeout(gradingTimer);
     };
-  }, [client, connected, examDurationInMs, onVoiceStart]);
-
-  // Log the examSimulator if provided
-  useEffect(() => {
-    if (examSimulator) {
-      console.log("Altair component received examSimulator:", examSimulator);
-    }
-  }, [examSimulator]);
+  }, [client, connected]);
 
   const examTitle = examSimulator?.title ?? "";
   const learningGoals = examSimulator?.learningGoals ?? "";

@@ -28,22 +28,6 @@ interface AltairProps {
   onVoiceStart?: () => void;
 }
 
-const declaration: FunctionDeclaration = {
-  name: "render_altair",
-  description: "Displays an altair graph in json format.",
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      json_graph: {
-        type: SchemaType.STRING,
-        description:
-          "JSON STRING representation of the graph to render. Must be a string, not a json object",
-      },
-    },
-    required: ["json_graph"],
-  },
-};
-
 function GithubRepo({ examSimulator, onVoiceStart }: AltairProps) {
   const [jsonString, setJSONString] = useState<string>("");
   const { client, setConfig, connected } = useLiveAPIContext();
@@ -79,12 +63,11 @@ function GithubRepo({ examSimulator, onVoiceStart }: AltairProps) {
     if (!connected) return;
     if (repoUrl.trim() !== "" && repoContents === "") return;
 
-    // Original exam introduction message after 1 second
-    const introTimer = setTimeout(() => {
+    /* const introTimer = setTimeout(() => {
       client.send([{ text: "Please introduce the exam" }]);
       // Call the onVoiceStart callback when voice starts
       if (onVoiceStart) onVoiceStart();
-    }, 1 * 1000);
+    }, 1 * 1000); */
 
     // Send message at half the exam duration
     const halfExamTimer = setTimeout(() => {
@@ -101,7 +84,7 @@ function GithubRepo({ examSimulator, onVoiceStart }: AltairProps) {
     }, examDurationInMs - (60 * 1000));
 
     return () => {
-      clearTimeout(introTimer);
+    
       clearTimeout(halfExamTimer);
       clearTimeout(gradingTimer);
     };
@@ -182,47 +165,10 @@ You dont have time to evaluate all learning goals so pick some of them and ask a
           },
         ],
       },
-      tools: [
-        { googleSearch: {} },
-        { functionDeclarations: [declaration] },
-      ],
     });
   }, [setConfig, examSimulator, examinerType, repoContents]);
 
-  useEffect(() => {
-    const onToolCall = (toolCall: ToolCall) => {
-      console.log("got toolcall", toolCall);
-      const fc = toolCall.functionCalls.find((fc) => fc.name === declaration.name);
-      if (fc) {
-        const str = (fc.args as any).json_graph;
-        setJSONString(str);
-      }
-      if (toolCall.functionCalls.length) {
-        setTimeout(
-          () =>
-            client.sendToolResponse({
-              functionResponses: toolCall.functionCalls.map((fc) => ({
-                response: { output: { success: true } },
-                id: fc.id,
-              })),
-            }),
-          200,
-        );
-      }
-    };
-    client.on("toolcall", onToolCall);
-    return () => {
-      client.off("toolcall", onToolCall);
-    };
-  }, [client]);
-
   const embedRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (embedRef.current && jsonString) {
-      vegaEmbed(embedRef.current, JSON.parse(jsonString));
-    }
-  }, [embedRef, jsonString]);
 
   return (<div className="flex flex-col mb-12">
     <label className="mb-4" htmlFor="github-repo">Insert your github repo here</label>
