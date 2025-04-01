@@ -63,7 +63,7 @@ export default function ExamEditor() {
       setExamSimulators((prev) =>
         prev.map((e) => (e.id === exam.id ? updatedExam : e))
       );
-      showToast("Exam updated successfully!");
+      showToast("Eksamen opdateret!");
     } else {
       const newExam: ExamSimulator = {
         id: Date.now().toString(),
@@ -78,16 +78,16 @@ export default function ExamEditor() {
         examinerType,
       };
       setExamSimulators((prev) => [...prev, newExam]);
-      showToast("Exam created successfully!");
+      showToast("Eksamen oprettet!");
     }
     navigate("/dashboard");
   };
 
   const handleDelete = () => {
     if (!isEditMode) return;
-    if (window.confirm("Are you sure you want to delete this exam?")) {
+    if (window.confirm("Er du sikker på, at du vil slette denne eksamen?")) {
       setExamSimulators((prev) => prev.filter((e) => e.id !== exam.id));
-      showToast("Exam deleted successfully!");
+      showToast("Eksamen slettet!");
       navigate("/dashboard");
     }
   };
@@ -100,7 +100,7 @@ export default function ExamEditor() {
           <Link
             to="/dashboard"
             className="mr-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
-            aria-label="Back to dashboard"
+            aria-label="Tilbage til dashboard"
           >
             <svg
               className="h-5 w-5 text-gray-500"
@@ -117,7 +117,7 @@ export default function ExamEditor() {
             </svg>
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">
-            {isEditMode ? "Edit Exam" : "Create Exam"}
+            {isEditMode ? "Rediger Eksamen" : "Opret Eksamen"}
           </h1>
         </div>
 
@@ -147,7 +147,7 @@ export default function ExamEditor() {
                       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Title
+                  Titel
                 </div>
               </label>
               <input
@@ -155,7 +155,7 @@ export default function ExamEditor() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                placeholder="Enter exam title"
+                placeholder="Indtast eksamenstitel"
                 required
               />
             </div>
@@ -177,14 +177,14 @@ export default function ExamEditor() {
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>
-                  Exam Task
+                  Eksamensopgave
                 </div>
               </label>
               <textarea
                 value={task}
                 onChange={(e) => setTask(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Describe the exam task"
+                placeholder="Beskriv eksamensopgaven"
               />
             </div>
 
@@ -207,7 +207,7 @@ export default function ExamEditor() {
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                       />
                     </svg>
-                    Exam Type
+                    Eksamenstype
                   </div>
                 </label>
                 <select
@@ -237,7 +237,7 @@ export default function ExamEditor() {
                         d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                       />
                     </svg>
-                    Examiner Type
+                    Eksaminatortype
                   </div>
                 </label>
                 <select
@@ -245,9 +245,9 @@ export default function ExamEditor() {
                   onChange={(e) => setExaminerType(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
                 >
-                  <option value="Friendly">Friendly</option>
-                  <option value="Strict">Strict</option>
-                  <option value="Challenging">Challenging</option>
+                  <option value="Friendly">Venlig</option>
+                  <option value="Strict">Streng</option>
+                  <option value="Challenging">Udfordrende</option>
                 </select>
               </div>
             </div>
@@ -269,7 +269,7 @@ export default function ExamEditor() {
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Duration: {duration} minute{duration !== 1 ? "s" : ""}
+                  Varighed: {duration} minut{duration !== 1 ? "ter" : ""}
                 </div>
               </label>
               <div className="flex items-center">
@@ -301,7 +301,7 @@ export default function ExamEditor() {
                       d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                     />
                   </svg>
-                  Grade Criteria
+                  Karakterkriterier
                 </div>
               </label>
               <select
@@ -309,7 +309,7 @@ export default function ExamEditor() {
                 onChange={(e) => setGradeCriteria(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
               >
-                <option value="">Select grade criteria</option>
+                <option value="">Vælg karakterkriterium</option>
                 <option value="no-grade">Ingen karaktergivning</option>
                 <option value="7-skala">7-trinsskalaen</option>
                 <option value="bestået-ikke-bestået">
@@ -342,7 +342,7 @@ export default function ExamEditor() {
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Enter feedback instructions"
+                placeholder="Indtast feedback-instruktioner"
               />
             </div>
 
@@ -363,14 +363,14 @@ export default function ExamEditor() {
                       d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
                     />
                   </svg>
-                  Learning Goals
+                  Læringsmål
                 </div>
               </label>
               <textarea
                 value={learningGoals}
                 onChange={(e) => setLearningGoals(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Enter learning goals"
+                placeholder="Indtast læringsmål"
               />
             </div>
 
@@ -380,7 +380,7 @@ export default function ExamEditor() {
                 to="/dashboard"
                 className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
               >
-                Cancel
+                Annuller
               </Link>
               <div className="flex space-x-3">
                 {isEditMode && (
@@ -402,7 +402,7 @@ export default function ExamEditor() {
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                       />
                     </svg>
-                    Delete
+                    Slet
                   </button>
                 )}
                 <button
@@ -422,7 +422,7 @@ export default function ExamEditor() {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  {isEditMode ? "Update Exam" : "Create Exam"}
+                  {isEditMode ? "Opdater Eksamen" : "Opret Eksamen"}
                 </button>
               </div>
             </div>

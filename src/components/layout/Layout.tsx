@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import logo from "../../logo.png"; // Import the logo from src folder
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,35 +10,28 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="flex flex-col min-h-screen">
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
+        <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center">
           <Link
             to="/"
             className="text-2xl font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center"
           >
-            <svg
-              className="h-8 w-8 mr-2"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
-            </svg>
-            ExamSim
+            <img 
+              src={logo} 
+              alt="MinEksamen Logo" 
+              className="h-12 w-auto mr-4" 
+            />
+            MinEksamen
           </Link>
           <nav>
             <ul className="flex space-x-6">
               <li>
                 <Link to="/create" className="text-gray-600 hover:text-gray-900">
-                  Create
+                  Opret
                 </Link>
               </li>
               <li>
                 <Link to="/dashboard" className="text-gray-600 hover:text-gray-900">
-                  Dashboard
+                  Oversigt
                 </Link>
               </li>
             </ul>
@@ -49,13 +43,13 @@ export default function Layout({ children }: LayoutProps) {
 
       <footer className="bg-white py-4 shadow-inner">
         <div className="max-w-7xl mx-auto px-4 text-center text-gray-600">
-          Educational tool in beta. Contact{" "}
+          Uddannelsesværktøj i beta. Kontakt{" "}
           <a href="mailto:behu@kea.dk" className="underline">
             Benjamin Hughes
           </a>{" "}
-          for questions. 
+          for spørgsmål. 
           <br/>
-          Give feedback here: <a target="_blank" className="underline" href="https://forms.office.com/e/NpfLHm1gb6">https://forms.office.com/e/NpfLHm1gb6</a>
+          Giv feedback her: <a target="_blank" className="underline" href="https://forms.office.com/e/NpfLHm1gb6">https://forms.office.com/e/NpfLHm1gb6</a>
         </div>
       </footer>
     </div>
