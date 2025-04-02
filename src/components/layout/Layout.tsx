@@ -10,7 +10,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="flex flex-col min-h-screen">
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-2 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-between items-center">
           <Link
             to="/"
             className="text-2xl font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center"

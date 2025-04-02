@@ -94,7 +94,7 @@ export default function ExamEditor() {
 
   return (
     <Layout>
-      <div className="relative min-h-screen max-w-5xl mx-auto px-4 py-6">
+      <div className="relative min-h-screen max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header with back button */}
         <div className="flex items-center mb-6">
           <Link

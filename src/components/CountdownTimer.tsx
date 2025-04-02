@@ -17,11 +17,11 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   // Calculate percentage of time remaining for progress bar
   const timePercentage = Math.max(0, Math.min(100, (timeLeft / totalMs) * 100));
   
-  // Determine color based on time remaining
+  // Determine blue shade based on time remaining
   const getColorClass = () => {
-    if (timePercentage > 60) return "bg-green-500";
-    if (timePercentage > 30) return "bg-yellow-500";
-    return "bg-red-500";
+    if (timePercentage > 60) return "bg-blue-700";
+    if (timePercentage > 30) return "bg-blue-500";
+    return "bg-blue-300";
   };
 
   useEffect(() => {

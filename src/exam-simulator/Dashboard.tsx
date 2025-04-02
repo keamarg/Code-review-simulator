@@ -38,11 +38,13 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
     if (!menuOpen) return;
 
     const handleClickOutside = () => setMenuOpen(false);
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, [menuOpen]);
 
   const handleCopyLink = async (e: React.MouseEvent) => {
+    console.log("asdasd");
+    
     e.stopPropagation(); // Prevent menu close from click outside
     try {
       const fullUrl = `${window.location.origin}/live?id=${sim.id}`;
@@ -78,7 +80,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
               e.stopPropagation();
               setMenuOpen(!menuOpen);
             }}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
             aria-label="Menu"
           >
             <svg
@@ -102,7 +104,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
             <div className="absolute top-full right-0 mt-1 bg-white border rounded-md shadow-lg z-10 w-48 py-1 overflow-hidden">
               <button
                 onClick={handleCopyLink}
-                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors cursor-pointer"
               >
                 <svg
                   className="h-4 w-4 mr-2"
@@ -302,7 +304,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="relative min-h-screen max-w-5xl mx-auto px-4 py-6">
+      <div className="relative min-h-screen max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Dashboard Header */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
