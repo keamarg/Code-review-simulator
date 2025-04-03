@@ -1,51 +1,69 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
-import initialExams from "../exam-simulator/initial-exams.json";
+/**
+ * This file has been repurposed from an exam simulator to a code review simulator.
+ * The file structure is maintained to allow for easier merging with the original repository.
+ */
 
-export type ExamSimulator = {
+import React, { createContext, useState, useContext, useEffect } from "react";
+import initialReviewScenarios from "../data/initial-review-scenarios.json";
+
+export interface CodeReviewScenario {
   id: string;
   title: string;
-  format: string;
-  gradeCriteria: string;
-  feedback: string;
-  duration: number;
-  learningGoals: string;
-  task: string; // Exam task written by the teacher
-  examType: string;
-  examinerType: string;
-};
-
-interface ExamSimulatorContextValue {
-  examSimulators: ExamSimulator[];
-  setExamSimulators: React.Dispatch<React.SetStateAction<ExamSimulator[]>>;
+  codeSnippet: string;
+  language: string;
+  reviewCriteria: string[];
+  timeLimit: number;
+  issues: string[];
+  learningObjectives: string;
+  difficulty: string;
+  category: string;
+  developerExperience: "junior" | "mid" | "senior";
 }
 
-const ExamSimulatorContext = createContext<ExamSimulatorContextValue | undefined>(undefined);
+interface CodeReviewContextValue {
+  reviewScenarios: CodeReviewScenario[];
+  setReviewScenarios: React.Dispatch<
+    React.SetStateAction<CodeReviewScenario[]>
+  >;
+}
 
-const LOCAL_STORAGE_KEY = "examSimulators";
+const CodeReviewContext = createContext<CodeReviewContextValue | undefined>(
+  undefined
+);
 
-export function ExamSimulatorProvider({ children }: { children: React.ReactNode }) {
-  // Initialize state from localStorage; if no data, use initialExams loaded from JSON.
-  const [examSimulators, setExamSimulators] = useState<ExamSimulator[]>(() => {
-    const localData = localStorage.getItem(LOCAL_STORAGE_KEY);
-    return localData ? JSON.parse(localData) : initialExams;
-  });
+const LOCAL_STORAGE_KEY = "codeReviewScenarios";
 
-  // Update localStorage whenever examSimulators change.
+export function CodeReviewProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  // Initialize with empty array
+  const [reviewScenarios, setReviewScenarios] = useState<CodeReviewScenario[]>(
+    []
+  );
+
+  // Clear localStorage on mount
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(examSimulators));
-  }, [examSimulators]);
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+  }, []);
+
+  // Update localStorage whenever reviewScenarios change.
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(reviewScenarios));
+  }, [reviewScenarios]);
 
   return (
-    <ExamSimulatorContext.Provider value={{ examSimulators, setExamSimulators }}>
+    <CodeReviewContext.Provider value={{ reviewScenarios, setReviewScenarios }}>
       {children}
-    </ExamSimulatorContext.Provider>
+    </CodeReviewContext.Provider>
   );
 }
 
-export function useExamSimulators() {
-  const context = useContext(ExamSimulatorContext);
+export function useCodeReview() {
+  const context = useContext(CodeReviewContext);
   if (context === undefined) {
-    throw new Error("useExamSimulators must be used within an ExamSimulatorProvider");
+    throw new Error("useCodeReview must be used within a CodeReviewProvider");
   }
   return context;
 }

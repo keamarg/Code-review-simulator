@@ -1,4 +1,9 @@
 /**
+ * This file has been repurposed from an exam simulator to a code review simulator.
+ * The file structure is maintained to allow for easier merging with the original repository.
+ */
+
+/**
  * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,32 +22,36 @@
 import { createContext, FC, ReactNode, useContext } from "react";
 import { useLiveAPI, UseLiveAPIResults } from "../hooks/use-live-api";
 
-const LiveAPIContext = createContext<UseLiveAPIResults | undefined>(undefined);
+const CodeReviewAPIContext = createContext<UseLiveAPIResults | undefined>(
+  undefined
+);
 
-export type LiveAPIProviderProps = {
+export type CodeReviewAPIProviderProps = {
   children: ReactNode;
   url?: string;
   apiKey: string;
 };
 
-export const LiveAPIProvider: FC<LiveAPIProviderProps> = ({
+export const CodeReviewAPIProvider: FC<CodeReviewAPIProviderProps> = ({
   url,
   apiKey,
   children,
 }) => {
-  const liveAPI = useLiveAPI({ url, apiKey });
+  const codeReviewAPI = useLiveAPI({ url, apiKey });
 
   return (
-    <LiveAPIContext.Provider value={liveAPI}>
+    <CodeReviewAPIContext.Provider value={codeReviewAPI}>
       {children}
-    </LiveAPIContext.Provider>
+    </CodeReviewAPIContext.Provider>
   );
 };
 
-export const useLiveAPIContext = () => {
-  const context = useContext(LiveAPIContext);
+export const useCodeReviewAPIContext = () => {
+  const context = useContext(CodeReviewAPIContext);
   if (!context) {
-    throw new Error("useLiveAPIContext must be used wihin a LiveAPIProvider");
+    throw new Error(
+      "useCodeReviewAPIContext must be used within a CodeReviewAPIProvider"
+    );
   }
   return context;
 };

@@ -15,71 +15,92 @@
  */
 import React, { useEffect, useRef, useState, memo } from "react";
 import vegaEmbed from "vega-embed";
-import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
+import { useCodeReviewAPIContext } from "../../contexts/LiveAPIContext";
 import { ToolCall } from "../../multimodal-live-types";
 import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
-import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
-import { getExaminerQuestions } from "../../exam-simulator/utils/getExaminerQuestions";
-import getPrompt from "../../exam-simulator/utils/prompt";
+import { CodeReviewScenario } from "../../contexts/ExamSimulatorContext";
+import getCodeReviewPrompt from "../../exam-simulator/utils/codeReviewPrompt";
 
-const EXAM_DURATION_IN_MINUTES = 8; // default duration
+const REVIEW_DURATION_IN_MINUTES = 15; // default duration
 
 interface AltairProps {
-  examSimulator?: ExamSimulator;
-  onVoiceStart?: () => void; // Added this prop to match GithubRepo
+  reviewScenario?: CodeReviewScenario;
+  onVoiceStart?: () => void;
 }
 
-function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
+function AltairComponent({ reviewScenario, onVoiceStart }: AltairProps) {
   const [jsonString, setJSONString] = useState<string>("");
-  // New state variable to store the task for the student
-  const [studentTask, setStudentTask] = useState<string>("");
-  const { client, setConfig, connected } = useLiveAPIContext();
-  const examinerType = examSimulator?.examinerType ?? "Friendly";
-  
-  // Calculate dynamic exam duration based on examSimulator. Use fallback if not provided.
-  const examDurationInMinutes = examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
-  const examDurationInMs = examDurationInMinutes * 60 * 1000;
-  const examDurationActiveExam = examDurationInMs - 60 * 1000;
-  const HalfWaySeconds = Math.floor(examDurationInMs / 2)
-  
+  const { client, setConfig, connected } = useCodeReviewAPIContext();
+
+  // Calculate dynamic review duration based on reviewScenario. Use fallback if not provided.
+  const reviewDurationInMinutes =
+    reviewScenario?.timeLimit ?? REVIEW_DURATION_IN_MINUTES;
+  const reviewDurationInMs = reviewDurationInMinutes * 60 * 1000;
+  const reviewDurationActive = reviewDurationInMs - 60 * 1000;
+  const HalfWaySeconds = Math.floor(reviewDurationInMs / 2);
+
   useEffect(() => {
     if (!connected) return; // only schedule if the client is connected
-    
-    // Call onVoiceStart when connected and about to start the exam
+
+    // Call onVoiceStart when connected and about to start the review
     if (onVoiceStart) {
       onVoiceStart();
     }
-    
+
     const introTimer = setTimeout(() => {
-      client.send([{ text: "Please introduce the exam" }]);
+      client.send([
+        {
+          text: `Starting code review for ${
+            reviewScenario?.title || "your code"
+          }. ${
+            reviewScenario?.language
+              ? `I'll be reviewing ${reviewScenario.language} code.`
+              : "Please show me the code you'd like me to review."
+          }`,
+        },
+      ]);
     }, 1000);
 
-    const halfExamTimer = setTimeout(() => {
+    const halfReviewTimer = setTimeout(() => {
       client.send([
-        { text: `Half of the exam has passed, and there are ${HalfWaySeconds} minutes remaining. Dont tell the student about this message, just carry on` },
+        {
+          text: `Half of the review time has passed. Let's continue with the review, focusing on ${
+            reviewScenario?.reviewCriteria?.join(", ") ||
+            "general code quality aspects"
+          }.`,
+        },
       ]);
     }, HalfWaySeconds);
 
-    const gradingTimer = setTimeout(() => {
+    const feedbackTimer = setTimeout(() => {
       client.send([
-        { text: "Exam time is almost up. Please provide a grade and feedback." },
+        {
+          text: "Review time is almost up. Please show me any remaining parts of the code you'd like me to review before I provide my final feedback and suggestions.",
+        },
       ]);
-    }, examDurationInMs - (60 * 1000));
+    }, reviewDurationInMs - 60 * 1000);
 
     return () => {
       clearTimeout(introTimer);
-      clearTimeout(halfExamTimer);
-      clearTimeout(gradingTimer);
+      clearTimeout(halfReviewTimer);
+      clearTimeout(feedbackTimer);
     };
-  }, [client, connected]);
+  }, [client, connected, reviewScenario]);
 
-  const examTitle = examSimulator?.title ?? "";
-  const learningGoals = examSimulator?.learningGoals ?? "";
-  let gradeCriteria = examSimulator?.gradeCriteria ?? "";
-  const feedback = examSimulator?.feedback ?? "";
-  const task = examSimulator?.task ?? "";
+  const reviewTitle = reviewScenario?.title ?? "";
+  const learningGoals = reviewScenario?.learningObjectives ?? "";
+  const feedback =
+    "Provide constructive feedback focusing on code quality, best practices, and potential improvements. Consider language-specific best practices and patterns.";
 
-  const prompt = getPrompt(examTitle, learningGoals, gradeCriteria, feedback, task, examinerType, examDurationInMinutes, examDurationActiveExam, examSimulator);
+  const prompt = getCodeReviewPrompt(
+    reviewTitle,
+    learningGoals,
+    feedback,
+    "Technical", // Always use Technical reviewer for code reviews
+    reviewDurationInMinutes,
+    reviewDurationActive,
+    reviewScenario
+  );
 
   useEffect(() => {
     setConfig({
@@ -89,7 +110,6 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
         },
-        
       },
       systemInstruction: {
         parts: [
@@ -97,44 +117,13 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
             text: prompt,
           },
         ],
-      }
+      },
     });
-  }, [setConfig]);
-
-  const prepareExamQuestions = async () => {
-    if (!examSimulator?.learningGoals) return;
-    
-    try {
-      const examContent = await getExaminerQuestions(
-        examSimulator.learningGoals,
-        examDurationInMinutes,
-        examSimulator.title,
-        examSimulator.task
-      );
-      
-      // Send the examiner questions to the AI examiner
-      client.send([
-        { text: `Here are suggested questions for the exam:\n${examContent["questions-examiner"]}\n\nPlease use these as a guide when examining the student.` }
-      ]);
-      
-      // Display the task for the student in the UI.
-      setStudentTask(examContent["task-student"]);
-      
-      console.log("Exam content prepared:", examContent);
-    } catch (error) {
-      console.error("Failed to prepare exam content:", error);
-    }
-  };
+  }, [setConfig, prompt]);
 
   return (
     <div>
       <div className="vega-embed" />
-      {studentTask && (
-        <div className="student-task">
-          <h3>Exam Task for Student</h3>
-          <div dangerouslySetInnerHTML={{ __html: studentTask }} />
-        </div>
-      )}
     </div>
   );
 }

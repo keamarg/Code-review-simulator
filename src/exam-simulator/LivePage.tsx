@@ -1,9 +1,13 @@
+/**
+ * This file has been repurposed from an exam simulator to a code review simulator.
+ * The file structure is maintained to allow for easier merging with the original repository.
+ */
+
 import React, { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { LiveAPIProvider } from "../contexts/LiveAPIContext";
-import { useExamSimulators } from "../contexts/ExamSimulatorContext";
-import { Altair as AltairStandard } from "../components/altair/Altair";
-import { Altair as GithubRepo } from "../components/altair/GithubRepo";
+import { CodeReviewAPIProvider } from "../contexts/LiveAPIContext";
+import { useCodeReview } from "../contexts/ExamSimulatorContext";
+import { Altair } from "../components/altair/Altair";
 import { CountdownTimer } from "../components/CountdownTimer";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
 import cn from "classnames";
@@ -17,58 +21,74 @@ if (typeof API_KEY !== "string") {
 const host = "generativelanguage.googleapis.com";
 const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
 
-export default function LivePage() {
+export default function CodeReviewSession() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [searchParams] = useSearchParams();
   const id = searchParams.get("id") || undefined;
-  const { examSimulators } = useExamSimulators();
+  const { reviewScenarios } = useCodeReview();
 
-  const examSimulator =
-    (id && examSimulators.find((exam) => exam.id === id)) || examSimulators[0];
+  const reviewScenario =
+    (id && reviewScenarios.find((scenario) => scenario.id === id)) ||
+    reviewScenarios[0];
 
-  // Calc exam duration (in ms) using examSimulator settings, fallback to 8 minutes.
-  const examDurationInMinutes = examSimulator?.duration || 8;
-  const examDurationInMs = examDurationInMinutes * 60 * 1000;
+  // Calc review duration (in ms) using scenario settings, fallback to 15 minutes.
+  const reviewDurationInMinutes = reviewScenario?.timeLimit || 15;
+  const reviewDurationInMs = reviewDurationInMinutes * 60 * 1000;
 
-  // New state to start the countdown only when voice has started.
-  const [voiceStarted, setVoiceStarted] = useState(false);
-  
-  // Create a single handler for both exam types
-  const handleVoiceStart = () => setVoiceStarted(true);
+  // New state to start the countdown only when review has started.
+  const [reviewStarted, setReviewStarted] = useState(false);
+
+  // Create a single handler for starting the review
+  const handleReviewStart = () => setReviewStarted(true);
 
   return (
     <Layout>
-      <LiveAPIProvider url={uri} apiKey={API_KEY}>
-        <div className="streaming-console max-w-2xl mx-auto">
+      <CodeReviewAPIProvider url={uri} apiKey={API_KEY}>
+        <div className="code-review-console max-w-4xl mx-auto">
           <main>
             <div>
-              <h1 className="mb-8 font-bold text-2xl text-black">
-                Welcome to your {examSimulator.title} exam
-              </h1>
-              <h2 className="mb-16 line-clamp-2 text-black">
-                <strong>Task: </strong>
-                {examSimulator.task}
-              </h2>
-              
-              {/* Countdown timer for both exam types */}
+              <div className="flex justify-between items-center mb-8">
+                <h1 className="font-bold text-2xl text-black">
+                  Code Review: {reviewScenario?.title || "Live Code Review"}
+                </h1>
+                {reviewScenario?.language && (
+                  <div className="px-4 py-2 bg-blue-100 rounded-lg">
+                    <span className="text-blue-800 font-medium">
+                      {reviewScenario.language}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {reviewScenario?.reviewCriteria &&
+                reviewScenario.reviewCriteria.length > 0 && (
+                  <div className="mb-8">
+                    <h2 className="text-lg font-semibold mb-2">
+                      Review Criteria:
+                    </h2>
+                    <ul className="list-disc list-inside">
+                      {reviewScenario.reviewCriteria.map((criterion, index) => (
+                        <li key={index} className="text-gray-700">
+                          {criterion}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+              {/* Countdown timer for the review session */}
               <CountdownTimer
-                totalMs={examDurationInMs}
+                totalMs={reviewDurationInMs}
                 autoStart={false}
-                startTrigger={voiceStarted}
+                startTrigger={reviewStarted}
               />
-              
-              {examSimulator.examType === "Github Repo" ? (
-                <GithubRepo
-                  examSimulator={examSimulator}
-                  onVoiceStart={handleVoiceStart}
-                />
-              ) : (
-                <AltairStandard
-                  examSimulator={examSimulator}
-                  onVoiceStart={handleVoiceStart}
-                />
-              )}
+
+              <Altair
+                reviewScenario={reviewScenario}
+                onVoiceStart={handleReviewStart}
+              />
+
               <video
                 className={cn({
                   hidden: !videoRef.current || !videoStream,
@@ -91,7 +111,7 @@ export default function LivePage() {
             </div>
           </main>
         </div>
-      </LiveAPIProvider>
+      </CodeReviewAPIProvider>
     </Layout>
   );
 }

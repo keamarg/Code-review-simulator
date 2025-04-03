@@ -1,136 +1,113 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useExamSimulators } from "../contexts/ExamSimulatorContext";
+import { useCodeReview } from "../contexts/ExamSimulatorContext";
 import Layout from "../components/layout/Layout";
-import { ExamSimulator } from "../contexts/ExamSimulatorContext";
+import { CodeReviewScenario } from "../contexts/ExamSimulatorContext";
 
 // Format badge component
-const FormatBadge = ({ format }: { format: string }) => {
-  if (!format) return null;
-
-  return (
-    <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-      {format}
-    </span>
-  );
-};
+const FormatBadge = ({ format }: { format: string }) => (
+  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+    {format}
+  </span>
+);
 
 // Duration formatter
-const formatDuration = (minutes: number): string => {
-  if (!minutes) return "Ingen varighed sat";
-  if (minutes < 60) return `${minutes} min`;
+const formatDuration = (minutes: number) => {
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  return remainingMinutes ? `${hours}t ${remainingMinutes}m` : `${hours}t`;
+  return remainingMinutes > 0
+    ? `${hours}h ${remainingMinutes}min`
+    : `${hours}h`;
 };
 
-interface ExamSimulatorCardProps {
-  sim: ExamSimulator;
+interface CodeReviewCardProps {
+  scenario: CodeReviewScenario;
   showToast: (message: string) => void;
 }
 
-function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
+function CodeReviewCard({ scenario, showToast }: CodeReviewCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    const handleClickOutside = () => setMenuOpen(false);
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [menuOpen]);
-
   const handleCopyLink = async (e: React.MouseEvent) => {
-    console.log("asdasd");
-    
-    e.stopPropagation(); // Prevent menu close from click outside
+    e.stopPropagation();
     try {
-      const fullUrl = `${window.location.origin}/live?id=${sim.id}`;
+      const fullUrl = `${window.location.origin}/live?id=${scenario.id}`;
       await navigator.clipboard.writeText(fullUrl);
       setMenuOpen(false);
-      showToast("Link kopieret til udklipsholder!");
+      showToast("Link copied to clipboard!");
     } catch (err) {
-      console.error("Failed to copy the link", err);
-      showToast("Kunne ikke kopiere link");
+      console.error("Failed to copy link:", err);
+      showToast("Failed to copy link");
     }
   };
 
   return (
     <div
-      className={`relative p-5 bg-white rounded-lg shadow-md transition-all duration-200 flex flex-col justify-between h-full border border-gray-100 ${
-        isHovered ? "shadow-lg transform -translate-y-1" : ""
-      }`}
+      className="bg-white rounded-lg shadow-md p-4 flex flex-col h-full hover:shadow-lg transition-shadow"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Card Header with Title and Menu */}
       <div className="flex justify-between items-start mb-3">
-        <Link to={`/exam?id=${sim.id}`} className="group">
+        <Link to={`/exam?id=${scenario.id}`} className="group">
           <h2 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
-            {sim.title}
+            {scenario.title}
           </h2>
         </Link>
-
-        {/* Three-dots Menu Button */}
         <div className="relative">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuOpen(!menuOpen);
-            }}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
-            aria-label="Menu"
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="p-1 rounded-full hover:bg-gray-100 transition-colors"
           >
             <svg
-              className="h-5 w-5 text-gray-500"
-              viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
+              className="w-5 h-5 text-gray-500"
               fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <path stroke="none" d="M0 0h24v24H0z" />
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="12" cy="19" r="1" />
-              <circle cx="12" cy="5" r="1" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+              />
             </svg>
           </button>
-
-          {/* Dropdown Menu */}
           {menuOpen && (
-            <div className="absolute top-full right-0 mt-1 bg-white border rounded-md shadow-lg z-10 w-48 py-1 overflow-hidden">
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
               <button
                 onClick={handleCopyLink}
-                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors cursor-pointer"
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
               >
                 <svg
-                  className="h-4 w-4 mr-2"
+                  className="w-4 h-4 mr-2"
                   fill="none"
-                  viewBox="0 0 24 24"
                   stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
                   />
                 </svg>
-                Kopier Link
+                Copy Link
               </button>
               <Link
-                to={`/exam?id=${sim.id}`}
+                to={`/exam?id=${scenario.id}`}
                 className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
                 <svg
-                  className="h-4 w-4 mr-2"
+                  className="w-4 h-4 mr-2"
                   fill="none"
-                  viewBox="0 0 24 24"
                   stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
                   <path
                     strokeLinecap="round"
@@ -139,34 +116,46 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                   />
                 </svg>
-                Rediger Eksamen
+                Edit
               </Link>
             </div>
           )}
         </div>
       </div>
 
-      {/* Card Content */}
       <div className="flex-grow">
-        {/* Format Badge */}
-        {sim.format && (
+        {/* Language Badge */}
+        <div className="mb-3">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            {scenario.language}
+          </span>
+        </div>
+
+        {/* Review Criteria */}
+        {scenario.reviewCriteria && scenario.reviewCriteria.length > 0 && (
           <div className="mb-3">
-            <FormatBadge format={sim.format} />
+            <h3 className="text-sm font-semibold text-gray-700 mb-1">
+              Review Criteria:
+            </h3>
+            <ul className="list-disc list-inside text-sm text-gray-600">
+              {scenario.reviewCriteria.map((criterion, index) => (
+                <li key={index} className="mb-1">
+                  {criterion}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
-        {/* Task Description */}
-        <p className="text-gray-600 line-clamp-3 mb-3">{sim.task}</p>
-
-        {/* Exam Details */}
+        {/* Scenario Details */}
         <div className="flex flex-wrap gap-3 mb-4">
-          {sim.duration > 0 && (
+          {scenario.timeLimit && scenario.timeLimit > 0 && (
             <div className="flex items-center text-sm text-gray-500">
               <svg
-                className="h-4 w-4 mr-1"
+                className="w-4 h-4 mr-1"
                 fill="none"
-                viewBox="0 0 24 24"
                 stroke="currentColor"
+                viewBox="0 0 24 24"
               >
                 <path
                   strokeLinecap="round"
@@ -175,57 +164,54 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              {formatDuration(sim.duration)}
+              {formatDuration(scenario.timeLimit)}
             </div>
           )}
 
-          {sim.examType && (
+          {scenario.developerExperience && (
             <div className="flex items-center text-sm text-gray-500">
               <svg
-                className="h-4 w-4 mr-1"
+                className="w-4 h-4 mr-1"
                 fill="none"
-                viewBox="0 0 24 24"
                 stroke="currentColor"
+                viewBox="0 0 24 24"
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              {sim.examType}
+              {scenario.developerExperience === "junior"
+                ? "Junior Developer"
+                : scenario.developerExperience === "mid"
+                ? "Mid-Level Developer"
+                : "Senior Developer"}
             </div>
           )}
         </div>
       </div>
 
-      {/* Card Actions */}
       <div className="mt-auto pt-3 border-t border-gray-100">
         <Link
-          to={`/live?id=${sim.id}`}
+          to={`/live?id=${scenario.id}`}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-2 px-4 rounded-md transition-colors flex items-center justify-center"
         >
+          Start Review
           <svg
-            className="h-5 w-5 mr-2"
+            className="w-4 h-4 ml-2"
             fill="none"
-            viewBox="0 0 24 24"
             stroke="currentColor"
+            viewBox="0 0 24 24"
           >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              d="M14 5l7 7m0 0l-7 7m7-7H3"
             />
           </svg>
-          Start Simulator
         </Link>
       </div>
     </div>
@@ -251,11 +237,10 @@ const EmptyState = () => (
       </svg>
     </div>
     <h3 className="text-xl font-semibold text-gray-800 mb-2">
-      Ingen eksamener fundet.
+      No Review Scenarios Found
     </h3>
     <p className="text-gray-600 mb-6">
-      Opret din første eksamenssimulator for at komme i gang med at teste dine
-      studerende.
+      Create your first code review scenario to get started with reviewing code.
     </p>
     <Link
       to="/create"
@@ -271,150 +256,90 @@ const EmptyState = () => (
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeWidth={2}
-          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+          d="M12 4v16m8-8H4"
         />
       </svg>
-      Opret Din Første Simulator
+      Create Scenario
     </Link>
   </div>
 );
 
 export default function Dashboard() {
-  const { examSimulators } = useExamSimulators();
-  const [toastMessage, setToastMessage] = useState("");
+  const { reviewScenarios } = useCodeReview();
   const [searchTerm, setSearchTerm] = useState("");
-  const [isToastVisible, setIsToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [showToast, setShowToast] = useState(false);
 
-  // Filter simulators based on search term
-  const filteredSimulators = examSimulators.filter(
-    (sim) =>
-      sim.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sim.task.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredScenarios = reviewScenarios.filter(
+    (scenario) =>
+      scenario.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      scenario.language.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      scenario.learningObjectives
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase())
   );
 
-  const showToast = (message: string) => {
+  const showToastMessage = (message: string) => {
     setToastMessage(message);
-    setIsToastVisible(true);
-    setTimeout(() => {
-      setIsToastVisible(false);
-      // Remove message after fade out animation completes
-      setTimeout(() => setToastMessage(""), 300);
-    }, 3000);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
   };
 
   return (
     <Layout>
-      <div className="relative min-h-screen max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Dashboard Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4 md:mb-0">
-              Dine Eksamener
-            </h1>
-          </div>
-
-          {examSimulators.length > 0 && (
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg
-                  className="h-5 w-5 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-              <input
-                type="text"
-                placeholder="Søg i eksamener..."
-                className="pl-10 pr-4 py-2 w-full md:w-64 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Code Review Scenarios</h1>
+          <Link
+            to="/create"
+            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition-colors flex items-center"
+          >
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
               />
-            </div>
-          )}
+            </svg>
+            Create Scenario
+          </Link>
         </div>
 
-        {/* Dashboard Content */}
-        {examSimulators.length > 0 ? (
-          <>
-            {filteredSimulators.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredSimulators.map((sim) => (
-                  <ExamSimulatorCard
-                    key={sim.id}
-                    sim={sim}
-                    showToast={showToast}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center">
-                <p className="text-gray-600">
-                  Ingen simulatorer matcher din søgning. Prøv et andet søgeord
-                  eller ryd din søgning.
-                </p>
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="mt-4 text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  Ryd Søgning
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Search scenarios..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {filteredScenarios.length === 0 ? (
           <EmptyState />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredScenarios.map((scenario) => (
+              <CodeReviewCard
+                key={scenario.id}
+                scenario={scenario}
+                showToast={showToastMessage}
+              />
+            ))}
+          </div>
         )}
 
-        {/* Mobile Create Button */}
-        <Link
-          to="/create"
-          className="md:hidden fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-colors"
-          aria-label="Create new simulator"
-        >
-          <svg
-            className="h-8 w-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
-          </svg>
-        </Link>
-
-        {/* Toast Notification */}
-        <div
-          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white py-3 px-6 rounded-lg shadow-lg z-50 flex items-center transition-opacity duration-300 ${
-            isToastVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
-        >
-          <svg
-            className="h-5 w-5 text-green-400 mr-2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-          {toastMessage}
-        </div>
+        {showToast && (
+          <div className="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-md shadow-lg">
+            {toastMessage}
+          </div>
+        )}
       </div>
     </Layout>
   );
