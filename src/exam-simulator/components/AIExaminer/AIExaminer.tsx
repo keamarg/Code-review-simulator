@@ -21,6 +21,7 @@ import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
 import { getExaminerQuestions } from "../../utils/getExaminerQuestions";
 import getPrompt from "../../utils/prompt";
+import useExamTimers from "../../hooks/useExamTimers"; // new import
 
 const EXAM_DURATION_IN_MINUTES = 8; // default duration
 
@@ -31,52 +32,18 @@ interface AltairProps {
 
 function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
   const [jsonString, setJSONString] = useState<string>("");
-  // New state variable to store the task for the student
   const [studentTask, setStudentTask] = useState<string>("");
   const { client, setConfig, connected } = useLiveAPIContext();
   const examinerType = examSimulator?.examinerType ?? "Friendly";
 
-  // Calculate dynamic exam duration based on examSimulator. Use fallback if not provided.
   const examDurationInMinutes =
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
   const examDurationInMs = examDurationInMinutes * 60 * 1000;
   const examDurationActiveExam = examDurationInMs - 60 * 1000;
   const HalfWaySeconds = Math.floor(examDurationInMs / 2);
 
-  useEffect(() => {
-    if (!connected) return; // only schedule if the client is connected
-
-    // Call onVoiceStart when connected and about to start the exam
-    if (onVoiceStart) {
-      onVoiceStart();
-    }
-
-    const introTimer = setTimeout(() => {
-      client.send([{ text: "Please introduce the exam" }]);
-    }, 1000);
-
-    const halfExamTimer = setTimeout(() => {
-      client.send([
-        {
-          text: `Half of the exam has passed, and there are ${HalfWaySeconds} minutes remaining. Dont tell the student about this message, just carry on`,
-        },
-      ]);
-    }, HalfWaySeconds);
-
-    const gradingTimer = setTimeout(() => {
-      client.send([
-        {
-          text: "Exam time is almost up. Please provide a grade and feedback.",
-        },
-      ]);
-    }, examDurationInMs - 60 * 1000);
-
-    return () => {
-      clearTimeout(introTimer);
-      clearTimeout(halfExamTimer);
-      clearTimeout(gradingTimer);
-    };
-  }, [client, connected]);
+  // Call the custom hook for exam timers
+  useExamTimers({ client, connected, examDurationInMs });
 
   const prompt = getPrompt(
     examSimulator?.title || "",
