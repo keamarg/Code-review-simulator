@@ -1,10 +1,10 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import LandingPage from "../exam-simulator/pages/LandingPage";
-import LivePage from "../exam-simulator/pages/LivePage";
-import Dashboard from "../exam-simulator/pages/Dashboard";
-import ExamEditor from "../exam-simulator/pages/ExamEditor";
-import { ExamSimulatorProvider } from "../exam-simulator/contexts/ExamSimulatorContext";
+import LandingPage from "../pages/LandingPage";
+import LivePage from "../pages/LivePage";
+import Dashboard from "../pages/Dashboard";
+import ExamEditor from "../pages/ExamEditor";
+import { ExamSimulatorProvider } from "../contexts/ExamSimulatorContext";
 
 export function AppRouter() {
   return (

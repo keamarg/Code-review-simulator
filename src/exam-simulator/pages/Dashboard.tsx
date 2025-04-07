@@ -44,7 +44,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     console.log("asdasd");
-    
+
     e.stopPropagation(); // Prevent menu close from click outside
     try {
       const fullUrl = `${window.location.origin}/live?id=${sim.id}`;

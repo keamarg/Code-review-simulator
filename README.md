@@ -49,5 +49,8 @@ npm run start
 4. Receive feedback and a grade at the end of your session
 5. Review your performance and try again to improve
 
+## Structure
+All code relevant for this application can be found in the `src/exam-simulator` folder. 
+
 ## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.

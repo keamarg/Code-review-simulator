@@ -16,7 +16,7 @@
 
 import React from "react";
 import "./App.scss";
-import { AppRouter } from "./navigation/AppRouter";
+import { AppRouter } from "./exam-simulator/navigation/AppRouter";
 
 function App() {
   return (

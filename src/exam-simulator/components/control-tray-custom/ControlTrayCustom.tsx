@@ -17,12 +17,12 @@
 import cn from "classnames";
 
 import { memo, ReactNode, RefObject, useEffect, useRef, useState } from "react";
-import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
-import { UseMediaStreamResult } from "../../hooks/use-media-stream-mux";
-import { useScreenCapture } from "../../hooks/use-screen-capture";
-import { useWebcam } from "../../hooks/use-webcam";
-import { AudioRecorder } from "../../lib/audio-recorder";
-import AudioPulse from "../audio-pulse/AudioPulse";
+import { useLiveAPIContext } from "../../../contexts/LiveAPIContext";
+import { UseMediaStreamResult } from "../../../hooks/use-media-stream-mux";
+import { useScreenCapture } from "../../../hooks/use-screen-capture";
+import { useWebcam } from "../../../hooks/use-webcam";
+import { AudioRecorder } from "../../../lib/audio-recorder";
+import AudioPulse from "../../../components/audio-pulse/AudioPulse";
 import "./control-tray-custom.scss";
 
 export type ControlTrayProps = {
@@ -46,14 +46,20 @@ type MediaStreamButtonProps = {
 const MediaStreamButton = memo(
   ({ isStreaming, onIcon, offIcon, start, stop }: MediaStreamButtonProps) =>
     isStreaming ? (
-      <button className=" transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center" onClick={stop}>
+      <button
+        className=" transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
+        onClick={stop}
+      >
         <span className="material-symbols-outlined">{onIcon}</span>
       </button>
     ) : (
-      <button className=" transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center" onClick={start}>
+      <button
+        className=" transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
+        onClick={start}
+      >
         <span className="material-symbols-outlined">{offIcon}</span>
       </button>
-    ),
+    )
 );
 
 function ControlTray({
@@ -83,7 +89,7 @@ function ControlTray({
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--volume",
-      `${Math.max(5, Math.min(inVolume * 200, 8))}px`,
+      `${Math.max(5, Math.min(inVolume * 200, 8))}px`
     );
   }, [inVolume]);
 
@@ -171,9 +177,15 @@ function ControlTray({
         </button>
       </div>
 
-      <nav className={cn("actions-nav flex justify-between w-36", { disabled: !connected })}>
+      <nav
+        className={cn("actions-nav flex justify-between w-36", {
+          disabled: !connected,
+        })}
+      >
         <button
-          className={cn("action-button mic-button transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center")}
+          className={cn(
+            "action-button mic-button transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
+          )}
           onClick={() => setMuted(!muted)}
         >
           {!muted ? (

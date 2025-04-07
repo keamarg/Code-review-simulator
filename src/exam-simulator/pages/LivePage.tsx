@@ -1,10 +1,10 @@
 import React, { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { LiveAPIProvider } from "../contexts/LiveAPIContext";
+import { LiveAPIProvider } from "../../contexts/LiveAPIContext";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
-import { Altair as AltairStandard } from "../components/altair/Altair";
-import { Altair as GithubRepo } from "../components/altair/GithubRepo";
-import { CountdownTimer } from "../components/CountdownTimer";
+import { Altair as AltairStandard } from "../../components/altair/Altair";
+import { Altair as GithubRepo } from "../../components/altair/GithubRepo";
+import { CountdownTimer } from "../../components/CountdownTimer";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
 import cn from "classnames";
 import Layout from "../components/layout/Layout";
@@ -33,7 +33,7 @@ export default function LivePage() {
 
   // New state to start the countdown only when voice has started.
   const [voiceStarted, setVoiceStarted] = useState(false);
-  
+
   // Create a single handler for both exam types
   const handleVoiceStart = () => setVoiceStarted(true);
 
@@ -50,14 +50,14 @@ export default function LivePage() {
                 <strong>Task: </strong>
                 {examSimulator.task}
               </h2>
-              
+
               {/* Countdown timer for both exam types */}
               <CountdownTimer
                 totalMs={examDurationInMs}
                 autoStart={false}
                 startTrigger={voiceStarted}
               />
-              
+
               {examSimulator.examType === "Github Repo" ? (
                 <GithubRepo
                   examSimulator={examSimulator}

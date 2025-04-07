@@ -1,3 +1,5 @@
+import getCompletion from "./getCompletion";
+
 export async function getExaminerQuestions(learningGoals, durationInMinutes, examTitle = "", task = "") {
   const prompt = `
 You are to prepare an exam for an examiner that is running an exam. 
@@ -35,45 +37,14 @@ Please output it in JSON in the following format:
   "task-student": "TASK_FOR_STUDENT_MARKDOWN"
 }
 \`\`\`
-`.trim();
+  `.trim();
 
-  const payload = {
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: "You are an expert educator creating content for an oral technical exam." },
-      { role: "user", content: prompt },
-    ],
-    response_format: { type: "json_object" }
-  };
+  const systemPrompt = "You are an expert educator creating content for an oral technical exam.";
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch exam content: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    
-    // Parse the JSON response
-    try {
-      const parsedContent = JSON.parse(content);
-      return parsedContent;
-    } catch (e) {
-      console.error("Failed to parse JSON response:", e);
-      return {
-        "questions-examiner": "Error: Failed to generate structured questions.",
-        "task-student": "Error: Failed to generate task."
-      };
-    }
+    // Call getCompletion to fetch and parse JSON
+    const result = await getCompletion(prompt, systemPrompt, true);
+    return result;
   } catch (error) {
     console.error("Error fetching exam content:", error);
     return {

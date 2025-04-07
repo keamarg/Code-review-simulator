@@ -15,12 +15,12 @@
  */
 import React, { useEffect, useRef, useState, memo } from "react";
 import vegaEmbed from "vega-embed";
-import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
-import { ToolCall } from "../../multimodal-live-types";
+import { useLiveAPIContext } from "../../../contexts/LiveAPIContext";
+import { ToolCall } from "../../../multimodal-live-types";
 import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
-import { ExamSimulator } from "../../exam-simulator/contexts/ExamSimulatorContext";
-import { getExaminerQuestions } from "../../exam-simulator/utils/getExaminerQuestions";
-import getPrompt from "../../exam-simulator/utils/prompt";
+import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
+import { getExaminerQuestions } from "../../utils/getExaminerQuestions";
+import getPrompt from "../../utils/prompt";
 
 const EXAM_DURATION_IN_MINUTES = 8; // default duration
 
