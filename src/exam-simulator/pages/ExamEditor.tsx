@@ -4,7 +4,7 @@ import {
   useExamSimulators,
   ExamSimulator,
 } from "../contexts/ExamSimulatorContext";
-import Layout from "../components/layout/Layout";
+import Layout from "../layout/Layout";
 
 export default function ExamEditor() {
   const [searchParams] = useSearchParams();

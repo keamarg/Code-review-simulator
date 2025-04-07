@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
-import Layout from "../components/layout/Layout";
+import Layout from "../layout/Layout";
 import { ExamSimulator } from "../contexts/ExamSimulatorContext";
 
 // Format badge component

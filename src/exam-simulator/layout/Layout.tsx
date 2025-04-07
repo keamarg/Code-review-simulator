@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import logo from "../../../logo.png"; // Import the logo from src folder
+import logo from "../logo.png"; // Import the logo from src folder
 
 interface LayoutProps {
   children: React.ReactNode;

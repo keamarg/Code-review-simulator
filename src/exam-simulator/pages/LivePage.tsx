@@ -7,7 +7,7 @@ import { Altair as GithubRepo } from "../../components/altair/GithubRepo";
 import { CountdownTimer } from "../../components/CountdownTimer";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
 import cn from "classnames";
-import Layout from "../components/layout/Layout";
+import Layout from "../layout/Layout";
 
 const API_KEY = process.env.REACT_APP_GEMINI_API_KEY as string;
 if (typeof API_KEY !== "string") {
