@@ -1,0 +1,1 @@
+- Adding a `custom-instructions.md` file: https://code.visualstudio.com/docs/copilot/reference/copilot-vscode-features#_customize-ai-code-generation
