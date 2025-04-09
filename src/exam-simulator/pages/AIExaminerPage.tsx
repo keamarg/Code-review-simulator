@@ -34,9 +34,21 @@ export default function LivePage() {
 
   // New state to start the countdown only when voice has started.
   const [voiceStarted, setVoiceStarted] = useState(false);
+  
+  // the intent is because the exam simulator is not yet started. The user has clicked the button and now we need to create the questions
+  const [examIntentStarted, setExamIntentStarted] = useState(false);
 
   // Create a single handler for both exam types
   const handleVoiceStart = () => setVoiceStarted(true);
+
+  const onStartExamClicked = (isButtonOn: boolean) => {
+
+    if(isButtonOn) {
+      setExamIntentStarted(true)
+    } else {
+      setExamIntentStarted(false)
+    }
+  }
   
   return (
     <Layout>
@@ -64,6 +76,7 @@ export default function LivePage() {
                 <AIExaminer
                   examSimulator={examSimulator}
                   onVoiceStart={handleVoiceStart}
+                  examIntentStarted={examIntentStarted}
                 />
               )}
               <video
@@ -85,6 +98,7 @@ export default function LivePage() {
                 videoRef={videoRef}
                 supportsVideo={true}
                 onVideoStreamChange={setVideoStream}
+                onButtonClicked={onStartExamClicked}
               />
             </div>
           </main>
