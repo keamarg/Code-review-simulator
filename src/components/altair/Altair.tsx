@@ -78,19 +78,9 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
     };
   }, [client, connected]);
 
-  const prompt = getPrompt(
-    examSimulator?.title || "",
-    examSimulator?.learningGoals || "",
-    examSimulator?.gradeCriteria || "",
-    examSimulator?.feedback || "",
-    examSimulator?.task || "",
-    examinerType,
-    examDurationInMinutes,
-    examDurationActiveExam,
-    examSimulator
-  );
+  const prompt = ""
 
-  useEffect(() => {
+  /* useEffect(() => {
     setConfig({
       model: "models/gemini-2.0-flash-exp",
       generationConfig: {
@@ -107,12 +97,12 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
         ],
       },
     });
-  }, [setConfig]);
+  }, [setConfig]); */
 
   const prepareExamQuestions = async () => {
     if (!examSimulator?.learningGoals) return;
 
-    try {
+   /*  try {
       const examContent = await getExaminerQuestions(
         examSimulator.learningGoals,
         examDurationInMinutes,
@@ -133,7 +123,7 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
       console.log("Exam content prepared:", examContent);
     } catch (error) {
       console.error("Failed to prepare exam content:", error);
-    }
+    } */
   };
 
   return (

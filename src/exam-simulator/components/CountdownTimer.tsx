@@ -14,14 +14,18 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   const [timeLeft, setTimeLeft] = useState<number>(totalMs);
   const [running, setRunning] = useState<boolean>(autoStart);
 
-  // Calculate percentage of time remaining for progress bar
+  // Calculate percentage of time remaining for circle timer
   const timePercentage = Math.max(0, Math.min(100, (timeLeft / totalMs) * 100));
   
-  // Determine blue shade based on time remaining
-  const getColorClass = () => {
-    if (timePercentage > 60) return "bg-blue-700";
-    if (timePercentage > 30) return "bg-blue-500";
-    return "bg-blue-300";
+  // Calculate stroke-dasharray and stroke-dashoffset for SVG circle
+  const circumference = 2 * Math.PI * 45; // 45 is the radius of our circle
+  const strokeDashoffset = circumference * (1 - timePercentage / 100);
+  
+  // Determine color based on time remaining
+  const getColor = () => {
+    if (timePercentage > 60) return "#1d4ed8"; // blue-700
+    if (timePercentage > 30) return "#3b82f6"; // blue-500
+    return "#93c5fd"; // blue-300
   };
 
   useEffect(() => {
@@ -54,18 +58,37 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   };
 
   return (
-    <div className="rounded p-2 mb-12">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-600">Time remaining:</span>
-        <span className="font-medium">{formatTimeLeft(timeLeft)}</span>
+    <div className="fixed bottom-25 right-5 z-10 flex flex-col items-center">
+      {/* Round timer */}
+      <div className="w-20 h-20 relative">
+        <svg className="w-full h-full" viewBox="0 0 100 100">
+          {/* Gray background circle */}
+          <circle
+            cx="50"
+            cy="50"
+            r="45"
+            fill="white"
+            stroke="#e5e7eb"
+            strokeWidth="8"
+          />
+          {/* Colored progress circle */}
+          <circle
+            cx="50"
+            cy="50"
+            r="45"
+            fill="transparent"
+            stroke={getColor()}
+            strokeWidth="8"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            transform="rotate(-90 50 50)"
+          />
+        </svg>
       </div>
-      
-      {/* Simple progress bar */}
-      <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-        <div 
-          className={`h-1.5 rounded-full ${getColorClass()}`}
-          style={{ width: `${timePercentage}%` }}
-        ></div>
+      {/* Time display */}
+      <div className="mt-1 font-medium text-sm">
+        {formatTimeLeft(timeLeft)}
       </div>
     </div>
   );

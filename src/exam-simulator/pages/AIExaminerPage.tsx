@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LiveAPIProvider } from "../../contexts/LiveAPIContext";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
-import { Altair as AltairStandard } from "../../components/altair/Altair";
+import { AIExaminer } from "../components/ai-examiner/AIExaminer";
 import { Altair as GithubRepo } from "../components/ai-examiner/AIExaminerWithGithubRepo";
 import { CountdownTimer } from "../components/CountdownTimer";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
@@ -17,13 +17,14 @@ if (typeof API_KEY !== "string") {
 const host = "generativelanguage.googleapis.com";
 const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
 
+
 export default function LivePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [searchParams] = useSearchParams();
   const id = searchParams.get("id") || undefined;
   const { examSimulators } = useExamSimulators();
-
+  
   const examSimulator =
     (id && examSimulators.find((exam) => exam.id === id)) || examSimulators[0];
 
@@ -36,20 +37,16 @@ export default function LivePage() {
 
   // Create a single handler for both exam types
   const handleVoiceStart = () => setVoiceStarted(true);
-
+  
   return (
     <Layout>
       <LiveAPIProvider url={uri} apiKey={API_KEY}>
         <div className="streaming-console max-w-2xl mx-auto">
           <main>
-            <div>
+            <div className="p-10">
               <h1 className="mb-8 font-bold text-2xl text-black">
                 Welcome to your {examSimulator.title} exam
               </h1>
-              <h2 className="mb-16 line-clamp-2 text-black">
-                <strong>Task: </strong>
-                {examSimulator.task}
-              </h2>
 
               {/* Countdown timer for both exam types */}
               <CountdownTimer
@@ -64,7 +61,7 @@ export default function LivePage() {
                   onVoiceStart={handleVoiceStart}
                 />
               ) : (
-                <AltairStandard
+                <AIExaminer
                   examSimulator={examSimulator}
                   onVoiceStart={handleVoiceStart}
                 />
@@ -78,6 +75,7 @@ export default function LivePage() {
                   position: "fixed",
                   bottom: "25px",
                   right: "25px",
+                  opacity: "0"
                 }}
                 ref={videoRef}
                 autoPlay

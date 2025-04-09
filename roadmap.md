@@ -49,3 +49,6 @@
 - Question Mark & AI Node: A large, stylized question mark (representing the exam/questions). At the dot of the question mark, place a glowing circle or a simple circuit node icon, symbolizing the AI powering the examination process. Style: Minimalist, questioning/exam focus, subtle tech.
 - Graduation scroll
 - Maybe kind of a chat interface where to the left a profile of a person has a chat bubble just saying a green line. To the right an AI sparkle is saying checkmark. In the bottom of the logo is a green stamp that says "passed"
+
+## Bugs
+- Examinertype is not working

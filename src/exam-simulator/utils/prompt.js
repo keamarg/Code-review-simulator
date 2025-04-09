@@ -1,19 +1,19 @@
-function getPrompt(examTitle, learningGoals, gradeCriteria, feedback, task, examinerType, examDurationInMinutes, examDurationActiveExam, examSimulator) {    
-      if(gradeCriteria === '7-skala') {
-        gradeCriteria = `12 	Den fremragende præstation 	Karakteren 12 gives for den fremragende præstation, der demonstrerer udtømmende opfyldelse af fagets mål, med ingen eller få uvæsentlige mangler 	A
+function getPrompt(examSimulator, examDurationActiveExam) {
+      if(examSimulator.gradeCriteria === '7-skala') {
+        examSimulator.gradeCriteria = `12 	Den fremragende præstation 	Karakteren 12 gives for den fremragende præstation, der demonstrerer udtømmende opfyldelse af fagets mål, med ingen eller få uvæsentlige mangler 	A
     10 	Den fortrinlige præstation 	Karakteren 10 gives for den fortrinlige præstation, der demonstrerer omfattende opfyldelse af fagets mål, med nogle mindre væsentlige mangler 	B
     7 	Den gode præstation 	Karakteren 7 gives for den gode præstation, der demonstrerer opfyldelse af fagets mål, med en del mangler 	C
     4 	Den jævne præstation 	Karakteren 4 gives for den jævne præstation, der demonstrerer en mindre grad af opfyldelse af fagets mål, med adskillige væsentlige mangler 	D
     02 	Den tilstrækkelige præstation 	Karakteren 02 gives for den tilstrækkelige præstation, der demonstrerer den minimalt acceptable grad af opfyldelse af fagets mål 	E
     00 	Den utilstrækkelige præstation 	Karakteren 00 gives for den utilstrækkelige præstation, der ikke demonstrerer en acceptabel grad af opfyldelse af fagets mål 	Fx
     -3 	Den ringe præstation 	Karakteren -3 gives for den helt uacceptable præstation 	F`
-      } else if(gradeCriteria === 'bestået-ikke-bestået') {
-        gradeCriteria = `Bestået/Ikke bestået`
-      } else if(gradeCriteria === 'no-grade') {
-        gradeCriteria = `The student should not get a grade!`
+      } else if(examSimulator.gradeCriteria === 'bestået-ikke-bestået') {
+        examSimulator.gradeCriteria = `Bestået/Ikke bestået`
+      } else if(examSimulator.gradeCriteria === 'no-grade') {
+        examSimulator.gradeCriteria = `The student should not get a grade!`
       }
     
-      const prompt = `You are a ${examinerType.toLowerCase()} examiner running a ${examDurationInMinutes} minute ${examSimulator?.title || "exam"} exam. 
+      const prompt = `You are a friendly examiner running a ${examSimulator.duration} minute ${examSimulator?.title || "exam"} exam. 
     
     Here is how the exam should proceed:
     1. Start the exam by introducing yourself, the exam and the steps of the exam. If relevant ask the student to share their screen
@@ -22,17 +22,19 @@ function getPrompt(examTitle, learningGoals, gradeCriteria, feedback, task, exam
     4. Give the student a grade and feedback.
     
     The competencies you are examining are:
-    ${learningGoals}
+    ${examSimulator.learningGoals}
     
     Here is how you should grade the exam:
     Remember: You can only evaluate the student on what the student did during the exam.
-    ${gradeCriteria}
+    ${examSimulator.gradeCriteria}
     
     Here is how you should give feedback:
-    ${feedback}
+    ${examSimulator.feedback}
     
-    Here is the task for the exam:
-    ${task}
+    Here is the task the student should do in the exam. This task will be shown to the student
+    """
+    ${examSimulator.studentTask}
+    """
     
     Important notes about conducting the exam:
     - You dont have time to evaluate all learning goals so pick some of them and ask about that

@@ -7,6 +7,10 @@ export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
         ]
     };
 
+    if (doesReturnJSON) {
+        payload.response_format = {type: "json_object"};
+    }
+
     try {
         const response = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
@@ -23,7 +27,7 @@ export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
 
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content;
-
+        
         if (doesReturnJSON) {
             try {
                 return JSON.parse(content);

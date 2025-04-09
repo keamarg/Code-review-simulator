@@ -19,7 +19,7 @@ import { useLiveAPIContext } from "../../../contexts/LiveAPIContext";
 import { ToolCall } from "../../../multimodal-live-types";
 import { type FunctionDeclaration, SchemaType } from "@google/generative-ai";
 import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
-import getQuestions from "./../../utils/getGithubRepoFiles.js";
+import getQuestions from "../../utils/getGithubRepoFiles.js";
 
 const EXAM_DURATION_IN_MINUTES = 9; // default duration
 
@@ -162,6 +162,8 @@ You dont have time to evaluate all learning goals so pick some of them and ask a
 - If the student is stuck, give hints to help the student move forward.`;
 
   useEffect(() => {
+    console.log(prompt);
+    
     setConfig({
       model: "models/gemini-2.0-flash-exp",
       generationConfig: {

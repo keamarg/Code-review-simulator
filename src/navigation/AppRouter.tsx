@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LandingPage from "../exam-simulator/pages/LandingPage";
-import LivePage from "../exam-simulator/pages/LivePage";
+import LivePage from "../exam-simulator/pages/AIExaminerPage";
 import Dashboard from "../exam-simulator/pages/Dashboard";
 import ExamEditor from "../exam-simulator/pages/ExamEditor";
 import { ExamSimulatorProvider } from "../exam-simulator/contexts/ExamSimulatorContext";
