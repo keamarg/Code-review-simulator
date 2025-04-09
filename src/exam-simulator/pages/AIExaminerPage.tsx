@@ -33,13 +33,13 @@ export default function LivePage() {
   const examDurationInMs = examDurationInMinutes * 60 * 1000;
 
   // New state to start the countdown only when voice has started.
-  const [voiceStarted, setVoiceStarted] = useState(false);
+  const [examStarted, setExamStarted] = useState(false);
   
   // the intent is because the exam simulator is not yet started. The user has clicked the button and now we need to create the questions
   const [examIntentStarted, setExamIntentStarted] = useState(false);
 
   // Create a single handler for both exam types
-  const handleVoiceStart = () => setVoiceStarted(true);
+  const handleExamStarted = () => setExamStarted(true);
 
   const onStartExamClicked = (isButtonOn: boolean) => {
 
@@ -53,55 +53,55 @@ export default function LivePage() {
   return (
     <Layout>
       <LiveAPIProvider url={uri} apiKey={API_KEY}>
-        <div className="streaming-console max-w-2xl mx-auto">
-          <main>
-            <div className="p-10">
-              <h1 className="mb-8 font-bold text-2xl text-black">
-                Welcome to your {examSimulator.title} exam
+        <div className="streaming-console max-w-2xl mx-auto flex flex-col">
+          
+            <div className="pt-10 pr-10 pl-10 mb-10 flex justify-center flex-col">
+              <h1 className="mb-8 font-bold text-2xl text-black text-center">
+              Welcome to your {examSimulator.title} exam
               </h1>
 
               {/* Countdown timer for both exam types */}
               <CountdownTimer
-                totalMs={examDurationInMs}
-                autoStart={false}
-                startTrigger={voiceStarted}
+              totalMs={examDurationInMs}
+              autoStart={false}
+              startTrigger={examStarted}
               />
 
               {examSimulator.examType === "Github Repo" ? (
-                <GithubRepo
-                  examSimulator={examSimulator}
-                  onVoiceStart={handleVoiceStart}
-                />
+              <GithubRepo
+                examSimulator={examSimulator}
+                onVoiceStart={handleExamStarted}
+              />
               ) : (
-                <AIExaminer
-                  examSimulator={examSimulator}
-                  onVoiceStart={handleVoiceStart}
-                  examIntentStarted={examIntentStarted}
-                />
+              <AIExaminer
+                examSimulator={examSimulator}
+                onExamStarted={handleExamStarted}
+                examIntentStarted={examIntentStarted}
+              />
               )}
               <video
-                className={cn({
-                  hidden: !videoRef.current || !videoStream,
-                })}
-                style={{
-                  width: "20%",
-                  position: "fixed",
-                  bottom: "25px",
-                  right: "25px",
-                  opacity: "0"
-                }}
-                ref={videoRef}
-                autoPlay
-                playsInline
+              className={cn({
+                hidden: !videoRef.current || !videoStream,
+              })}
+              style={{
+                width: "20%",
+                position: "fixed",
+                bottom: "25px",
+                right: "25px",
+                opacity: "0"
+              }}
+              ref={videoRef}
+              autoPlay
+              playsInline
               />
-              <ControlTrayCustom
+            </div>
+          
+            <ControlTrayCustom
                 videoRef={videoRef}
                 supportsVideo={true}
                 onVideoStreamChange={setVideoStream}
                 onButtonClicked={onStartExamClicked}
               />
-            </div>
-          </main>
         </div>
       </LiveAPIProvider>
     </Layout>

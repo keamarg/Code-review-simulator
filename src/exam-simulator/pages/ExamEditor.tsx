@@ -72,6 +72,7 @@ export default function ExamEditor() {
         gradeCriteria,
         feedback,
         duration,
+        timeForFeedback: 1,
         learningGoals,
         task,
         examType,

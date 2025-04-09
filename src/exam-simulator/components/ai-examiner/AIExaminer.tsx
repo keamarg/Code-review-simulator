@@ -22,18 +22,23 @@ import examTimers from "../../hooks/useExamTimers";
 import ReactMarkdown from "react-markdown";
 import { LoadingAnimation } from "../../components/ui/LoadingAnimation";
 
-const TEST_MODE = false;
+const TEST_MODE = true;
 const EXAM_DURATION_IN_MINUTES = 8; // default duration
 
 interface AIExaminerProps {
-  examSimulator?: ExamSimulator;
-  onVoiceStart?: () => void; // Added this prop to match GithubRepo
+  examSimulator: ExamSimulator;
+  onExamStarted: () => void; // Added this prop to match GithubRepo
   examIntentStarted: boolean; // Added this prop to match GithubRepo
 }
 
-function AIExaminerFunction({ examSimulator, onVoiceStart, examIntentStarted }: AIExaminerProps) {
+function AIExaminerFunction({
+  examSimulator,
+  onExamStarted,
+  examIntentStarted,
+}: AIExaminerProps) {
   const [jsonString, setJSONString] = useState<string>("");
   const [studentTask, setStudentTask] = useState<string>("");
+  const [prompt, setPrompt] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { client, setConfig, connected, connect, config } = useLiveAPIContext();
 
@@ -42,90 +47,94 @@ function AIExaminerFunction({ examSimulator, onVoiceStart, examIntentStarted }: 
   const examDurationInMs = examDurationInMinutes * 60 * 1000;
   const examDurationActiveExam = examDurationInMs - 60 * 1000;
 
+  const prepareExam = async () => {
+    if (!examSimulator) return;
+
+    let prompt = "";
+
+    try {
+      /* setIsLoading(true); */
+
+      if (!TEST_MODE) {
+        const examContent = await getExaminerQuestions(examSimulator);
+
+        examSimulator.studentTask = examContent["task-student"];
+
+        setPrompt(getPrompt(examSimulator, examDurationActiveExam));
+      } else {
+        // Simulate loading time in test mode
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        const studentTask = `You have 5 minutes to complete the following task:
+
+HTML Task: Create a simple HTML page with a heading and a button. Use proper semantic tags for the structure.
+
+Create a <header> with an <h1> element.
+Create a <main> section containing a <button> with the text "Click Me".
+Assign an id and class to the button as follows:
+id: "demoButton"
+class: "btnStyle"
+JavaScript Task:
+
+Write a JavaScript function that listens for a click event on the button and performs the following:
+Create an array with at least three different numbers.
+Use forEach to iterate over the array and log each number to the console.
+Use an if statement to check if the array length is greater than 2, and log "Array has more than two elements" to the console.
+Remember to implement these tasks using clear and concise code. You do not need to worry about styling for this task.`;
+        examSimulator.studentTask = studentTask;
+
+        setPrompt(getPrompt(examSimulator, examDurationActiveExam));
+      }
+
+      setStudentTask(examSimulator.studentTask || "");
+
+      /* setIsLoading(false); */
+    } catch (error) {
+      console.error("Failed to prepare exam content:", error);
+      /* setIsLoading(false); */
+    }
+  };
+
   useEffect(() => {
-    if (examIntentStarted) {
-      const prepareExam = async () => {
-  
-        if (!examSimulator) return;
-  
-        let prompt = "";
-
-        try {
-          setIsLoading(true);
-
-          if (!TEST_MODE) {
-            const examContent = await getExaminerQuestions(examSimulator);
-  
-            examSimulator.studentTask = examContent["task-student"];
-            
-            prompt = getPrompt(examSimulator, examDurationActiveExam)
-          } else {
-            // Simulate loading time in test mode
-            /* await new Promise(resolve => setTimeout(resolve, 100000)); */
-  
-            const studentTask = `You have 5 minutes to complete the following task:
-  
-  HTML Task: Create a simple HTML page with a heading and a button. Use proper semantic tags for the structure.
-  
-  Create a <header> with an <h1> element.
-  Create a <main> section containing a <button> with the text "Click Me".
-  Assign an id and class to the button as follows:
-  id: "demoButton"
-  class: "btnStyle"
-  JavaScript Task:
-  
-  Write a JavaScript function that listens for a click event on the button and performs the following:
-  Create an array with at least three different numbers.
-  Use forEach to iterate over the array and log each number to the console.
-  Use an if statement to check if the array length is greater than 2, and log "Array has more than two elements" to the console.
-  Remember to implement these tasks using clear and concise code. You do not need to worry about styling for this task.`;
-            examSimulator.studentTask = studentTask;
-            
-            prompt = getPrompt(examSimulator, examDurationActiveExam)
-          }
-          
-          setStudentTask(examSimulator.studentTask || "");
-  
-          setIsLoading(false);
-        } catch (error) {
-          console.error("Failed to prepare exam content:", error);
-          setIsLoading(false);
-        }
-
-        console.log(prompt);
-
-        setConfig({
-          model: "models/gemini-2.0-flash-exp",
-          generationConfig: {
-            responseModalities: "audio",
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
+    if (examIntentStarted && prompt) {
+      // When the setConfig is called the config will be changed and that is tracked by the useEffect below
+      setConfig({
+        model: "models/gemini-2.0-flash-exp",
+        generationConfig: {
+          responseModalities: "audio",
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
+          },
+        },
+        systemInstruction: {
+          parts: [
+            {
+              text: prompt,
             },
-          },
-          systemInstruction: {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        });
-      };
-      prepareExam();
-      
+          ],
+        },
+      });
     } else {
       console.log("Exam intent not started");
     }
   }, [examIntentStarted]);
 
   useEffect(() => {
-    console.log(config);
+    console.log("asddds");
+
+  
     
+    if(!prompt) prepareExam();
+  });
+
+  useEffect(() => {
+    // Kind of a cheat way of checking if the config has changed from the original from use-live-api.tsx line 48
     if (config.hasOwnProperty("systemInstruction")) {
+      // Then the correct config has been set and we can start the exam
       connect();
 
       // this is for the countdown timer
-      if(onVoiceStart) onVoiceStart();
+      if (onExamStarted) onExamStarted();
 
       examTimers({ client, examDurationInMs });
     }
@@ -135,35 +144,58 @@ function AIExaminerFunction({ examSimulator, onVoiceStart, examIntentStarted }: 
     <div>
       {isLoading ? (
         <LoadingAnimation isLoading={isLoading} />
+      ) : studentTask ? (
+        <div
+          className="student-task bg-white p-6 rounded-md shadow-lg max-w-3xl mx-auto relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400"
+          style={{
+            transformOrigin: "top center",
+            maxHeight: "400px",
+            overflow: "auto",
+          }}
+        >
+          <ReactMarkdown>{studentTask}</ReactMarkdown>
+        </div>
       ) : (
-        studentTask && (
-          <div
-            className="student-task bg-white p-6 rounded-md shadow-xl/30 max-w-3xl mx-auto relative mb-12"
-            style={{
-              animation: "paperDrop 0.6s ease-in-out",
-              transformOrigin: "top center",
-              maxHeight: "400px",
-              overflow: "auto",
-            }}
-          >
-            <ReactMarkdown>{studentTask}</ReactMarkdown>
-          </div>
-        )
+        <div
+          className="student-task-ghost bg-white p-6 rounded-md shadow-lg max-w-3xl mx-auto relative"
+          style={{
+            maxHeight: "400px",
+            overflow: "hidden",
+          }}
+        >
+          <div className="ghost-line ghost-line-title mb-4"></div>
+          <div className="ghost-line w-3/4 mb-3"></div>
+          <div className="ghost-line w-5/6 mb-3"></div>
+          <div className="ghost-line w-4/5 mb-3"></div>
+          <div className="ghost-line w-2/3 mb-3"></div>
+          <div className="ghost-line w-5/6 mb-3"></div>
+          <div className="ghost-line w-5/6 mb-3"></div>
+          <div className="ghost-line w-4/5 mb-3"></div>
+          <div className="ghost-line w-4/5 mb-3"></div>
+          <div className="ghost-line w-3/4 mb-3"></div>
+          <div className="ghost-line w-2/3 mb-3"></div>
+          <div className="ghost-line w-5/6 mb-3"></div>
+        </div>
       )}
       <style>
         {`
-          @keyframes paperDrop {
-            0% {
-              transform: translateY(-20px) rotateX(10deg);
-              opacity: 0;
-            }
-            60% {
-              transform: translateY(5px) rotateX(-2deg);
-            }
-            100% {
-              transform: translateY(0) rotateX(0);
-              opacity: 1;
-            }
+          @keyframes ghostPulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 0.7; }
+            100% { opacity: 0.5; }
+          }
+
+          .ghost-line {
+            height: 16px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            animation: ghostPulse 1.5s infinite ease-in-out;
+          }
+
+          .ghost-line-title {
+            height: 24px;
+            width: 60%;
           }
         `}
       </style>

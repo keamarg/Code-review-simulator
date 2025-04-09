@@ -8,6 +8,7 @@ export type ExamSimulator = {
   gradeCriteria: string;
   feedback: string;
   duration: number;
+  timeForFeedback: number;
   learningGoals: string;
   task: string;
   examType: string;

@@ -30,7 +30,7 @@ export type ControlTrayProps = {
   children?: ReactNode;
   supportsVideo: boolean;
   onVideoStreamChange?: (stream: MediaStream | null) => void;
-  onButtonClicked?: (isButtonOn:boolean) => void;
+  onButtonClicked?: (isButtonOn: boolean) => void;
 };
 
 type MediaStreamButtonProps = {
@@ -79,7 +79,7 @@ function ControlTray({
   const [muted, setMuted] = useState(false);
   const renderCanvasRef = useRef<HTMLCanvasElement>(null);
   const connectButtonRef = useRef<HTMLButtonElement>(null);
-  const [buttonIsOn, setButtonIsOn] = useState(false); 
+  const [buttonIsOn, setButtonIsOn] = useState(false);
 
   const { client, connected, connect, disconnect, volume } =
     useLiveAPIContext();
@@ -172,11 +172,11 @@ function ControlTray({
         <button
           ref={connectButtonRef}
           className={cn(
-            "transition duration-200 ease-in-out focus:outline-none rounded border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg mb-6 py-5 px-8 cursor-pointer"
+            "transition duration-200 ease-in-out focus:outline-none rounded border bg-blue-500 text-white shadow-sm hover:shadow-lg mb-6 py-5 px-8 cursor-pointer"
           )}
           onClick={() => {
             setButtonIsOn(!buttonIsOn);
-            // A bit weird that i also do !buttonIsOn here but it is because the setButtonIsOn 
+            // A bit weird that i also do !buttonIsOn here but it is because the setButtonIsOn
             // is async
             onButtonClicked(!buttonIsOn);
           }}

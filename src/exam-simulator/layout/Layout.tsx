@@ -39,7 +39,7 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </header>
 
-      <main className="flex-grow">{children}</main>
+      <main className="flex-grow relative">{children}</main>
 
       <footer className="bg-white py-4 shadow-inner">
         <div className="max-w-7xl mx-auto px-4 text-center text-gray-600">

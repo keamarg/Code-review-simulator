@@ -58,7 +58,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   };
 
   return (
-    <div className="fixed bottom-25 right-5 z-10 flex flex-col items-center">
+    <div className="absolute bottom-5 right-5 z-10 flex flex-col items-center">
       {/* Round timer */}
       <div className="w-20 h-20 relative">
         <svg className="w-full h-full" viewBox="0 0 100 100">

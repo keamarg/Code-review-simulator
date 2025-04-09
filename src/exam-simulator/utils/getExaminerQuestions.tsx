@@ -1,13 +1,15 @@
+import {ExamSimulator} from "../contexts/ExamSimulatorContext";
 import getCompletion from "./getCompletion";
 
-export async function getExaminerQuestions(examSimulator) {
+export async function getExaminerQuestions(examSimulator: ExamSimulator) {
+  if(!examSimulator.timeForFeedback) examSimulator.timeForFeedback = 1
+  const activeExaminationMin = examSimulator.duration - examSimulator.timeForFeedback
   const prompt = `
 You are to prepare an exam for an examiner that is running an exam. 
 
-What you should prepare is two things:
-1. The task the student should do in the exam. This will be shown to the student
+You need to write the task the student should do in the exam. This will be shown to the student
 
-When coming up with the task and the questions, take into account the learning goals, task of the exam, title of the exam and duration
+When coming up with the task and the questions, take into account the learning goals, task of the exam, title of the exam and duration. All learning goals do not need to be assessed. Pick some and focus on them. Be realistic about time management!
 
 Learning goals:
 \`\`\`
@@ -26,7 +28,7 @@ ${examSimulator.title || "Technical Exam"}
 
 Exam duration:
 \`\`\`
-${examSimulator.duration} minutes
+${activeExaminationMin} minutes
 \`\`\`
 
 Please output it in JSON in the following format:
@@ -38,17 +40,18 @@ Please output it in JSON in the following format:
 Very important! The response should be JSON valid! ONLY the TASK_FOR_STUDENT_MARKDOWN should be in markdown!
   `.trim();
 
-  const systemPrompt = "You are an expert educator creating content for an oral technical exam.";
+  const systemPrompt = "You are a skilled and seasoned censor with many years of experience";
+
+console.log(prompt);
+
 
   try {
     const result = await getCompletion(prompt, systemPrompt, true);
-    console.log("result: " + result );
     
     return result;
   } catch (error) {
     console.error("Error fetching exam content:", error);
     return {
-      "questions-examiner": "Error: " + error.message,
       "task-student": "Error: Failed to connect to AI service."
     };
   }

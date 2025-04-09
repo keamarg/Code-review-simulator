@@ -20,10 +20,9 @@
 
   --accent-red: #ff4600;
 
-  --background: var(--gray-900);
+  --background: var(--);
   --color: var(--text);
 
-  scrollbar-color: var(--gray-600) var(--gray-900);
   scrollbar-width: thin;
 
   --font-family: "Space Mono", monospace;
@@ -116,22 +115,11 @@ body {
 .streaming-console {
   
   color: var(--gray-300);
-  display: flex;
-  height: calc(100vh - 160px);
-  width: 100vw;
 
   a,
   a:visited,
   a:active {
     color: var(--gray-300);
-  }
-
-  .disabled {
-    /* pointer-events: none;
-
-    >* {
-      pointer-events: none;
-    } */
   }
 
   main {
