@@ -7,9 +7,11 @@ import ExamEditor from "../pages/ExamEditor";
 import { ExamSimulatorProvider } from "../contexts/ExamSimulatorContext";
 
 export function AppRouter() {
+  const basename = new URL(process.env.PUBLIC_URL || '', window.location.origin).pathname;
+
   return (
     <ExamSimulatorProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/live" element={<AIExaminerPage />} />

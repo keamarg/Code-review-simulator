@@ -1,7 +1,7 @@
 {
   "name": "multimodal-live-api-web-console",
   "version": "0.1.0",
-  "homepage": "https://github.com/behu-kea/exam-simulator",
+  "homepage": "https://behu-kea.github.io/exam-simulator",
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "classnames": "^2.5.1",
