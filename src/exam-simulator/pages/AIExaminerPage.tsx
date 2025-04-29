@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { LiveAPIProvider } from "../../contexts/LiveAPIContext";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
 import { AIExaminer } from "../components/ai-examiner/AIExaminer";
-import { Altair as GithubRepo } from "../components/ai-examiner/AIExaminerWithGithubRepo";
+import { GithubRepo } from "../components/ai-examiner/AIExaminerGithub";
 import { CountdownTimer } from "../components/CountdownTimer";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
 import cn from "classnames";
@@ -91,7 +91,7 @@ export default function LivePage() {
   if (!geminiApiKey) {
     return (
       <Layout>
-        <div>API Key not available.</div>
+        <div></div>
       </Layout>
     );
   }
@@ -116,7 +116,8 @@ export default function LivePage() {
             {examSimulator.examType === "Github Repo" ? (
               <GithubRepo
                 examSimulator={examSimulator}
-                onVoiceStart={handleExamStarted}
+                onExamStarted={handleExamStarted}
+                examIntentStarted={examIntentStarted}
               />
             ) : (
               <AIExaminer
