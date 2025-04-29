@@ -79,15 +79,6 @@ export default function LivePage() {
     }
   };
 
-  // Display loading or error state while fetching the key
-  if (isLoadingKey) {
-    return (
-      <Layout>
-        <div>Loading API key...</div>
-      </Layout>
-    );
-  }
-
   if (error) {
     return (
       <Layout>
