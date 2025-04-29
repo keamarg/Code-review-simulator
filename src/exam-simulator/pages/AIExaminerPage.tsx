@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LiveAPIProvider } from "../../contexts/LiveAPIContext";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
@@ -9,15 +9,8 @@ import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCust
 import cn from "classnames";
 import Layout from "../layout/Layout";
 
-//const API_KEY = process.env.REACT_APP_GEMINI_API_KEY as string;
-const API_KEY = "asdddsasd" as string;
-if (typeof API_KEY !== "string") {
-  throw new Error("set REACT_APP_GEMINI_API_KEY in .env");
-}
-
 const host = "generativelanguage.googleapis.com";
 const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
-
 
 export default function LivePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -25,7 +18,43 @@ export default function LivePage() {
   const [searchParams] = useSearchParams();
   const id = searchParams.get("id") || undefined;
   const { examSimulators } = useExamSimulators();
-  
+  const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null); // State for the API key
+  const [isLoadingKey, setIsLoadingKey] = useState(true); // State to track loading
+  const [error, setError] = useState<string | null>(null); // State for errors
+
+  useEffect(() => {
+    // Define the endpoint URL where your API key is served
+    // Replace '/api/get-key' with your actual endpoint
+    const apiKeyEndpoint = "https://api-key-server-sigma.vercel.app/prompt2";
+
+    const fetchApiKey = async () => {
+      setIsLoadingKey(true);
+      setError(null);
+      try {
+        const response = await fetch(apiKeyEndpoint);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch API key: ${response.statusText}`);
+        }
+        // Gemini API key
+        const geminiApiKey = await response.json();
+        
+        if (!geminiApiKey || typeof geminiApiKey !== "string") {
+          throw new Error("Invalid API key format received from endpoint");
+        }
+        setGeminiApiKey(geminiApiKey);
+      } catch (err) {
+        console.error("Error fetching API key:", err);
+        setError(
+          err instanceof Error ? err.message : "An unknown error occurred"
+        );
+      } finally {
+        setIsLoadingKey(false);
+      }
+    };
+
+    fetchApiKey();
+  }, []); // Empty dependency array ensures this runs only once on mount
+
   const examSimulator =
     (id && examSimulators.find((exam) => exam.id === id)) || examSimulators[0];
 
@@ -35,7 +64,7 @@ export default function LivePage() {
 
   // New state to start the countdown only when voice has started.
   const [examStarted, setExamStarted] = useState(false);
-  
+
   // the intent is because the exam simulator is not yet started. The user has clicked the button and now we need to create the questions
   const [examIntentStarted, setExamIntentStarted] = useState(false);
 
@@ -43,44 +72,69 @@ export default function LivePage() {
   const handleExamStarted = () => setExamStarted(true);
 
   const onStartExamClicked = (isButtonOn: boolean) => {
-
-    if(isButtonOn) {
-      setExamIntentStarted(true)
+    if (isButtonOn) {
+      setExamIntentStarted(true);
     } else {
-      setExamIntentStarted(false)
+      setExamIntentStarted(false);
     }
+  };
+
+  // Display loading or error state while fetching the key
+  if (isLoadingKey) {
+    return (
+      <Layout>
+        <div>Loading API key...</div>
+      </Layout>
+    );
   }
-  
+
+  if (error) {
+    return (
+      <Layout>
+        <div>Error loading configuration: {error}</div>
+      </Layout>
+    );
+  }
+
+  // Ensure apiKey is not null before rendering the provider
+  if (!geminiApiKey) {
+    return (
+      <Layout>
+        <div>API Key not available.</div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
-      <LiveAPIProvider url={uri} apiKey={API_KEY}>
+      {/* Pass the fetched API key */}
+      <LiveAPIProvider url={uri} apiKey={geminiApiKey}>
         <div className="streaming-console max-w-2xl mx-auto flex flex-col">
-          
-            <div className="pt-10 pr-10 pl-10 mb-10 flex justify-center flex-col">
-              <h1 className="mb-8 font-bold text-2xl text-black text-center">
+          <div className="pt-10 pr-10 pl-10 mb-10 flex justify-center flex-col">
+            <h1 className="mb-8 font-bold text-2xl text-black text-center">
               Welcome to your {examSimulator.title} exam
-              </h1>
+            </h1>
 
-              {/* Countdown timer for both exam types */}
-              <CountdownTimer
+            {/* Countdown timer for both exam types */}
+            <CountdownTimer
               totalMs={examDurationInMs}
               autoStart={false}
               startTrigger={examStarted}
-              />
+            />
 
-              {examSimulator.examType === "Github Repo" ? (
+            {examSimulator.examType === "Github Repo" ? (
               <GithubRepo
                 examSimulator={examSimulator}
                 onVoiceStart={handleExamStarted}
               />
-              ) : (
+            ) : (
               <AIExaminer
                 examSimulator={examSimulator}
                 onExamStarted={handleExamStarted}
                 examIntentStarted={examIntentStarted}
               />
-              )}
-              <video
+            )}
+            <video
               className={cn({
                 hidden: !videoRef.current || !videoStream,
               })}
@@ -89,20 +143,20 @@ export default function LivePage() {
                 position: "fixed",
                 bottom: "25px",
                 right: "25px",
-                opacity: "0"
+                opacity: "0",
               }}
               ref={videoRef}
               autoPlay
               playsInline
-              />
-            </div>
-          
-            <ControlTrayCustom
-                videoRef={videoRef}
-                supportsVideo={true}
-                onVideoStreamChange={setVideoStream}
-                onButtonClicked={onStartExamClicked}
-              />
+            />
+          </div>
+
+          <ControlTrayCustom
+            videoRef={videoRef}
+            supportsVideo={true}
+            onVideoStreamChange={setVideoStream}
+            onButtonClicked={onStartExamClicked}
+          />
         </div>
       </LiveAPIProvider>
     </Layout>

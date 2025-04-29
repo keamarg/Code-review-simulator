@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      /* redirect any unknown path back to the SPA entry point */
+      const repo = "/exam-simulator";
+      const newPath =
+        repo + "/index.html" +
+        window.location.search +
+        window.location.hash;
+      window.location.replace(newPath);
+    </script>
+  </head>
+  <body></body>
+</html>

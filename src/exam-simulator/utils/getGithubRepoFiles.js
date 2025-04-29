@@ -79,12 +79,18 @@ It is an 9 minute exam.
   };
     
 
+  const apiKeyResponse = await fetch("https://api-key-server-sigma.vercel.app/prompt1");
+  if (!apiKeyResponse.ok) {
+      throw new Error("Failed to fetch API key");
+  }
+
+  const apiKey = await apiKeyResponse.json();
+
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      //Authorization: `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
-      Authorization: `Bearer asd`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(payload),
   });

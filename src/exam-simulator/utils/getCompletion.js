@@ -1,4 +1,13 @@
 export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
+
+    const apiKeyResponse = await fetch("https://api-key-server-sigma.vercel.app/prompt1");
+
+    if (!apiKeyResponse.ok) {
+        throw new Error("Failed to fetch API key");
+    }
+
+    const apiKey = await apiKeyResponse.json();
+
     const payload = {
         model: "gpt-4o-mini",
         messages: [
@@ -16,8 +25,7 @@ export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                //Authorization: `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
-                Authorization: `Bearer asd`,
+                Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify(payload),
         });

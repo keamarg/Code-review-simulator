@@ -120,10 +120,6 @@ Remember to implement these tasks using clear and concise code. You do not need 
   }, [examIntentStarted]);
 
   useEffect(() => {
-    console.log("asddds");
-
-  
-    
     if(!prompt) prepareExam();
   });
 

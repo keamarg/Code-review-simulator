@@ -44,9 +44,6 @@ Also the task should include the title of the exam in the top.
 
   const systemPrompt = "You are a skilled and seasoned censor with many years of experience";
 
-console.log(prompt);
-
-
   try {
     const result = await getCompletion(prompt, systemPrompt, true);
     
