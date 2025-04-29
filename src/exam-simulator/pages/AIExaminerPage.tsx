@@ -9,7 +9,8 @@ import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCust
 import cn from "classnames";
 import Layout from "../layout/Layout";
 
-const API_KEY = process.env.REACT_APP_GEMINI_API_KEY as string;
+//const API_KEY = process.env.REACT_APP_GEMINI_API_KEY as string;
+const API_KEY = "asdddsasd" as string;
 if (typeof API_KEY !== "string") {
   throw new Error("set REACT_APP_GEMINI_API_KEY in .env");
 }

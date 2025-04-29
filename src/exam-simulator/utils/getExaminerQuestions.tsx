@@ -38,6 +38,8 @@ Please output it in JSON in the following format:
 }
 \`\`\`
 Very important! The response should be JSON valid! ONLY the TASK_FOR_STUDENT_MARKDOWN should be in markdown!
+
+Also the task should include the title of the exam in the top.
   `.trim();
 
   const systemPrompt = "You are a skilled and seasoned censor with many years of experience";

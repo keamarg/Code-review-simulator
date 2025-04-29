@@ -22,7 +22,7 @@ import examTimers from "../../hooks/useExamTimers";
 import ReactMarkdown from "react-markdown";
 import { LoadingAnimation } from "../../components/ui/LoadingAnimation";
 
-const TEST_MODE = true;
+const TEST_MODE = false;
 const EXAM_DURATION_IN_MINUTES = 8; // default duration
 
 interface AIExaminerProps {
