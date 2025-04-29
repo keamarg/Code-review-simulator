@@ -16,11 +16,8 @@
 import React, { useEffect, useState, memo } from "react";
 import { useLiveAPIContext } from "../../../contexts/LiveAPIContext";
 import { ExamSimulator } from "../../contexts/ExamSimulatorContext";
-import { getExaminerQuestions } from "../../utils/getExaminerQuestions";
 import getPrompt from "../../utils/prompt";
 import examTimers from "../../hooks/useExamTimers";
-import ReactMarkdown from "react-markdown";
-import { LoadingAnimation } from "../ui/LoadingAnimation";
 import getRepoQuestions from "../../utils/getGithubRepoFiles.js";
 
 const TEST_MODE = false;
@@ -48,34 +45,9 @@ function GithubRepoFunction({
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
   const examDurationActiveExam = examDurationInMinutes - 1;
 
-  const prepareExam = async () => {
-    if (!examSimulator) return;
-
-    let prompt = "";
-
-    try {
-      if (!TEST_MODE) {
-        console.log("here");
-
-        /* const githubQuestions = await getRepoQuestions(repoUrl, examSimulator.learningGoals)
-        
-        setPrompt(getPrompt.github(examSimulator, examDurationActiveExam, githubQuestions)); */
-      } 
-
-      setStudentTask(examSimulator.studentTask || "");
-
-      
-    } catch (error) {
-      console.error("Failed to prepare exam content:", error);
-      
-    }
-  };
-
   useEffect(() => {
     if (examIntentStarted) {
       const fetch = async () => {
-        console.log("asd");
-
         setIsLoading(true)
         
         const githubQuestions = await getRepoQuestions(repoUrl, examSimulator.learningGoals)
@@ -108,10 +80,6 @@ function GithubRepoFunction({
       console.log("Exam intent not started");
     }
   }, [examIntentStarted]);
-
-  useEffect(() => {
-    if(!prompt) prepareExam();
-  });
 
   useEffect(() => {
     // Kind of a cheat way of checking if the config has changed from the original from use-live-api.tsx line 48
