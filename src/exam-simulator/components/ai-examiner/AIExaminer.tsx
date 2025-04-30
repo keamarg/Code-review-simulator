@@ -44,8 +44,7 @@ function AIExaminerFunction({
 
   const examDurationInMinutes =
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
-  const examDurationInMs = examDurationInMinutes * 60 * 1000;
-  const examDurationActiveExam = examDurationInMs - 60 * 1000;
+  const examDurationActiveExam = examDurationInMinutes - 1;
 
   const prepareExam = async () => {
     if (!examSimulator) return;
@@ -53,14 +52,12 @@ function AIExaminerFunction({
     let prompt = "";
 
     try {
-      /* setIsLoading(true); */
-
       if (!TEST_MODE) {
         const examContent = await getExaminerQuestions(examSimulator);
 
         examSimulator.studentTask = examContent["task-student"];
 
-        setPrompt(getPrompt(examSimulator, examDurationActiveExam));
+        setPrompt(getPrompt.standard(examSimulator, examDurationActiveExam));
       } else {
         // Simulate loading time in test mode
         await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -83,7 +80,7 @@ Use an if statement to check if the array length is greater than 2, and log "Arr
 Remember to implement these tasks using clear and concise code. You do not need to worry about styling for this task.`;
         examSimulator.studentTask = studentTask;
 
-        setPrompt(getPrompt(examSimulator, examDurationActiveExam));
+        setPrompt(getPrompt.standard(examSimulator, examDurationActiveExam));
       }
 
       setStudentTask(examSimulator.studentTask || "");
@@ -132,7 +129,7 @@ Remember to implement these tasks using clear and concise code. You do not need 
       // this is for the countdown timer
       if (onExamStarted) onExamStarted();
 
-      examTimers({ client, examDurationInMs });
+      examTimers({ client, examDurationInMs: examDurationActiveExam * 60 * 1000 });
     }
   }, [config]);
 

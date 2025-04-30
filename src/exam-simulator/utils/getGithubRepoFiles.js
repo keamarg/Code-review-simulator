@@ -5,8 +5,7 @@ async function getRepoFiles(repoUrl) {
     if (!match) {
         throw new Error('Invalid GitHub repository URL');
     }
-    const owner = match[1];
-    const repoName = match[2];
+    const owner = match[1];    const repoName = match[2];
     // Convert repo name to app name by replacing dashes with underscores
     const appName = repoName.replace(/-/g, '_');
 
@@ -14,7 +13,7 @@ async function getRepoFiles(repoUrl) {
     const basePath = `app/src/main/java/com/example/${appName}`;
     let result = '';
     // Set delay in milliseconds
-    const delayMs = 300;
+    const delayMs = 1500;
 
     // Helper function to delay execution
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -36,6 +35,8 @@ async function getRepoFiles(repoUrl) {
                 await processDirectory(item.path);
             } else if (item.type === 'file') {
                 // Fetch the raw content of the file using the download_url
+                console.log(item.download_url);
+                
                 const fileResponse = await fetch(item.download_url);
                 if (!fileResponse.ok) {
                     throw new Error(`Failed to fetch file ${item.path}`);
@@ -57,14 +58,16 @@ async function getRepoFiles(repoUrl) {
 }
 
 // New function to get exam questions based on repoContents and learningGoals
-export async function getQuestions(repoContents, learningGoals) {
+export async function getRepoQuestions(repoUrl, learningGoals) {
+  
+  const repoContents = await getRepoFiles(repoUrl)
+
   const prompt = `
 Given the following repository contents:
 ${repoContents}
 
 And the following learning goals:
 ${learningGoals}
-
 Please provide a list of exam questions that cover the learning goals effectively. Some of the questions should refer to specific files. When referring to the files add the full path. Only answer with the questions
 
 It is an 9 minute exam.
@@ -106,4 +109,4 @@ It is an 9 minute exam.
   return answer;
 }
 
-export default getQuestions;
+export default getRepoQuestions;
