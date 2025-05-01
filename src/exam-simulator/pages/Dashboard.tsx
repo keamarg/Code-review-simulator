@@ -2,18 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useExamSimulators } from "../contexts/ExamSimulatorContext";
 import Layout from "../layout/Layout";
-import { ExamSimulator } from "../contexts/ExamSimulatorContext";
-
-// Format badge component
-const FormatBadge = ({ format }: { format: string }) => {
-  if (!format) return null;
-
-  return (
-    <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-      {format}
-    </span>
-  );
-};
+import { supabase } from "../config/supabaseClient";
+import { ExamSimulator } from "./../contexts/ExamSimulatorContext";
 
 // Duration formatter
 const formatDuration = (minutes: number): string => {
@@ -43,8 +33,6 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
   }, [menuOpen]);
 
   const handleCopyLink = async (e: React.MouseEvent) => {
-    console.log("asdasd");
-
     e.stopPropagation(); // Prevent menu close from click outside
     try {
       const fullUrl = `${window.location.origin}/live?id=${sim.id}`;
@@ -52,7 +40,6 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
       setMenuOpen(false);
       showToast("Link kopieret til udklipsholder!");
     } catch (err) {
-      console.error("Failed to copy the link", err);
       showToast("Kunne ikke kopiere link");
     }
   };
@@ -148,15 +135,8 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
 
       {/* Card Content */}
       <div className="flex-grow">
-        {/* Format Badge */}
-        {sim.format && (
-          <div className="mb-3">
-            <FormatBadge format={sim.format} />
-          </div>
-        )}
-
         {/* Task Description */}
-        <p className="text-gray-600 line-clamp-3 mb-3">{sim.task}</p>
+        <p className="text-gray-600 line-clamp-3 mb-3">{sim.description}</p>
 
         {/* Exam Details */}
         <div className="flex flex-wrap gap-3 mb-4">
@@ -179,7 +159,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
             </div>
           )}
 
-          {sim.examType && (
+          {sim.type && (
             <div className="flex items-center text-sm text-gray-500">
               <svg
                 className="h-4 w-4 mr-1"
@@ -194,7 +174,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              {sim.examType}
+              {sim.type}
             </div>
           )}
         </div>
@@ -280,16 +260,36 @@ const EmptyState = () => (
 );
 
 export default function Dashboard() {
-  const { examSimulators } = useExamSimulators();
+  //const { examSimulators } = useExamSimulators();
   const [toastMessage, setToastMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isToastVisible, setIsToastVisible] = useState(false);
+  const [examSimulators, setExamSimulators] = useState<ExamSimulator[]>([]);
+
+  useEffect(() => {
+    async function getExamSimulators() {
+      const { data: fetchedExamSimulators, error } = await supabase
+        .from("exams")
+        .select();
+        
+      if (error) {
+        console.error("Error fetching exams:", error);
+        // Handle error appropriately, maybe show a message to the user
+      } else if (fetchedExamSimulators) {
+        setExamSimulators(fetchedExamSimulators as ExamSimulator[]);
+      } else {
+        setExamSimulators([]);
+      }
+    }
+
+    getExamSimulators();
+  }, []);
 
   // Filter simulators based on search term
   const filteredSimulators = examSimulators.filter(
     (sim) =>
       sim.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sim.task.toLowerCase().includes(searchTerm.toLowerCase())
+      sim.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const showToast = (message: string) => {

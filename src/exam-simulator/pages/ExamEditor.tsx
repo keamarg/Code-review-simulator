@@ -1,39 +1,64 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
-import {
-  useExamSimulators,
-  ExamSimulator,
-} from "../contexts/ExamSimulatorContext";
 import Layout from "../layout/Layout";
+import { supabase } from "../config/supabaseClient";
+import { ExamSimulator } from "../contexts/ExamSimulatorContext";
 
 export default function ExamEditor() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const examId = searchParams.get("id") || "";
-  const { examSimulators, setExamSimulators } = useExamSimulators();
-  const exam = examSimulators.find((e) => e.id === examId);
+
+  const [exam, setExam] = useState<any>(null);
+  const [loading, setLoading] = useState(examId !== "");
+
+  useEffect(() => {
+    const fetchExam = async () => {
+      if (examId) {
+        const { data, error } = await supabase
+          .from("exams")
+          .select("*")
+          .eq("id", examId)
+          .single();
+        if (error) {
+          console.error("Error fetching exam:", error);
+        } else {
+          setExam(data);
+        }
+        setLoading(false);
+      }
+    };
+
+    fetchExam();
+  }, [examId]);
 
   const [title, setTitle] = useState(exam ? exam.title : "");
-  const [format, setFormat] = useState(exam ? exam.format : "");
-  const [gradeCriteria, setGradeCriteria] = useState(
-    exam ? exam.gradeCriteria : ""
-  );
+  const [gradeCriteria, setGradeCriteria] = useState("");
   const [feedback, setFeedback] = useState(exam ? exam.feedback : "");
-  const [duration, setDuration] = useState<number>(() => {
-    return exam && !isNaN(Number(exam.duration)) ? Number(exam.duration) : 8;
-  });
-  const [learningGoals, setLearningGoals] = useState(
-    exam ? exam.learningGoals : ""
-  );
-  const [task, setTask] = useState(exam ? exam.task : "");
-  const [examType, setExamType] = useState(exam ? exam.examType : "Standard");
-  const [examinerType, setExaminerType] = useState(
-    exam ? exam.examinerType : "Friendly"
-  );
+  const [duration, setDuration] = useState<number>(8);
+  const [learningGoals, setLearningGoals] = useState("");
+  const [description, setDescription] = useState("");
+  const [type, setType] = useState("Standard");
+  const [typicalQuestions, setTypicalQuestions] = useState("");
+  const [is_public, setIsPublic] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [isToastVisible, setIsToastVisible] = useState(false);
 
   const isEditMode = examId !== "" && exam !== undefined;
+
+  useEffect(() => {
+    if (exam) {
+      setTitle(exam.title || "");
+      setGradeCriteria(exam.grade_criteria || "");
+      setFeedback(exam.feedback || "");
+      setDuration(!isNaN(Number(exam.duration)) ? Number(exam.duration) : 8);
+      setLearningGoals(exam.learning_goals || "");
+      setDescription(exam.description || "");
+      setType(exam.type || "Standard");
+      setTypicalQuestions(exam.typical_questions || "");
+      setIsPublic(exam.is_public || false);
+    }
+  }, [exam]);
 
   // Show toast notification
   const showToast = (message: string) => {
@@ -46,50 +71,104 @@ export default function ExamEditor() {
     }, 3000);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // Assuming 'supabase' is your Supabase client instance available in this scope
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      showToast("Fejl: Kunne ikke gemme. Brugeroplysninger mangler.");
+      return; // Prevent saving if user is not found 14
+    }
+
     if (isEditMode) {
+      // Ensure exam is defined before accessing its properties
+      if (!exam) {
+        showToast("Fejl: Kunne ikke finde eksamen der skal opdateres.");
+        return;
+      }
       const updatedExam: ExamSimulator = {
         ...exam,
         title,
-        format,
-        gradeCriteria,
-        feedback,
+        description,
+        type,
         duration,
-        learningGoals,
-        task,
-        examType,
-        examinerType,
+        grade_criteria: gradeCriteria,
+        feedback,
+        learning_goals: learningGoals,
+        typical_questions: typicalQuestions,
+        is_public,
+        user_id: user.id,
       };
-      setExamSimulators((prev) =>
-        prev.map((e) => (e.id === exam.id ? updatedExam : e))
-      );
+      
+      const { error: updateError } = await supabase
+        .from("exams")
+        .update(updatedExam)
+        .eq("id", examId);
+
+      if (updateError) {
+        console.error("Error updating exam:", updateError);
+        showToast(`Fejl: Kunne ikke opdatere eksamen. ${updateError.message}`);
+        return;
+      }
+
       showToast("Eksamen opdateret!");
     } else {
-      const newExam: ExamSimulator = {
-        id: Date.now().toString(),
+      const newExam: Omit<ExamSimulator, "id" | "created_at"> & {
+        user_id: string;
+      } = {
+        // Use Omit to exclude DB-generated fields if Supabase handles them
         title,
-        format,
-        gradeCriteria,
-        feedback,
+        description,
+        type,
         duration,
-        timeForFeedback: 1,
-        learningGoals,
-        task,
-        examType,
-        examinerType,
+        grade_criteria: gradeCriteria,
+        feedback,
+        learning_goals: learningGoals,
+        typical_questions: typicalQuestions,
+        is_public,
+        user_id: user.id,
       };
-      setExamSimulators((prev) => [...prev, newExam]);
+      // create newExam to supabase
+      const { data: insertedExam, error: insertError } = await supabase
+        .from("exams") // Ensure 'exams' is the correct table name
+        .insert([newExam])
+        .select()
+        .single(); // To get the newly created record back, including DB-generated ID/timestamps
+
+      if (insertError) {
+        console.error("Error creating exam:", insertError);
+        showToast(`Fejl: Kunne ikke oprette eksamen. ${insertError.message}`);
+        return; // Stop execution if insert fails
+      }
+
       showToast("Eksamen oprettet!");
     }
-    navigate("/dashboard");
+    //navigate("/dashboard");
   };
 
   const handleDelete = () => {
     if (!isEditMode) return;
     if (window.confirm("Er du sikker på, at du vil slette denne eksamen?")) {
-      setExamSimulators((prev) => prev.filter((e) => e.id !== exam.id));
-      showToast("Eksamen slettet!");
-      navigate("/dashboard");
+      // delete exam using supabase
+      const deleteExam = async () => {
+        const { error } = await supabase
+          .from("exams")
+          .delete()
+          .eq("id", examId);
+
+        if (error) {
+          console.error("Error deleting exam:", error);
+          showToast(`Fejl: Kunne ikke slette eksamen. ${error.message}`);
+          return;
+        }
+
+        showToast("Eksamen slettet!");
+        navigate("/dashboard");
+      };
+
+      deleteExam();
     }
   };
 
@@ -182,8 +261,8 @@ export default function ExamEditor() {
                 </div>
               </label>
               <textarea
-                value={task}
-                onChange={(e) => setTask(e.target.value)}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
                 placeholder="Beskriv eksamensopgaven"
               />
@@ -212,43 +291,12 @@ export default function ExamEditor() {
                   </div>
                 </label>
                 <select
-                  value={examType}
-                  onChange={(e) => setExamType(e.target.value)}
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
                 >
                   <option value="Standard">Standard</option>
                   <option value="Github Repo">Github Repo</option>
-                </select>
-              </div>
-
-              {/* Examiner Type Dropdown */}
-              <div>
-                <label className="block text-gray-700 text-sm font-medium mb-2">
-                  <div className="flex items-center">
-                    <svg
-                      className="h-4 w-4 mr-2 text-gray-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                      />
-                    </svg>
-                    Eksaminatortype
-                  </div>
-                </label>
-                <select
-                  value={examinerType}
-                  onChange={(e) => setExaminerType(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
-                >
-                  <option value="Friendly">Venlig</option>
-                  <option value="Strict">Streng</option>
-                  <option value="Challenging">Udfordrende</option>
                 </select>
               </div>
             </div>
@@ -373,6 +421,50 @@ export default function ExamEditor() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
                 placeholder="Indtast læringsmål"
               />
+            </div>
+
+            {/* Typical Questions field */}
+            <div className="mb-6">
+              <label className="block text-gray-700 text-sm font-medium mb-2">
+                <div className="flex items-center">
+                  <svg
+                    className="h-4 w-4 mr-2 text-gray-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                    />
+                  </svg>
+                  Typiske Spørgsmål
+                </div>
+              </label>
+              <textarea
+                value={typicalQuestions}
+                onChange={(e) => setTypicalQuestions(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
+                placeholder="Indtast typiske spørgsmål til eksamen"
+              />
+            </div>
+
+            {/* Is Public Checkbox */}
+            <div className="mb-6">
+              <label className="flex items-center text-gray-700 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={is_public}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                Gør eksamen offentlig
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                Hvis markeret, vil andre brugere kunne se og tage denne eksamen.
+              </p>
             </div>
 
             {/* Form Actions */}

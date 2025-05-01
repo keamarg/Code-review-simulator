@@ -36,12 +36,12 @@ function AIExaminerFunction({
   onExamStarted,
   examIntentStarted,
 }: AIExaminerProps) {
-  const [jsonString, setJSONString] = useState<string>("");
   const [studentTask, setStudentTask] = useState<string>("");
   const [prompt, setPrompt] = useState<string>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { client, setConfig, connected, connect, config } = useLiveAPIContext();
-
+  console.log(333);
+  
   const examDurationInMinutes =
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
   const examDurationActiveExam = examDurationInMinutes - 1;
@@ -49,41 +49,14 @@ function AIExaminerFunction({
   const prepareExam = async () => {
     if (!examSimulator) return;
 
-    let prompt = "";
-
     try {
-      if (!TEST_MODE) {
-        const examContent = await getExaminerQuestions(examSimulator);
-
-        examSimulator.studentTask = examContent["task-student"];
-
-        setPrompt(getPrompt.standard(examSimulator, examDurationActiveExam));
-      } else {
-        // Simulate loading time in test mode
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        const studentTask = `You have 5 minutes to complete the following task:
-
-HTML Task: Create a simple HTML page with a heading and a button. Use proper semantic tags for the structure.
-
-Create a <header> with an <h1> element.
-Create a <main> section containing a <button> with the text "Click Me".
-Assign an id and class to the button as follows:
-id: "demoButton"
-class: "btnStyle"
-JavaScript Task:
-
-Write a JavaScript function that listens for a click event on the button and performs the following:
-Create an array with at least three different numbers.
-Use forEach to iterate over the array and log each number to the console.
-Use an if statement to check if the array length is greater than 2, and log "Array has more than two elements" to the console.
-Remember to implement these tasks using clear and concise code. You do not need to worry about styling for this task.`;
-        examSimulator.studentTask = studentTask;
-
-        setPrompt(getPrompt.standard(examSimulator, examDurationActiveExam));
-      }
-
-      setStudentTask(examSimulator.studentTask || "");
+      const examContent = await getExaminerQuestions(examSimulator);
+      const studentTaskAnswer = examContent["task-student"]
+      console.log(studentTaskAnswer);
+      
+      setPrompt(getPrompt.standard(examSimulator, examDurationActiveExam, studentTaskAnswer));
+    
+      setStudentTask(studentTaskAnswer || "");
 
       /* setIsLoading(false); */
     } catch (error) {

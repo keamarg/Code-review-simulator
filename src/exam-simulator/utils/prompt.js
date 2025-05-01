@@ -1,4 +1,4 @@
-function getPrompt(examSimulator, examDurationActiveExam) {
+function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
       if(examSimulator.gradeCriteria === '7-skala') {
         examSimulator.gradeCriteria = `12 	Den fremragende præstation 	Karakteren 12 gives for den fremragende præstation, der demonstrerer udtømmende opfyldelse af fagets mål, med ingen eller få uvæsentlige mangler 	A
     10 	Den fortrinlige præstation 	Karakteren 10 gives for den fortrinlige præstation, der demonstrerer omfattende opfyldelse af fagets mål, med nogle mindre væsentlige mangler 	B
@@ -33,7 +33,7 @@ function getPrompt(examSimulator, examDurationActiveExam) {
     
     Here is the task the student should do in the exam. This task will be shown to the student
     """
-    ${examSimulator.studentTask}
+    ${studentTask}
     """
     
     Important notes about conducting the exam:

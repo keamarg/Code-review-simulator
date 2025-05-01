@@ -1,13 +1,13 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LiveAPIProvider } from "../../contexts/LiveAPIContext";
-import { useExamSimulators } from "../contexts/ExamSimulatorContext";
 import { AIExaminer } from "../components/ai-examiner/AIExaminer";
 import { GithubRepo } from "../components/ai-examiner/AIExaminerGithub";
 import { CountdownTimer } from "../components/CountdownTimer";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
 import cn from "classnames";
 import Layout from "../layout/Layout";
+import { supabase } from "../config/supabaseClient";
 
 const host = "generativelanguage.googleapis.com";
 const uri = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent`;
@@ -17,7 +17,7 @@ export default function LivePage() {
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [searchParams] = useSearchParams();
   const id = searchParams.get("id") || undefined;
-  const { examSimulators } = useExamSimulators();
+
   const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null); // State for the API key
   const [isLoadingKey, setIsLoadingKey] = useState(true); // State to track loading
   const [error, setError] = useState<string | null>(null); // State for errors
@@ -37,7 +37,7 @@ export default function LivePage() {
         }
         // Gemini API key
         const geminiApiKey = await response.json();
-        
+
         if (!geminiApiKey || typeof geminiApiKey !== "string") {
           throw new Error("Invalid API key format received from endpoint");
         }
@@ -55,8 +55,35 @@ export default function LivePage() {
     fetchApiKey();
   }, []); // Empty dependency array ensures this runs only once on mount
 
-  const examSimulator =
-    (id && examSimulators.find((exam) => exam.id === id)) || examSimulators[0];
+  // Fetch the exam simulator with exam.id using supabase
+  const [examSimulator, setExamSimulator] = useState<any>(null);
+  const [isLoadingSimulator, setIsLoadingSimulator] = useState(true);
+
+  useEffect(() => {
+    const fetchExamSimulator = async () => {
+      if (!id) {
+        setIsLoadingSimulator(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("exams")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (error) throw error;
+        setExamSimulator(data);
+      } catch (err) {
+        console.error("Error fetching exam simulator:", err);
+      } finally {
+        setIsLoadingSimulator(false);
+      }
+    };
+
+    fetchExamSimulator();
+  }, [id]);
 
   // Calc exam duration (in ms) using examSimulator settings, fallback to 8 minutes.
   const examDurationInMinutes = examSimulator?.duration || 8;
@@ -113,7 +140,7 @@ export default function LivePage() {
               startTrigger={examStarted}
             />
 
-            {examSimulator.examType === "Github Repo" ? (
+            {examSimulator.type === "Github Repo" ? (
               <GithubRepo
                 examSimulator={examSimulator}
                 onExamStarted={handleExamStarted}

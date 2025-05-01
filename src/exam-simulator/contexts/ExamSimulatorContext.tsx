@@ -4,16 +4,15 @@ import initialExams from "../initial-exams.json";
 export type ExamSimulator = {
   id: string;
   title: string;
-  format: string;
-  gradeCriteria: string;
-  feedback: string;
+  description: string;
+  type: string;
   duration: number;
-  timeForFeedback: number;
-  learningGoals: string;
-  task: string;
-  examType: string;
-  examinerType: string
-  studentTask?: string;
+  grade_criteria: string;
+  feedback: string;
+  learning_goals: string;
+  typical_questions: string;
+  is_public: boolean;
+  user_id: string;
 };
 
 interface ExamSimulatorContextValue {

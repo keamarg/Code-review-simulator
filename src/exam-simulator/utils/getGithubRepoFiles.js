@@ -35,8 +35,6 @@ async function getRepoFiles(repoUrl) {
                 await processDirectory(item.path);
             } else if (item.type === 'file') {
                 // Fetch the raw content of the file using the download_url
-                console.log(item.download_url);
-                
                 const fileResponse = await fetch(item.download_url);
                 if (!fileResponse.ok) {
                     throw new Error(`Failed to fetch file ${item.path}`);
@@ -105,7 +103,6 @@ It is an 9 minute exam.
   const data = await response.json();
   const answer =
     data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    console.log(answer);
   return answer;
 }
 

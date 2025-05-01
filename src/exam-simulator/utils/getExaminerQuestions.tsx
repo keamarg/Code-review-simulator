@@ -2,8 +2,8 @@ import {ExamSimulator} from "../contexts/ExamSimulatorContext";
 import getCompletion from "./getCompletion";
 
 export async function getExaminerQuestions(examSimulator: ExamSimulator) {
-  if(!examSimulator.timeForFeedback) examSimulator.timeForFeedback = 1
-  const activeExaminationMin = examSimulator.duration - examSimulator.timeForFeedback
+  const time_for_feedback = 1;
+  const activeExaminationMin = examSimulator.duration - time_for_feedback;
   const prompt = `
 You are to prepare an exam for an examiner that is running an exam. 
 
@@ -13,12 +13,12 @@ When coming up with the task and the questions, take into account the learning g
 
 Learning goals:
 \`\`\`
-${examSimulator.learningGoals}
+${examSimulator.learning_goals}
 \`\`\`
 
-Here is the task for the exam:
+Here is the description for the exam:
 \`\`\`
-${examSimulator.task || "No specific task provided. Create appropriate questions about the learning goals."}
+${examSimulator.description || "No specific task provided. Create appropriate questions about the learning goals."}
 \`\`\`
 
 Exam title:

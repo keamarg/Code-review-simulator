@@ -50,7 +50,7 @@ function GithubRepoFunction({
       const fetch = async () => {
         setIsLoading(true)
         
-        const githubQuestions = await getRepoQuestions(repoUrl, examSimulator.learningGoals)
+        const githubQuestions = await getRepoQuestions(repoUrl, examSimulator.learning_goals)
         
         const prompt = getPrompt.github(examSimulator, examDurationActiveExam, githubQuestions);
 
