@@ -35,20 +35,7 @@ const LandingPage: React.FC = () => {
                 <p className="mt-4 text-xl text-blue-100">
                   Træn din mundtlige eksamen med en AI du kan snakke med
                 </p>
-                <div className="mt-8 flex flex-col sm:flex-row space-y-4 sm:space-y-0">
-                  <Link
-                    to="/create"
-                    className="inline-flex justify-center items-center mb-4 px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
-                  >
-                    Opret eksamenssimulering
-                  </Link>
-                  <Link
-                    to="/hvordan"
-                    className="inline-flex justify-center items-center px-6 py-3 border border-white text-base font-medium rounded-md text-white hover:bg-white hover:text-blue-700 focus:outline-none"
-                  >
-                    Se hvordan det virker
-                  </Link>
-                </div>
+                
               </div>
               <div className="mt-10 md:mt-0 md:w-1/2">
                 <div className="relative mx-auto max-w-md">
@@ -274,7 +261,7 @@ const LandingPage: React.FC = () => {
             </p>
             <div className="mt-8">
               <Link
-                to="/create"
+                to="/signup"
                 className="inline-flex justify-center items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-blue-700 bg-white hover:bg-blue-50 focus:outline-none"
               >
                 Kom i gang nu
