@@ -1,3 +1,5 @@
+import prompts from "../../prompts.json";
+
 async function getRepoFiles(repoUrl) {
   // Extract the owner and repo name from the URL.
   const regex = /github\.com\/([^\/]+)\/([^\/]+)/;
@@ -56,25 +58,26 @@ async function getRepoFiles(repoUrl) {
   return result;
 }
 
-// New function to get exam questions based on repoContents and learningGoals
+// Function to get exam questions based on repoContents and learningGoals
 export async function getRepoQuestions(repoUrl, learningGoals) {
   const repoContents = await getRepoFiles(repoUrl);
 
-  const prompt = `
-Given the following repository contents:
-${repoContents}
+  // Get the prompt template from prompts.json and replace variables
+  let promptTemplate = prompts.taskPrompts.repoQuestions;
+  let prompt = promptTemplate
+    .replace("${repoContents}", repoContents)
+    .replace("${learningGoals}", learningGoals);
 
-And the following learning goals:
-${learningGoals}
-Please provide a list of exam questions that cover the learning goals effectively. Some of the questions should refer to specific files. When referring to the files add the full path. Only answer with the questions
+  // Replace escaped newlines with actual newlines
+  prompt = prompt.replace(/\\n/g, "\n");
 
-It is an 9 minute exam.
-  `.trim();
+  // Get the system prompt from prompts.json
+  const systemPrompt = prompts.systemPrompts.githubRepoQuestions;
 
   const payload = {
     model: "gpt-4o",
     messages: [
-      { role: "system", content: "You are an exam examiner." },
+      { role: "system", content: systemPrompt },
       { role: "user", content: prompt },
     ],
   };

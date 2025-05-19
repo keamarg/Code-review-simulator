@@ -30,12 +30,11 @@ const LandingPage: React.FC = () => {
             <div className="md:flex md:items-center md:justify-between">
               <div className="md:w-1/2 md:pr-10">
                 <h1 className="text-3xl md:text-5xl font-bold text-white">
-                  Eksamenstræning der virker
+                  Code review træning der virker
                 </h1>
                 <p className="mt-4 text-xl text-blue-100">
-                  Træn din mundtlige eksamen med en AI du kan snakke med
+                  Træn dit code review med en AI du kan snakke med
                 </p>
-                
               </div>
               <div className="mt-10 md:mt-0 md:w-1/2">
                 <div className="relative mx-auto max-w-md">
@@ -143,10 +142,10 @@ const LandingPage: React.FC = () => {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
               <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Træn som til den rigtige eksamen
+                Træn som til et rigtigt code review
               </h2>
               <p className="mt-2 text-lg text-gray-600">
-                Forbered dig optimalt med realistiske eksamensforhold
+                Forbered dig optimalt med realistiske code review scenarier
               </p>
             </div>
             <div className="grid md:grid-cols-3 gap-8">
@@ -167,11 +166,11 @@ const LandingPage: React.FC = () => {
                   </svg>
                 </div>
                 <h3 className="font-semibold text-lg text-gray-900">
-                  Snak som i den rigtige eksamen
+                  Snak som i et rigtigt code review
                 </h3>
                 <p className="mt-2 text-gray-600">
-                  Del din skærm og gå til eksamen ved en AI censor der både
-                  forstår og udfordrer dig
+                  Del din skærm og gå til code review ved en AI reviewer der
+                  både forstår og udfordrer dig
                 </p>
               </div>
               <div className="bg-white p-6 rounded-lg shadow-md fade-in">
@@ -191,11 +190,11 @@ const LandingPage: React.FC = () => {
                   </svg>
                 </div>
                 <h3 className="font-semibold text-lg text-gray-900">
-                  Tilpasset dit pensum
+                  Tilpasset din kodebase
                 </h3>
                 <p className="mt-2 text-gray-600">
-                  Din underviser har oprettet en eksamen der minder så meget om
-                  den rigtige eksamen som muligt
+                  Din leder har oprettet et code review, der minder så meget om
+                  et rigtigt code review som muligt
                 </p>
               </div>
               <div className="bg-white p-6 rounded-lg shadow-md fade-in">
@@ -215,11 +214,11 @@ const LandingPage: React.FC = () => {
                   </svg>
                 </div>
                 <h3 className="font-semibold text-lg text-gray-900">
-                  Detaljeret feedback og karakter
+                  Detaljeret feedback og evaluering
                 </h3>
                 <p className="mt-2 text-gray-600">
-                  Få personlig feedback og en karakter og dermed lær af dine
-                  fejl for at forbedre din præstation.
+                  Få personlig feedback og en evaluering og lær af dine fejl for
+                  at forbedre din præstation.
                 </p>
               </div>
             </div>
@@ -237,13 +236,14 @@ const LandingPage: React.FC = () => {
               <path d="M9.352 4C4.456 7.456 1 13.12 1 19.36c0 5.088 3.072 8.064 6.624 8.064 3.36 0 5.856-2.688 5.856-5.856 0-3.168-2.208-5.472-5.088-5.472-.576 0-1.344.096-1.536.192.48-3.264 3.552-7.104 6.624-9.024L9.352 4zm16.512 0c-4.8 3.456-8.256 9.12-8.256 15.36 0 5.088 3.072 8.064 6.624 8.064 3.264 0 5.856-2.688 5.856-5.856 0-3.168-2.304-5.472-5.184-5.472-.576 0-1.248.096-1.44.192.48-3.264 3.456-7.104 6.528-9.024L25.864 4z" />
             </svg>
             <p className="text-xl md:text-2xl font-medium text-gray-900">
-              "Man kan jo bare snakke med AI'en! Det føles virkelig som at tage
-              den rigtige eksamen, men i trygge rammer, hvor ingen dømmer mig"
+              "Man kan jo bare snakke med AI'en! Det føles virkelig som at
+              deltage i et rigtigt code review, men i trygge rammer, hvor ingen
+              dømmer mig"
             </p>
             <div className="mt-6">
-              <p className="font-medium text-gray-900">Mette Andersen</p>
+              <p className="font-medium text-gray-900">Hansi Hansson</p>
               <p className="text-gray-600">
-                Datalogistuderende, Københavns Universitet
+                Softwareudvikler, Københavns Universitet
               </p>
             </div>
           </div>
@@ -253,11 +253,11 @@ const LandingPage: React.FC = () => {
         <section className="py-12 md:py-16 bg-blue-700 fade-in">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-2xl md:text-3xl font-bold text-white">
-              Klar til at forbedre din eksamensforberedelse?
+              Klar til at forbedre dine code review evner?
             </h2>
             <p className="mt-4 text-lg text-blue-100 max-w-2xl mx-auto">
-              Slut dig til over 10.000 danske studerende der allerede har
-              forbedret deres eksamensresultater.
+              Slut dig til over 10.000 danske udviklere der allerede har
+              forbedret deres code review resultater.
             </p>
             <div className="mt-8">
               <Link

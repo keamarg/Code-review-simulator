@@ -1,29 +1,35 @@
-import React, { useEffect, useState } from 'react';
-import { LightBulbIcon, PencilIcon, AcademicCapIcon } from '@heroicons/react/24/outline';
+import React, { useEffect, useState } from "react";
+import {
+  LightBulbIcon,
+  PencilIcon,
+  AcademicCapIcon,
+} from "@heroicons/react/24/outline";
 
 interface LoadingAnimationProps {
   isLoading: boolean;
 }
 
-export const LoadingAnimation: React.FC<LoadingAnimationProps> = ({ isLoading }) => {
+export const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
+  isLoading,
+}) => {
   const [activeIconIndex, setActiveIconIndex] = useState(0);
-  
+
   const icons = [
-    { component: LightBulbIcon},
+    { component: LightBulbIcon },
     { component: PencilIcon },
-    { component: AcademicCapIcon }
+    { component: AcademicCapIcon },
   ];
 
   useEffect(() => {
     if (!isLoading) return;
-    
+
     const interval = setInterval(() => {
-      setActiveIconIndex(prev => (prev + 1) % icons.length);
-    }, 1500); 
-    
+      setActiveIconIndex((prev) => (prev + 1) % icons.length);
+    }, 1500);
+
     return () => clearInterval(interval);
   }, [isLoading]);
-  
+
   if (!isLoading) return null;
 
   return (
@@ -32,23 +38,30 @@ export const LoadingAnimation: React.FC<LoadingAnimationProps> = ({ isLoading })
         {icons.map((icon, index) => {
           const Icon = icon.component;
           const isActive = index === activeIconIndex;
-          const isPrevious = (index === ((activeIconIndex - 1 + icons.length) % icons.length));
-          
+          const isPrevious =
+            index === (activeIconIndex - 1 + icons.length) % icons.length;
+
           return (
             <div
               key={index}
               className={`absolute top-0 left-0 w-full h-full transition-all duration-500 transform flex flex-col items-center
-                ${isActive ? 'opacity-100 translate-y-0' : 
-                  isPrevious ? 'opacity-0 -translate-y-full' : 'opacity-0 translate-y-full'}`}
+                ${
+                  isActive
+                    ? "opacity-100 translate-y-0"
+                    : isPrevious
+                    ? "opacity-0 -translate-y-full"
+                    : "opacity-0 translate-y-full"
+                }`}
             >
               <Icon className="w-16 h-16 text-blue-500" />
-              
             </div>
           );
         })}
       </div>
       <div className="mt-4">
-        <div className="text-sm text-gray-500">Preparing your exam content</div>
+        <div className="text-sm text-gray-500">
+          Forbereder dit code review indhold
+        </div>
       </div>
     </div>
   );

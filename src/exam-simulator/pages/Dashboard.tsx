@@ -126,7 +126,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                   />
                 </svg>
-                Rediger Eksamen
+                Rediger Code Review
               </Link>
             </div>
           )}
@@ -205,7 +205,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
               d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          Start Simulator
+          Start code review
         </Link>
       </div>
     </div>
@@ -231,11 +231,11 @@ const EmptyState = () => (
       </svg>
     </div>
     <h3 className="text-xl font-semibold text-gray-800 mb-2">
-      Ingen eksamener fundet.
+      Ingen code reviews fundet.
     </h3>
     <p className="text-gray-600 mb-6">
-      Opret din første eksamenssimulator for at komme i gang med at teste dine
-      studerende.
+      Opret dit første code review for at komme i gang med at teste dine
+      udviklere.
     </p>
     <Link
       to="/create"
@@ -254,7 +254,7 @@ const EmptyState = () => (
           d="M12 6v6m0 0v6m0-6h6m-6 0H6"
         />
       </svg>
-      Opret Din Første Simulator
+      Opret dit første code review
     </Link>
   </div>
 );
@@ -271,7 +271,7 @@ export default function Dashboard() {
       const { data: fetchedExamSimulators, error } = await supabase
         .from("exams")
         .select();
-        
+
       if (error) {
         console.error("Error fetching exams:", error);
         // Handle error appropriately, maybe show a message to the user
@@ -309,7 +309,7 @@ export default function Dashboard() {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-4 md:mb-0">
-              Dine Eksamener
+              Dine code reviews
             </h1>
           </div>
 
@@ -332,7 +332,7 @@ export default function Dashboard() {
               </div>
               <input
                 type="text"
-                placeholder="Søg i eksamener..."
+                placeholder="Søg i code reviews..."
                 className="pl-10 pr-4 py-2 w-full md:w-64 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}

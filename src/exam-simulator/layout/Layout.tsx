@@ -14,7 +14,7 @@ export default function Layout({ children }: LayoutProps) {
   const handleLogout = async () => {
     try {
       await signOut();
-      navigate('/');
+      navigate("/");
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -28,12 +28,12 @@ export default function Layout({ children }: LayoutProps) {
             to="/"
             className="text-2xl font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center"
           >
-            <img 
-              src={logo} 
-              alt="MinEksamen Logo" 
-              className="h-12 w-auto mr-4" 
+            <img
+              src={logo}
+              alt="CodeReview Logo"
+              className="h-12 w-auto mr-4"
             />
-            MinEksamen
+            CodeReview
           </Link>
           <nav>
             <ul className="flex space-x-6 items-center">
@@ -67,22 +67,22 @@ export default function Layout({ children }: LayoutProps) {
               )}
               {!user && (
                 <>
-                <li>
-                  <Link
-                    to="/login"
-                    className="text-gray-600 hover:text-gray-900"
-                  >
-                    Log ind
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/signup"
-                    className="text-gray-600 hover:text-gray-900"
-                  >
-                    Opret konto
-                  </Link>
-                </li>
+                  <li>
+                    <Link
+                      to="/login"
+                      className="text-gray-600 hover:text-gray-900"
+                    >
+                      Log ind
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/signup"
+                      className="text-gray-600 hover:text-gray-900"
+                    >
+                      Opret konto
+                    </Link>
+                  </li>
                 </>
               )}
             </ul>
@@ -94,13 +94,14 @@ export default function Layout({ children }: LayoutProps) {
 
       <footer className="bg-white py-4 shadow-inner">
         <div className="max-w-7xl mx-auto px-4 text-center text-gray-600">
-          Uddannelsesværktøj i beta. Kontakt{" "}
-          <a href="mailto:behu@kea.dk" className="underline">
-            Benjamin Hughes
+          Prototype i beta. Kontakt{" "}
+          <a href="mailto:marg@kea.dk" className="underline">
+            Martin Gundtoft
           </a>{" "}
-          for spørgsmål. 
-          <br/>
-          Giv feedback her: <a target="_blank" className="underline" href="https://forms.office.com/e/NpfLHm1gb6">https://forms.office.com/e/NpfLHm1gb6</a>
+          for spørgsmål (marg@kea.dk).
+          <br />
+          <br /> Baseret på https://github.com/behu-kea/exam-simulator af
+          Benjamin Hughes
         </div>
       </footer>
     </div>

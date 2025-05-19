@@ -131,7 +131,7 @@ export default function LivePage() {
         <div className="streaming-console max-w-2xl mx-auto flex flex-col">
           <div className="pt-10 pr-10 pl-10 mb-10 flex justify-center flex-col">
             <h1 className="mb-8 font-bold text-2xl text-black text-center">
-              Welcome to your {examSimulator.title} exam
+              Welcome to your {examSimulator.title} code review
             </h1>
 
             {/* Countdown timer for both exam types */}
