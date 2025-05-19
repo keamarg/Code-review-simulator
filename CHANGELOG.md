@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.9] - 2025-05-29
+
+### Fixed
+
+- Addressed AI behavior issues by thoroughly revising prompts
+- Fixed problem where AI would try to end reviews prematurely before the full time was used
+- Removed all references to grading and evaluation from prompts and templates
+- Changed AI instruction to focus more on direct feedback rather than asking excessive questions
+- Added explicit instructions to use the full allocated time for each review
+- Enhanced instruction components to emphasize specific, actionable feedback over theoretical questions
+- Replaced outdated grading scales with explicit instructions not to use grades
+
+## [0.11.8] - 2025-05-28
+
+### Fixed
+
+- Fixed duration calculation issue where 1 minute was incorrectly subtracted from the total duration
+- Updated AIExaminer and AIExaminerGithub components to use the correct full duration
+
+### Changed
+
+- Improved prompts to generate more concise responses from AI models
+- Limited task descriptions to approximately 150 words for better readability
+- Added explicit brevity instructions to system prompts
+- Enhanced repo questions prompt to generate more focused questions
+- Updated prompt templates to encourage direct, clear communication style
+
+## [0.11.7] - 2025-05-28
+
+### Fixed
+
+- Resolved 400 Bad Request error when creating code reviews
+- Updated data model to use existing database column names for backward compatibility
+- Reverted ExamSimulator type to use 'learning_goals' instead of 'developer_level'
+- Maintained developer level selection UI while adapting to existing database schema
+
+## [0.11.6] - 2025-05-28
+
+### Fixed
+
+- Fixed error when creating new code reviews by setting "intermediate" as the default developer level
+- Made developer level a required field in the code review form
+- Removed empty option from the developer level dropdown
+
+## [0.11.5] - 2025-05-28
+
+### Fixed
+
+- Fixed TypeScript error where 'learning_goals' property was referenced but no longer exists
+- Updated AIExaminerGithub.tsx to use developer_level instead of learning_goals
+- Updated getGithubRepoFiles.js to generate level-specific guidance based on developer_level
+- Improved GitHub repository UI with Tokyo Night theme styling
+- Changed text from "exam" to "code review" in the GitHub repository component
+
+## [0.11.4] - 2025-05-28
+
+### Changed
+
+- Updated the prompt system to use developer_level (junior, intermediate, senior) instead of learning_goals
+- Replaced grade criteria with level-specific code review guidance
+- Modified getExaminerQuestions.tsx to generate level-appropriate review focus areas
+- Updated prompt.js to provide tailored review guidance based on developer level
+- Added appropriate fallback content when description is not available
+
+## [0.11.3] - 2025-05-28
+
+### Changed
+
+- Improved code review creation process to focus on developer experience levels
+- Updated ExamSimulator data model to replace exam-specific fields with developer_level
+- Modified ExamEditor.tsx to show "Junior", "Intermediate", and "Senior" developer options
+- Removed learning goals, feedback, and typical questions fields from the code review form
+- Added explanatory text about how developer level influences review feedback
+- Streamlined the form to focus solely on code review aspects
+
 ## [0.11.2] - 2025-05-28
 
 ### Changed
@@ -20,11 +95,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Created a new custom SVG logo with code angle brackets and a backslash
-- Added colorful AI sparkle elements in theme colors to represent AI assistance
-- Replaced old imported PNG logo with an inline SVG for better scaling and theme consistency
-- Updated favicon to use the new logo design
-- Updated meta descriptions in index.html to better reflect the application purpose
+- Updated the API server URLs from `api-key-server-sigma.vercel.app` to `api-key-server-codereview.vercel.app`
+- Changed repository name in `package.json` homepage from `https://behu-kea.github.io/exam-simulator` to `https://keamarg.github.io/Code-review-simulator`
+
+### Added
+
+- Created this CHANGELOG.md file to track changes
+- Added AI-System-Documentation.md to document how the AI models are used in the system
+- Added 404.html for improved routing on GitHub Pages
+
+### Fixed
+
+- Addressed CORS issues for the OpenAI and Gemini API keys
 
 ## [0.11.0] - 2025-05-27
 

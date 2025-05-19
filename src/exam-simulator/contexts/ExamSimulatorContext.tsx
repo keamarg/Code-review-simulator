@@ -7,10 +7,7 @@ export type ExamSimulator = {
   description: string;
   type: string;
   duration: number;
-  grade_criteria: string;
-  feedback: string;
   learning_goals: string;
-  typical_questions: string;
   is_public: boolean;
   user_id: string;
 };

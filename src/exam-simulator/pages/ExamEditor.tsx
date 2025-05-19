@@ -33,13 +33,10 @@ export default function ExamEditor() {
   }, [examId]);
 
   const [title, setTitle] = useState(exam ? exam.title : "");
-  const [gradeCriteria, setGradeCriteria] = useState("");
-  const [feedback, setFeedback] = useState(exam ? exam.feedback : "");
+  const [developerLevel, setDeveloperLevel] = useState("intermediate");
   const [duration, setDuration] = useState<number>(8);
-  const [learningGoals, setLearningGoals] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState("Standard");
-  const [typicalQuestions, setTypicalQuestions] = useState("");
   const [is_public, setIsPublic] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [isToastVisible, setIsToastVisible] = useState(false);
@@ -49,13 +46,10 @@ export default function ExamEditor() {
   useEffect(() => {
     if (exam) {
       setTitle(exam.title || "");
-      setGradeCriteria(exam.grade_criteria || "");
-      setFeedback(exam.feedback || "");
+      setDeveloperLevel(exam.learning_goals || "intermediate");
       setDuration(!isNaN(Number(exam.duration)) ? Number(exam.duration) : 8);
-      setLearningGoals(exam.learning_goals || "");
       setDescription(exam.description || "");
       setType(exam.type || "Standard");
-      setTypicalQuestions(exam.typical_questions || "");
       setIsPublic(exam.is_public || false);
     }
   }, [exam]);
@@ -94,10 +88,7 @@ export default function ExamEditor() {
         description,
         type,
         duration,
-        grade_criteria: gradeCriteria,
-        feedback,
-        learning_goals: learningGoals,
-        typical_questions: typicalQuestions,
+        learning_goals: developerLevel,
         is_public,
         user_id: user.id,
       };
@@ -125,10 +116,7 @@ export default function ExamEditor() {
         description,
         type,
         duration,
-        grade_criteria: gradeCriteria,
-        feedback,
-        learning_goals: learningGoals,
-        typical_questions: typicalQuestions,
+        learning_goals: developerLevel,
         is_public,
         user_id: user.id,
       };
@@ -244,7 +232,7 @@ export default function ExamEditor() {
               />
             </div>
 
-            {/* Exam Task field */}
+            {/* Code Review Task field */}
             <div className="mb-6">
               <label className="block text-neutral-90 text-sm font-medium mb-2">
                 <div className="flex items-center">
@@ -261,7 +249,7 @@ export default function ExamEditor() {
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>
-                  Code Review Task
+                  Code review focus
                 </div>
               </label>
               <textarea
@@ -274,7 +262,7 @@ export default function ExamEditor() {
 
             {/* Two-column layout for dropdowns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Exam Type Dropdown */}
+              {/* Code Review Type Dropdown */}
               <div>
                 <label className="block text-neutral-90 text-sm font-medium mb-2">
                   <div className="flex items-center">
@@ -337,7 +325,7 @@ export default function ExamEditor() {
               </div>
             </div>
 
-            {/* Grade Criteria Dropdown */}
+            {/* Developer Level Dropdown */}
             <div className="mb-6">
               <label className="block text-neutral-90 text-sm font-medium mb-2">
                 <div className="flex items-center">
@@ -354,103 +342,23 @@ export default function ExamEditor() {
                       d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                     />
                   </svg>
-                  Evaluation Criteria
+                  Developer Experience Level
                 </div>
               </label>
               <select
-                value={gradeCriteria}
-                onChange={(e) => setGradeCriteria(e.target.value)}
+                value={developerLevel}
+                onChange={(e) => setDeveloperLevel(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors"
+                required
               >
-                <option value="">Select evaluation criteria</option>
-                <option value="no-grade">No evaluation</option>
-                <option value="7-skala">7-point scale</option>
-                <option value="bestået-ikke-bestået">Pass/fail</option>
+                <option value="junior">Junior Developer</option>
+                <option value="intermediate">Intermediate Developer</option>
+                <option value="senior">Senior Developer</option>
               </select>
-            </div>
-
-            {/* Feedback field */}
-            <div className="mb-6">
-              <label className="block text-neutral-90 text-sm font-medium mb-2">
-                <div className="flex items-center">
-                  <svg
-                    className="h-4 w-4 mr-2 text-neutral-60"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
-                    />
-                  </svg>
-                  Feedback
-                </div>
-              </label>
-              <textarea
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Enter feedback instructions"
-              />
-            </div>
-
-            {/* Learning Goals field */}
-            <div className="mb-6">
-              <label className="block text-neutral-90 text-sm font-medium mb-2">
-                <div className="flex items-center">
-                  <svg
-                    className="h-4 w-4 mr-2 text-neutral-60"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                  </svg>
-                  Learning Goals
-                </div>
-              </label>
-              <textarea
-                value={learningGoals}
-                onChange={(e) => setLearningGoals(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Enter learning goals"
-              />
-            </div>
-
-            {/* Typical Questions field */}
-            <div className="mb-6">
-              <label className="block text-neutral-90 text-sm font-medium mb-2">
-                <div className="flex items-center">
-                  <svg
-                    className="h-4 w-4 mr-2 text-neutral-60"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                    />
-                  </svg>
-                  Typical Questions
-                </div>
-              </label>
-              <textarea
-                value={typicalQuestions}
-                onChange={(e) => setTypicalQuestions(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Enter typical questions for the code review"
-              />
+              <p className="text-xs text-neutral-500 mt-1">
+                This will determine the depth and style of feedback provided
+                during the code review.
+              </p>
             </div>
 
             {/* Is Public Checkbox */}

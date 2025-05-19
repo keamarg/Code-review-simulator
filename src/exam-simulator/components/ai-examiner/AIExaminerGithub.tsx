@@ -43,16 +43,23 @@ function GithubRepoFunction({
 
   const examDurationInMinutes =
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
-  const examDurationActiveExam = examDurationInMinutes - 1;
+  const examDurationActiveExam = examDurationInMinutes;
 
   useEffect(() => {
     if (examIntentStarted) {
       const fetch = async () => {
-        setIsLoading(true)
-        
-        const githubQuestions = await getRepoQuestions(repoUrl, examSimulator.learning_goals)
-        
-        const prompt = getPrompt.github(examSimulator, examDurationActiveExam, githubQuestions);
+        setIsLoading(true);
+
+        const githubQuestions = await getRepoQuestions(
+          repoUrl,
+          examSimulator.learning_goals
+        );
+
+        const prompt = getPrompt.github(
+          examSimulator,
+          examDurationActiveExam,
+          githubQuestions
+        );
 
         // When the setConfig is called the config will be changed and that is tracked by the useEffect below
         setConfig({
@@ -72,8 +79,8 @@ function GithubRepoFunction({
           },
         });
 
-        setIsLoading(false)
-      }
+        setIsLoading(false);
+      };
 
       fetch();
     } else {
@@ -90,25 +97,30 @@ function GithubRepoFunction({
       // this is for the countdown timer
       if (onExamStarted) onExamStarted();
 
-      examTimers({ client, examDurationInMs: examDurationActiveExam * 60 * 1000 });
+      examTimers({
+        client,
+        examDurationInMs: examDurationActiveExam * 60 * 1000,
+      });
     }
   }, [config]);
 
   return (
     <div>
-        <div className="flex flex-col mb-12">
+      <div className="flex flex-col mb-12">
         <label className="mb-4" htmlFor="github-repo">
-          Insert your github repo here
+          Insert your GitHub repository URL
         </label>
         <input
           id="github-repo"
-          placeholder="Insert github repo"
-          className="border p-2 mb-4"
+          placeholder="GitHub repository URL"
+          className="border p-2 mb-4 rounded bg-tokyo-base border-tokyo-selection text-tokyo-fg"
           value={repoUrl}
           onChange={(e) => setRepoUrl(e.target.value)}
         />
         {isLoading && (
-          <p className="text-gray-500 text-center">Preparing your exam...</p>
+          <p className="text-tokyo-comment text-center">
+            Preparing your code review...
+          </p>
         )}
       </div>
     </div>

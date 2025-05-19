@@ -1,40 +1,77 @@
 import prompts from "../../prompts.json";
 
-function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
-  // Set the grading criteria based on the examSimulator settings
-  if (examSimulator.gradeCriteria === "7-skala") {
-    examSimulator.gradeCriteria = prompts.gradingScale["7-skala"];
-  } else if (examSimulator.gradeCriteria === "bestået-ikke-bestået") {
-    examSimulator.gradeCriteria = prompts.gradingScale["bestået-ikke-bestået"];
-  } else if (examSimulator.gradeCriteria === "no-grade") {
-    examSimulator.gradeCriteria = prompts.gradingScale["no-grade"];
-  }
+// Function to get level-specific review guidance
+function getLevelSpecificGuidance(level) {
+  switch (level) {
+    case "junior":
+      return `Focus on fundamental aspects like:
+- Code readability and clarity
+- Proper variable and function naming
+- Basic error handling approaches
+- Consistent code style and formatting
+- Simple design patterns and their implementation
+- Documentation and commenting practices
+- The code should be understandable and follow basic programming principles`;
 
+    case "intermediate":
+      return `Focus on intermediate-level aspects like:
+- Appropriate use of design patterns
+- Performance considerations and optimizations
+- Code reusability and modularity
+- Testing strategies and coverage
+- More advanced error handling approaches
+- API design principles
+- The code should demonstrate good practices and maintainable approaches`;
+
+    case "senior":
+      return `Focus on advanced aspects like:
+- Overall architecture and system design
+- Scalability considerations
+- Advanced design patterns and their implementation
+- Performance optimization techniques
+- Security best practices
+- Technical debt management
+- The code should demonstrate sophisticated approaches and architectural thinking`;
+
+    default:
+      return `Focus on general code quality aspects like:
+- Code structure and organization
+- Performance considerations
+- Best practices implementation
+- Readability and maintainability`;
+  }
+}
+
+function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
   // Use the standardExam template from prompts.json
   let prompt = prompts.mainPrompts.standardExam
     .replace("${examDurationActiveExam}", examDurationActiveExam)
     .replace(
-      '${examSimulator?.title || "exam"}',
-      examSimulator?.title || "exam"
+      '${examSimulator?.title || "code review"}',
+      examSimulator?.title || "code review"
     );
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
 
+  // Get developer level guidance
+  const levelGuidance = getLevelSpecificGuidance(
+    examSimulator.learning_goals || "intermediate"
+  );
+
   // Add the dynamic content
   prompt += `
     
-    The competencies you are examining are:
-    ${examSimulator.learningGoals}
+    The code review should focus on the following areas:
+    ${levelGuidance}
     
-    Here is how you should grade the exam:
-    Remember: You can only evaluate on what the student did during the exam.
-    ${examSimulator.gradeCriteria}
+    Additional context about the code being reviewed:
+    ${
+      examSimulator.description ||
+      "This is a general code review focusing on the areas specified above."
+    }
     
-    Here is how you should give feedback:
-    ${examSimulator.feedback}
-    
-    Here is the task the student should do in the exam. This task will be shown to the student
+    Here is the task that will be shown to the developer being reviewed:
     """
     ${studentTask}
     """
@@ -48,9 +85,13 @@ function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
   prompt += guidelines;
 
   prompt += `
-    And remember most importantly! You are an examiner running an exam. Your goal is to evaluate the students competencies throughly. Dont take the students word for something! Make sure the syntax is correct and that the student understands the code!
-
-    Spend time on making sure the syntax is correct!!
+    Remember that you're reviewing code for a ${
+      examSimulator.learning_goals || "intermediate"
+    } level developer, so adjust your feedback and questioning style accordingly.
+    
+    For a junior developer: Be more supportive, educational, and focus on fundamentals.
+    For an intermediate developer: Balance support with higher expectations, focus on design patterns and best practices.
+    For a senior developer: Be direct and thorough, challenge architectural decisions, and discuss advanced concepts.
     `;
 
   return prompt;
@@ -61,52 +102,47 @@ function getGithubPrompt(
   examDurationActiveExam,
   githubQuestions
 ) {
-  // Set the grading criteria based on the examSimulator settings
-  if (examSimulator.gradeCriteria === "7-skala") {
-    examSimulator.gradeCriteria = prompts.gradingScale["7-skala"];
-  } else if (examSimulator.gradeCriteria === "bestået-ikke-bestået") {
-    examSimulator.gradeCriteria = prompts.gradingScale["bestået-ikke-bestået"];
-  } else if (examSimulator.gradeCriteria === "no-grade") {
-    examSimulator.gradeCriteria = prompts.gradingScale["no-grade"];
-  }
-
   // Use the githubExam template from prompts.json
   let prompt = prompts.mainPrompts.githubExam
     .replace("${examDurationActiveExam}", examDurationActiveExam)
     .replace(
-      '${examSimulator?.title || "exam"}',
-      examSimulator?.title || "exam"
+      '${examSimulator?.title || "code review"}',
+      examSimulator?.title || "code review"
     );
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
 
+  // Get developer level guidance
+  const levelGuidance = getLevelSpecificGuidance(
+    examSimulator.learning_goals || "intermediate"
+  );
+
   // Add the dynamic content
   prompt += `
 
-The competencies you are examining are:
-${examSimulator.learningGoals}
+The code review should focus on the following areas:
+${levelGuidance}
 
-Here is how you should grade the exam:
-${examSimulator.gradeCriteria}
-
-Here is how you should give feedback:
-${examSimulator.feedback}
-
-Here is the task for the exam:
-${examSimulator.task}
+Additional context about the code being reviewed:
+${
+  examSimulator.description ||
+  "This is a general code review focusing on the areas specified above."
+}
 
 Prepared Questions:
 ${githubQuestions}
 
-Important notes about conducting the exam:
-You dont have time to evaluate all learning goals so pick some of them and ask about that.
-- Ask about the student's thinking, encourage them to think aloud.
-- Examine if the student understands the code he/she is writing.
-- Please never explain what code is doing. You are running an exam so you need to focus on evaluating the students' competencies.
-- Dont say what the student have done. Just say things like: "that looks good"
-- If the student is doing well ask harder questions. If the student is struggling ask easier questions.
-- If the student is stuck, give hints to help the student move forward.`;
+Important notes about conducting the code review:
+- Remember you're reviewing code for a ${
+    examSimulator.learning_goals || "intermediate"
+  } level developer
+- Ask about the developer's reasoning and design choices
+- Focus on constructive feedback that helps improve the code
+- Acknowledge good approaches before suggesting improvements
+- Dive into relevant details but maintain a big-picture view
+- If the developer is stuck, offer guidance appropriate to their level
+- Remember that this is a collaborative review, not an interrogation`;
 
   return prompt;
 }

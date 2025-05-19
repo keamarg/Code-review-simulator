@@ -1,5 +1,44 @@
 import prompts from "../../prompts.json";
 
+// Function to get level-specific guidance for repo questions
+function getLevelSpecificGuidance(level) {
+  switch (level) {
+    case "junior":
+      return `Focus on reviewing fundamental aspects of the code:
+- Code readability and clarity
+- Naming conventions and consistency
+- Basic error handling approaches
+- Code organization and structure
+- Documentation and commenting practices
+- Simple design patterns implementation`;
+
+    case "intermediate":
+      return `Focus on reviewing intermediate aspects of the code:
+- Appropriate use of design patterns
+- Performance considerations
+- Code reusability and modularity
+- Testing approaches
+- Error handling strategies
+- API design principles`;
+
+    case "senior":
+      return `Focus on reviewing advanced aspects of the code:
+- Architecture and system design
+- Scalability considerations
+- Advanced design patterns
+- Performance optimization techniques
+- Security best practices
+- Code maintainability and technical debt`;
+
+    default:
+      return `Focus on general code quality aspects:
+- Code structure and organization
+- Readability and maintainability
+- Best practices implementation
+- Performance considerations`;
+  }
+}
+
 async function getRepoFiles(repoUrl) {
   // Extract the owner and repo name from the URL.
   const regex = /github\.com\/([^\/]+)\/([^\/]+)/;
@@ -58,15 +97,20 @@ async function getRepoFiles(repoUrl) {
   return result;
 }
 
-// Function to get exam questions based on repoContents and learningGoals
-export async function getRepoQuestions(repoUrl, learningGoals) {
+// Function to get exam questions based on repoContents and developer level
+export async function getRepoQuestions(repoUrl, developerLevel) {
   const repoContents = await getRepoFiles(repoUrl);
+
+  // Get level-specific guidance based on developer level
+  const levelGuidance = getLevelSpecificGuidance(
+    developerLevel || "intermediate"
+  );
 
   // Get the prompt template from prompts.json and replace variables
   let promptTemplate = prompts.taskPrompts.repoQuestions;
   let prompt = promptTemplate
     .replace("${repoContents}", repoContents)
-    .replace("${learningGoals}", learningGoals);
+    .replace("${learningGoals}", levelGuidance);
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
@@ -101,7 +145,7 @@ export async function getRepoQuestions(repoUrl, learningGoals) {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch exam questions: ${response.status}`);
+    throw new Error(`Failed to fetch review questions: ${response.status}`);
   }
 
   const data = await response.json();

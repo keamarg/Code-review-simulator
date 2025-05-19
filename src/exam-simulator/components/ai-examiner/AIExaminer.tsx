@@ -44,7 +44,7 @@ function AIExaminerFunction({
 
   const examDurationInMinutes =
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
-  const examDurationActiveExam = examDurationInMinutes - 1;
+  const examDurationActiveExam = examDurationInMinutes;
 
   const prepareExam = async () => {
     if (!examSimulator) return;
