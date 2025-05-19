@@ -26,7 +26,7 @@ A modern application that helps students prepare for oral exams by simulating re
 
 1. Clone this repository to your local machine
    ```bash
-   git clone https://github.com/behu-kea/Exam-simulator.git
+   git clone https://github.com/keamarg/Code-review-simulator.git
    cd multimodal-exam-simulator
    ```
 2. Get a Google Gemini API key and an OpenAI key

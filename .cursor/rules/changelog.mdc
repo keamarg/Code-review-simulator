@@ -1,0 +1,29 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## Changelog Management
+- Maintain or update a CHANGELOG.md file after each completed task.
+- Create CHANGELOG.md if it does not exist.
+- Follow Semantic Versioning 2.0.0 with this structure:
+
+    - [MAJOR.MINOR.PATCH] - YYYY-MM-DD
+ - Increment the version based on change type:
+    - MAJOR for breaking changes
+    - MINOR for new features
+    - PATCH for bug fixes or small improvements
+### Added
+- New features
+
+### Changed
+- Updates or improvements
+
+### Fixed
+- Bug fixes
+   
+
+### Example Changelog Entry
+[1.2.0] - 2025-05-12
+Added
+- LoginForm component with SCSS styling and email validation

@@ -33,7 +33,8 @@ const SignUp = () => {
         email: formData.email,
         password: formData.password,
         options: {
-            emailRedirectTo: "https://behu-kea.github.io/exam-simulator/login",
+          emailRedirectTo:
+            "https://keamarg.github.io/Code-review-simulator/login",
           data: {
             full_name: formData.fullName,
             school: formData.school,
