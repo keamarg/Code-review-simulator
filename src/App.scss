@@ -1,69 +1,107 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap");
+
 :root {
-  --text: white;
-  --gray-200: #b4b8bb;
-  --gray-300: #80868b;
-  --gray-500: #5f6368;
-  --gray-600: #444444;
-  --gray-700: #202020;
-  --gray-800: #171717;
-  --gray-900: #111111;
-  --gray-1000: #0a0a0a;
-  --border-stroke: #444444;
-  --accent-blue: rgb(161, 228, 242);
-  --accent-blue-active-bg: #001233;
-  --accent-blue-active: #98beff;
-  --accent-blue-headers: #448dff;
-  --accent-green: rgb(168, 218, 181);
+  /* Tokyo Night Theme Colors */
+  --tokyo-bg: #1a1b26;
+  --tokyo-bg-lighter: #24283b;
+  --tokyo-bg-lightest: #2f334d;
+  --tokyo-fg: #a9b1d6;
+  --tokyo-fg-bright: #c0caf5;
+  --tokyo-fg-brightest: #d5ddfb;
+  --tokyo-comment: #565f89;
+  --tokyo-selection: #28344a;
+  --tokyo-accent: #7aa2f7;
+  --tokyo-accent-darker: #3d59a1;
+  --tokyo-accent-lighter: #7dcfff;
+  --tokyo-green: #9ece6a;
+  --tokyo-red: #f7768e;
+  --tokyo-orange: #ff9e64;
+  --tokyo-yellow: #e0af68;
+  --tokyo-purple: #bb9af7;
+  --tokyo-cyan: #2ac3de;
 
-  --midnight-blue: rgb(0, 18, 51);
-  --blue-30: #99beff;
+  /* Legacy variables kept for compatibility */
+  --text: var(--tokyo-fg-bright);
+  --gray-200: #9aa5ce;
+  --gray-300: #787c99;
+  --gray-500: #565f89;
+  --gray-600: #414868;
+  --gray-700: #343b58;
+  --gray-800: #292e42;
+  --gray-900: #1f2335;
+  --gray-1000: #16161e;
+  --border-stroke: #414868;
 
-  --accent-red: #ff4600;
+  --accent-blue: var(--tokyo-accent-lighter);
+  --accent-blue-active-bg: #364a82;
+  --accent-blue-active: var(--tokyo-accent);
+  --accent-blue-headers: var(--tokyo-accent);
+  --accent-green: var(--tokyo-green);
 
-  --background: var(--);
-  --color: var(--text);
+  --midnight-blue: #1e2030;
+  --blue-30: var(--tokyo-accent);
+
+  --accent-red: var(--tokyo-red);
+
+  --background: var(--tokyo-bg);
+  --color: var(--tokyo-fg-bright);
 
   scrollbar-width: thin;
 
-  --font-family: "Space Mono", monospace;
+  --font-family: "JetBrains Mono", "Space Mono", monospace;
 
-  /* */
-  --Neutral-00: #000;
-  --Neutral-5: #181a1b;
-  --Neutral-10: #1c1f21;
-  --Neutral-15: #232729;
-  --Neutral-20: #2a2f31;
-  --Neutral-30: #404547;
-  --Neutral-50: #707577;
-  --Neutral-60: #888d8f;
-  --Neutral-80: #c3c6c7;
-  --Neutral-90: #e1e2e3;
+  /* Mapping Tokyo Night to Neutral palette */
+  --Neutral-00: #16161e;
+  --Neutral-5: #1a1b26;
+  --Neutral-10: #1f2335;
+  --Neutral-15: #24283b;
+  --Neutral-20: #292e42;
+  --Neutral-30: #414868;
+  --Neutral-50: #565f89;
+  --Neutral-60: #787c99;
+  --Neutral-80: #9aa5ce;
+  --Neutral-90: #c0caf5;
 
-  --Green-500: #0d9c53;
-  --Green-700: #025022;
+  --Green-500: #9ece6a;
+  --Green-700: #73a747;
 
-  --Blue-500: #1f94ff;
-  --Blue-800: #0f3557;
+  --Blue-500: #7aa2f7;
+  --Blue-800: #3d59a1;
 
-  --Red-400: #ff9c7a;
-  --Red-500: #ff4600;
-  --Red-600: #e03c00;
-  --Red-700: #bd3000;
+  --Red-400: #ff9e9e;
+  --Red-500: #f7768e;
+  --Red-600: #db5d75;
+  --Red-700: #bf4358;
 }
 
 body {
-  font-family: "Space Mono", monospace;
-  background: var(--Neutral-30);
+  font-family: var(--font-family);
+  background: var(--tokyo-bg);
+  color: var(--tokyo-fg-bright);
 }
 
 .material-symbols-outlined {
   &.filled {
-    font-variation-settings:
-      "FILL" 1,
-      "wght" 400,
-      "GRAD" 0,
-      "opsz" 24;
+    font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
   }
+}
+
+.jetbrains-mono {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.jetbrains-mono-bold {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.jetbrains-mono-italic {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 400;
+  font-style: italic;
 }
 
 .space-mono-regular {
@@ -110,16 +148,36 @@ body {
   flex-direction: column;
 }
 
-@media (prefers-reduced-motion: no-preference) {}
+/* Dark Theme Classes */
+.bg-neutral-dark {
+  background-color: var(--tokyo-bg);
+  color: var(--tokyo-fg-bright);
+}
+
+.card-dark {
+  background-color: var(--tokyo-bg-lighter);
+  color: var(--tokyo-fg-bright);
+  border-color: var(--tokyo-selection);
+}
+
+.text-dark {
+  color: var(--tokyo-fg-bright);
+}
+
+.border-dark {
+  border-color: var(--tokyo-selection);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+}
 
 .streaming-console {
-  
-  color: var(--gray-300);
+  color: var(--tokyo-fg);
 
   a,
   a:visited,
   a:active {
-    color: var(--gray-300);
+    color: var(--tokyo-accent);
   }
 
   main {
@@ -156,4 +214,31 @@ body {
   max-width: 90%;
   border-radius: 32px;
   max-height: fit-content;
+}
+
+/* Ghost animation for dark theme */
+@keyframes ghostPulse {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
+.ghost-line-dark {
+  height: 16px;
+  background-color: var(--tokyo-selection);
+  border-radius: 4px;
+  margin-bottom: 12px;
+  animation: ghostPulse 1.5s infinite ease-in-out;
+}
+
+.ghost-line-title-dark {
+  height: 24px;
+  width: 60%;
+  background-color: var(--tokyo-selection);
 }

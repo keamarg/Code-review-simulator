@@ -46,7 +46,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
 
   return (
     <div
-      className={`relative p-5 bg-white rounded-lg shadow-md transition-all duration-200 flex flex-col justify-between h-full border border-gray-100 ${
+      className={`relative p-5 bg-tokyo-bg-lighter rounded-lg shadow-md transition-all duration-200 flex flex-col justify-between h-full border border-tokyo-selection ${
         isHovered ? "shadow-lg transform -translate-y-1" : ""
       }`}
       onMouseEnter={() => setIsHovered(true)}
@@ -55,7 +55,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
       {/* Card Header with Title and Menu */}
       <div className="flex justify-between items-start mb-3">
         <Link to={`/exam?id=${sim.id}`} className="group">
-          <h2 className="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+          <h2 className="text-xl font-bold text-tokyo-fg-bright group-hover:text-tokyo-accent transition-colors">
             {sim.title}
           </h2>
         </Link>
@@ -67,11 +67,11 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
               e.stopPropagation();
               setMenuOpen(!menuOpen);
             }}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+            className="p-2 rounded-full hover:bg-tokyo-bg-lightest transition-colors cursor-pointer"
             aria-label="Menu"
           >
             <svg
-              className="h-5 w-5 text-gray-500"
+              className="h-5 w-5 text-tokyo-comment"
               viewBox="0 0 24 24"
               strokeWidth="2"
               stroke="currentColor"
@@ -88,10 +88,10 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
 
           {/* Dropdown Menu */}
           {menuOpen && (
-            <div className="absolute top-full right-0 mt-1 bg-white border rounded-md shadow-lg z-10 w-48 py-1 overflow-hidden">
+            <div className="absolute top-full right-0 mt-1 bg-tokyo-bg-lighter border border-tokyo-selection rounded-md shadow-lg z-10 w-48 py-1 overflow-hidden">
               <button
                 onClick={handleCopyLink}
-                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors cursor-pointer"
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-tokyo-fg hover:bg-tokyo-selection transition-colors cursor-pointer"
               >
                 <svg
                   className="h-4 w-4 mr-2"
@@ -110,7 +110,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
               </button>
               <Link
                 to={`/exam?id=${sim.id}`}
-                className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-tokyo-fg hover:bg-tokyo-selection transition-colors"
                 onClick={() => setMenuOpen(false)}
               >
                 <svg
@@ -136,12 +136,12 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
       {/* Card Content */}
       <div className="flex-grow">
         {/* Task Description */}
-        <p className="text-gray-600 line-clamp-3 mb-3">{sim.description}</p>
+        <p className="text-tokyo-fg line-clamp-3 mb-3">{sim.description}</p>
 
         {/* Exam Details */}
         <div className="flex flex-wrap gap-3 mb-4">
           {sim.duration > 0 && (
-            <div className="flex items-center text-sm text-gray-500">
+            <div className="flex items-center text-sm text-tokyo-comment">
               <svg
                 className="h-4 w-4 mr-1"
                 fill="none"
@@ -160,7 +160,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
           )}
 
           {sim.type && (
-            <div className="flex items-center text-sm text-gray-500">
+            <div className="flex items-center text-sm text-tokyo-comment">
               <svg
                 className="h-4 w-4 mr-1"
                 fill="none"
@@ -181,10 +181,10 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
       </div>
 
       {/* Card Actions */}
-      <div className="mt-auto pt-3 border-t border-gray-100">
+      <div className="mt-auto pt-3 border-t border-tokyo-selection">
         <Link
           to={`/live?id=${sim.id}`}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white text-center py-2 px-4 rounded-md transition-colors flex items-center justify-center"
+          className="w-full bg-tokyo-accent hover:bg-tokyo-accent-darker text-white text-center py-2 px-4 rounded-md transition-colors flex items-center justify-center"
         >
           <svg
             className="h-5 w-5 mr-2"
@@ -214,10 +214,10 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
 
 // Empty state component
 const EmptyState = () => (
-  <div className="bg-white rounded-lg shadow-md p-8 text-center max-w-md mx-auto">
+  <div className="bg-tokyo-bg-lighter rounded-lg shadow-md p-8 text-center max-w-md mx-auto border border-tokyo-selection">
     <div className="mb-6 flex justify-center">
       <svg
-        className="h-24 w-24 text-gray-300"
+        className="h-24 w-24 text-tokyo-comment"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -230,16 +230,16 @@ const EmptyState = () => (
         />
       </svg>
     </div>
-    <h3 className="text-xl font-semibold text-gray-800 mb-2">
+    <h3 className="text-xl font-semibold text-tokyo-fg-bright mb-2">
       Ingen code reviews fundet.
     </h3>
-    <p className="text-gray-600 mb-6">
+    <p className="text-tokyo-fg mb-6">
       Opret dit første code review for at komme i gang med at teste dine
       udviklere.
     </p>
     <Link
       to="/create"
-      className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-md transition-colors shadow-md"
+      className="inline-flex items-center justify-center bg-tokyo-accent hover:bg-tokyo-accent-darker text-white py-3 px-6 rounded-md transition-colors shadow-md"
     >
       <svg
         className="h-5 w-5 mr-2"
@@ -308,7 +308,7 @@ export default function Dashboard() {
         {/* Dashboard Header */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4 md:mb-0">
+            <h1 className="text-3xl font-bold text-tokyo-fg-bright mb-4 md:mb-0">
               Dine code reviews
             </h1>
           </div>
@@ -317,7 +317,7 @@ export default function Dashboard() {
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg
-                  className="h-5 w-5 text-gray-400"
+                  className="h-5 w-5 text-tokyo-comment"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -333,7 +333,7 @@ export default function Dashboard() {
               <input
                 type="text"
                 placeholder="Søg i code reviews..."
-                className="pl-10 pr-4 py-2 w-full md:w-64 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="pl-10 pr-4 py-2 w-full md:w-64 border border-tokyo-selection bg-tokyo-bg-lighter text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -355,14 +355,14 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-md p-8 text-center">
-                <p className="text-gray-600">
+              <div className="bg-tokyo-bg-lighter rounded-lg shadow-md p-8 text-center border border-tokyo-selection">
+                <p className="text-tokyo-fg">
                   Ingen simulatorer matcher din søgning. Prøv et andet søgeord
                   eller ryd din søgning.
                 </p>
                 <button
                   onClick={() => setSearchTerm("")}
-                  className="mt-4 text-blue-600 hover:text-blue-800 font-medium"
+                  className="mt-4 text-tokyo-accent hover:text-tokyo-accent-lighter font-medium"
                 >
                   Ryd Søgning
                 </button>
@@ -376,7 +376,7 @@ export default function Dashboard() {
         {/* Mobile Create Button */}
         <Link
           to="/create"
-          className="md:hidden fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-colors"
+          className="md:hidden fixed bottom-6 right-6 bg-tokyo-accent hover:bg-tokyo-accent-darker text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-colors"
           aria-label="Create new simulator"
         >
           <svg
@@ -396,12 +396,12 @@ export default function Dashboard() {
 
         {/* Toast Notification */}
         <div
-          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white py-3 px-6 rounded-lg shadow-lg z-50 flex items-center transition-opacity duration-300 ${
+          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-tokyo-bg-lightest text-tokyo-fg-bright py-3 px-6 rounded-lg shadow-lg z-50 flex items-center transition-opacity duration-300 ${
             isToastVisible ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
         >
           <svg
-            className="h-5 w-5 text-green-400 mr-2"
+            className="h-5 w-5 text-tokyo-green mr-2"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"

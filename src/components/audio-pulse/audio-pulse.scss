@@ -6,7 +6,7 @@
   transition: all 0.5s;
 
   & > div {
-    background-color: black;
+    background-color: var(--tokyo-accent-lighter, #7dcfff);
     border-radius: 1000px;
     width: 4px;
     min-height: 4px;
@@ -25,7 +25,7 @@
     opacity: 1;
 
     & > div {
-      background-color: black;
+      background-color: var(--tokyo-accent-lighter, #7dcfff);
     }
   }
 }

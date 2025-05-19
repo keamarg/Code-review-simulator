@@ -9,10 +9,10 @@ const SignUp = () => {
     fullName: "",
     email: "",
     password: "",
-    school: "",
-    educationName: "",
-    semester: "",
-    isStudent: false,
+    organization: "",
+    role: "",
+    experience: "",
+    isDeveloper: false,
   });
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -37,10 +37,10 @@ const SignUp = () => {
             "https://keamarg.github.io/Code-review-simulator/login",
           data: {
             full_name: formData.fullName,
-            school: formData.school,
-            education_name: formData.educationName,
-            semester: formData.semester,
-            is_student: formData.isStudent,
+            organization: formData.organization,
+            role: formData.role,
+            experience: formData.experience,
+            is_developer: formData.isDeveloper,
           },
         },
       });
@@ -54,34 +54,37 @@ const SignUp = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-lg shadow-md">
+      <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8 bg-tokyo-bg-lighter p-10 rounded-lg shadow-md border border-tokyo-selection">
           <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Opret en konto
+            <h2 className="mt-6 text-center text-3xl font-extrabold text-tokyo-fg-bright">
+              Create an account
             </h2>
+            <p className="mt-2 text-center text-sm text-tokyo-comment">
+              Join our research project to help improve code review learning
+            </p>
           </div>
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             <input type="hidden" name="remember" defaultValue="true" />
             <div className="rounded-md shadow-sm -space-y-px">
               <div>
                 <label htmlFor="fullName" className="sr-only">
-                  Fulde navn
+                  Full name
                 </label>
                 <input
                   id="fullName"
                   name="fullName"
                   type="text"
                   required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Fulde navn"
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-tokyo-selection bg-tokyo-bg-lightest placeholder-tokyo-comment text-tokyo-fg-bright rounded-t-md focus:outline-none focus:ring-tokyo-accent focus:border-tokyo-accent focus:z-10 sm:text-sm"
+                  placeholder="Full name"
                   onChange={handleChange}
                   value={formData.fullName}
                 />
               </div>
               <div>
                 <label htmlFor="email-address" className="sr-only">
-                  Email adresse
+                  Email address
                 </label>
                 <input
                   id="email-address"
@@ -89,15 +92,15 @@ const SignUp = () => {
                   type="email"
                   autoComplete="email"
                   required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Email adresse"
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-tokyo-selection bg-tokyo-bg-lightest placeholder-tokyo-comment text-tokyo-fg-bright focus:outline-none focus:ring-tokyo-accent focus:border-tokyo-accent focus:z-10 sm:text-sm"
+                  placeholder="Email address"
                   onChange={handleChange}
                   value={formData.email}
                 />
               </div>
               <div>
                 <label htmlFor="password" className="sr-only">
-                  Adgangskode
+                  Password
                 </label>
                 <input
                   id="password"
@@ -105,89 +108,95 @@ const SignUp = () => {
                   type="password"
                   autoComplete="new-password"
                   required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Adgangskode"
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-tokyo-selection bg-tokyo-bg-lightest placeholder-tokyo-comment text-tokyo-fg-bright focus:outline-none focus:ring-tokyo-accent focus:border-tokyo-accent focus:z-10 sm:text-sm"
+                  placeholder="Password"
                   onChange={handleChange}
                   value={formData.password}
                 />
               </div>
               <div>
-                <label htmlFor="school" className="sr-only">
-                  Skole (Fx KEA eller DTU)
+                <label htmlFor="organization" className="sr-only">
+                  Organization (Company or University)
                 </label>
                 <input
-                  id="school"
-                  name="school"
+                  id="organization"
+                  name="organization"
                   type="text"
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Skole (Fx KEA eller DTU)"
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-tokyo-selection bg-tokyo-bg-lightest placeholder-tokyo-comment text-tokyo-fg-bright focus:outline-none focus:ring-tokyo-accent focus:border-tokyo-accent focus:z-10 sm:text-sm"
+                  placeholder="Organization (Company or University)"
                   onChange={handleChange}
-                  value={formData.school}
+                  value={formData.organization}
                 />
               </div>
               <div>
-                <label htmlFor="educationName" className="sr-only">
-                  Uddannelsesnavn (Fx Datamatiker)
+                <label htmlFor="role" className="sr-only">
+                  Role (e.g. Developer, Student)
                 </label>
                 <input
-                  id="educationName"
-                  name="educationName"
+                  id="role"
+                  name="role"
                   type="text"
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Uddannelsesnavn (Fx Datamatiker)"
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-tokyo-selection bg-tokyo-bg-lightest placeholder-tokyo-comment text-tokyo-fg-bright focus:outline-none focus:ring-tokyo-accent focus:border-tokyo-accent focus:z-10 sm:text-sm"
+                  placeholder="Role (e.g. Developer, Student)"
                   onChange={handleChange}
-                  value={formData.educationName}
+                  value={formData.role}
                 />
               </div>
               <div>
-                <label htmlFor="semester" className="sr-only">
-                  Semester
+                <label htmlFor="experience" className="sr-only">
+                  Years of experience
                 </label>
                 <input
-                  id="semester"
-                  name="semester"
+                  id="experience"
+                  name="experience"
                   type="number"
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                  placeholder="Semester"
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-tokyo-selection bg-tokyo-bg-lightest placeholder-tokyo-comment text-tokyo-fg-bright rounded-b-md focus:outline-none focus:ring-tokyo-accent focus:border-tokyo-accent focus:z-10 sm:text-sm"
+                  placeholder="Years of experience"
                   onChange={handleChange}
-                  value={formData.semester}
+                  value={formData.experience}
                 />
               </div>
             </div>
 
             <div className="flex items-center">
               <input
-                id="isStudent"
-                name="isStudent"
+                id="isDeveloper"
+                name="isDeveloper"
                 type="checkbox"
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                checked={formData.isStudent}
+                className="h-4 w-4 text-tokyo-accent focus:ring-tokyo-accent-lighter border-tokyo-selection rounded bg-tokyo-bg-lightest"
+                checked={formData.isDeveloper}
                 onChange={handleChange}
               />
               <label
-                htmlFor="isStudent"
-                className="ml-2 block text-sm text-gray-900"
+                htmlFor="isDeveloper"
+                className="ml-2 block text-sm text-tokyo-fg"
               >
-                Er du studerende?
+                I am a professional developer
               </label>
             </div>
 
             <div>
+              <p className="text-sm text-tokyo-comment mb-4">
+                By signing up, you agree to participate in our research. Your
+                data will be used solely for research purposes.
+              </p>
               <button
                 type="submit"
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer"
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-tokyo-accent hover:bg-tokyo-accent-darker focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-tokyo-accent-lighter cursor-pointer"
               >
-                Opret konto
+                Create account
               </button>
             </div>
           </form>
           <div className="text-sm text-center">
-            <span className="text-gray-600">Har du allerede en konto? </span>
+            <span className="text-tokyo-comment">
+              Already have an account?{" "}
+            </span>
             <Link
-              to="/login" // Changed link to /login
-              className="font-medium text-blue-600 hover:text-blue-500"
+              to="/login"
+              className="font-medium text-tokyo-accent hover:text-tokyo-accent-lighter"
             >
-              Log ind
+              Sign in
             </Link>
           </div>
         </div>

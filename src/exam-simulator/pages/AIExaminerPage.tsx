@@ -110,7 +110,9 @@ export default function LivePage() {
   if (error) {
     return (
       <Layout>
-        <div>Error loading configuration: {error}</div>
+        <div className="text-tokyo-fg-bright">
+          Error loading configuration: {error}
+        </div>
       </Layout>
     );
   }
@@ -130,8 +132,8 @@ export default function LivePage() {
       <LiveAPIProvider url={uri} apiKey={geminiApiKey}>
         <div className="streaming-console max-w-2xl mx-auto flex flex-col">
           <div className="pt-10 pr-10 pl-10 mb-10 flex justify-center flex-col">
-            <h1 className="mb-8 font-bold text-2xl text-black text-center">
-              Welcome to your {examSimulator.title} code review
+            <h1 className="mb-8 font-bold text-2xl text-tokyo-fg-bright text-center">
+              Welcome to your {examSimulator?.title} code review
             </h1>
 
             {/* Countdown timer for both exam types */}
@@ -141,7 +143,7 @@ export default function LivePage() {
               startTrigger={examStarted}
             />
 
-            {examSimulator.type === "Github Repo" ? (
+            {examSimulator?.type === "Github Repo" ? (
               <GithubRepo
                 examSimulator={examSimulator}
                 onExamStarted={handleExamStarted}

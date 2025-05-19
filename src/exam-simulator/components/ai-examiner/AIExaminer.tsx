@@ -41,7 +41,7 @@ function AIExaminerFunction({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { client, setConfig, connected, connect, config } = useLiveAPIContext();
   console.log(333);
-  
+
   const examDurationInMinutes =
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
   const examDurationActiveExam = examDurationInMinutes - 1;
@@ -51,11 +51,17 @@ function AIExaminerFunction({
 
     try {
       const examContent = await getExaminerQuestions(examSimulator);
-      const studentTaskAnswer = examContent["task-student"]
+      const studentTaskAnswer = examContent["task-student"];
       console.log(studentTaskAnswer);
-      
-      setPrompt(getPrompt.standard(examSimulator, examDurationActiveExam, studentTaskAnswer));
-    
+
+      setPrompt(
+        getPrompt.standard(
+          examSimulator,
+          examDurationActiveExam,
+          studentTaskAnswer
+        )
+      );
+
       setStudentTask(studentTaskAnswer || "");
 
       /* setIsLoading(false); */
@@ -90,7 +96,7 @@ function AIExaminerFunction({
   }, [examIntentStarted]);
 
   useEffect(() => {
-    if(!prompt) prepareExam();
+    if (!prompt) prepareExam();
   });
 
   useEffect(() => {
@@ -102,7 +108,10 @@ function AIExaminerFunction({
       // this is for the countdown timer
       if (onExamStarted) onExamStarted();
 
-      examTimers({ client, examDurationInMs: examDurationActiveExam * 60 * 1000 });
+      examTimers({
+        client,
+        examDurationInMs: examDurationActiveExam * 60 * 1000,
+      });
     }
   }, [config]);
 
@@ -112,35 +121,37 @@ function AIExaminerFunction({
         <LoadingAnimation isLoading={isLoading} />
       ) : studentTask ? (
         <div
-          className="student-task bg-white p-6 rounded-md shadow-lg max-w-3xl mx-auto relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400"
+          className="student-task bg-neutral-15 p-6 rounded-md shadow-lg max-w-3xl mx-auto relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400 text-dark"
           style={{
             transformOrigin: "top center",
             maxHeight: "400px",
             overflow: "auto",
+            borderColor: "var(--Neutral-30)",
           }}
         >
           <ReactMarkdown>{studentTask}</ReactMarkdown>
         </div>
       ) : (
         <div
-          className="student-task-ghost bg-white p-6 rounded-md shadow-lg max-w-3xl mx-auto relative"
+          className="student-task-ghost bg-neutral-15 p-6 rounded-md shadow-lg max-w-3xl mx-auto relative"
           style={{
             maxHeight: "400px",
             overflow: "hidden",
+            borderColor: "var(--Neutral-30)",
           }}
         >
-          <div className="ghost-line ghost-line-title mb-4"></div>
-          <div className="ghost-line w-3/4 mb-3"></div>
-          <div className="ghost-line w-5/6 mb-3"></div>
-          <div className="ghost-line w-4/5 mb-3"></div>
-          <div className="ghost-line w-2/3 mb-3"></div>
-          <div className="ghost-line w-5/6 mb-3"></div>
-          <div className="ghost-line w-5/6 mb-3"></div>
-          <div className="ghost-line w-4/5 mb-3"></div>
-          <div className="ghost-line w-4/5 mb-3"></div>
-          <div className="ghost-line w-3/4 mb-3"></div>
-          <div className="ghost-line w-2/3 mb-3"></div>
-          <div className="ghost-line w-5/6 mb-3"></div>
+          <div className="ghost-line-dark ghost-line-title-dark mb-4"></div>
+          <div className="ghost-line-dark w-3/4 mb-3"></div>
+          <div className="ghost-line-dark w-5/6 mb-3"></div>
+          <div className="ghost-line-dark w-4/5 mb-3"></div>
+          <div className="ghost-line-dark w-2/3 mb-3"></div>
+          <div className="ghost-line-dark w-5/6 mb-3"></div>
+          <div className="ghost-line-dark w-5/6 mb-3"></div>
+          <div className="ghost-line-dark w-4/5 mb-3"></div>
+          <div className="ghost-line-dark w-4/5 mb-3"></div>
+          <div className="ghost-line-dark w-3/4 mb-3"></div>
+          <div className="ghost-line-dark w-2/3 mb-3"></div>
+          <div className="ghost-line-dark w-5/6 mb-3"></div>
         </div>
       )}
       <style>

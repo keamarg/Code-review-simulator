@@ -48,14 +48,14 @@ const MediaStreamButton = memo(
   ({ isStreaming, onIcon, offIcon, start, stop }: MediaStreamButtonProps) =>
     isStreaming ? (
       <button
-        className=" transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
+        className="transition duration-200 ease-in-out focus:outline-none rounded bg-tokyo-bg-lighter border border-tokyo-selection text-tokyo-fg shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
         onClick={stop}
       >
         <span className="material-symbols-outlined">{onIcon}</span>
       </button>
     ) : (
       <button
-        className=" transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
+        className="transition duration-200 ease-in-out focus:outline-none rounded bg-tokyo-bg-lighter border border-tokyo-selection text-tokyo-fg shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
         onClick={start}
       >
         <span className="material-symbols-outlined">{offIcon}</span>
@@ -172,7 +172,7 @@ function ControlTray({
         <button
           ref={connectButtonRef}
           className={cn(
-            "transition duration-200 ease-in-out focus:outline-none rounded border bg-blue-500 text-white shadow-sm hover:shadow-lg mb-6 py-5 px-8 cursor-pointer"
+            "transition duration-200 ease-in-out focus:outline-none rounded border bg-tokyo-accent text-white shadow-sm hover:bg-tokyo-accent-darker hover:shadow-lg mb-6 py-5 px-8 cursor-pointer"
           )}
           onClick={() => {
             setButtonIsOn(!buttonIsOn);
@@ -181,7 +181,7 @@ function ControlTray({
             onButtonClicked(!buttonIsOn);
           }}
         >
-          {connected ? "Pause" : "Start exam"}
+          {connected ? "Pause" : "Start code review"}
         </button>
       </div>
 
@@ -191,19 +191,13 @@ function ControlTray({
         })}
       >
         <button
-          className={cn(
-            "action-button mic-button transition duration-200 ease-in-out focus:outline-none rounded bg-white border border-gray-300 text-gray-800 shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
-          )}
+          className="transition duration-200 ease-in-out focus:outline-none rounded bg-tokyo-bg-lighter border border-tokyo-selection text-tokyo-fg shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center justify-between space-x-1"
           onClick={() => setMuted(!muted)}
         >
-          {!muted ? (
-            <span className="material-symbols-outlined filled">mic</span>
-          ) : (
-            <span className="material-symbols-outlined filled">mic_off</span>
-          )}
-          <div className="action-button no-action p-2 flex items-center text-gray-800">
-            <AudioPulse volume={volume} active={connected} hover={false} />
-          </div>
+          <span className="material-symbols-outlined">
+            {!muted ? "mic" : "mic_off"}
+          </span>
+          <AudioPulse volume={volume} active={connected} hover={false} />
         </button>
 
         {supportsVideo && (

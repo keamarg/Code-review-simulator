@@ -185,11 +185,11 @@ export default function ExamEditor() {
         <div className="flex items-center mb-6">
           <Link
             to="/dashboard"
-            className="mr-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            className="mr-4 p-2 rounded-full hover:bg-neutral-20 transition-colors"
             aria-label="Tilbage til dashboard"
           >
             <svg
-              className="h-5 w-5 text-gray-500"
+              className="h-5 w-5 text-neutral-60"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -202,13 +202,13 @@ export default function ExamEditor() {
               />
             </svg>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-neutral-90">
             {isEditMode ? "Rediger code review" : "Opret code review"}
           </h1>
         </div>
 
         {/* Main form */}
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-neutral-15 rounded-lg shadow-md p-6 border border-neutral-30">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -218,10 +218,10 @@ export default function ExamEditor() {
           >
             {/* Title field */}
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-medium mb-2">
+              <label className="block text-neutral-90 text-sm font-medium mb-2">
                 <div className="flex items-center">
                   <svg
-                    className="h-4 w-4 mr-2 text-gray-500"
+                    className="h-4 w-4 mr-2 text-neutral-60"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -240,7 +240,7 @@ export default function ExamEditor() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors"
                 placeholder="Indtast code review titel"
                 required
               />
@@ -248,10 +248,10 @@ export default function ExamEditor() {
 
             {/* Exam Task field */}
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-medium mb-2">
+              <label className="block text-neutral-90 text-sm font-medium mb-2">
                 <div className="flex items-center">
                   <svg
-                    className="h-4 w-4 mr-2 text-gray-500"
+                    className="h-4 w-4 mr-2 text-neutral-60"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -269,7 +269,7 @@ export default function ExamEditor() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
+                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
                 placeholder="Beskriv code review opgaven"
               />
             </div>
@@ -278,10 +278,10 @@ export default function ExamEditor() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               {/* Exam Type Dropdown */}
               <div>
-                <label className="block text-gray-700 text-sm font-medium mb-2">
+                <label className="block text-neutral-90 text-sm font-medium mb-2">
                   <div className="flex items-center">
                     <svg
-                      className="h-4 w-4 mr-2 text-gray-500"
+                      className="h-4 w-4 mr-2 text-neutral-60"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -299,7 +299,7 @@ export default function ExamEditor() {
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
+                  className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors"
                 >
                   <option value="Standard">Standard</option>
                   <option value="Github Repo">Github Repo</option>
@@ -309,10 +309,10 @@ export default function ExamEditor() {
 
             {/* Duration Slider */}
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-medium mb-2">
+              <label className="block text-neutral-90 text-sm font-medium mb-2">
                 <div className="flex items-center">
                   <svg
-                    className="h-4 w-4 mr-2 text-gray-500"
+                    className="h-4 w-4 mr-2 text-neutral-60"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -334,17 +334,17 @@ export default function ExamEditor() {
                   max="8"
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-neutral-20 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
             </div>
 
             {/* Grade Criteria Dropdown */}
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-medium mb-2">
+              <label className="block text-neutral-90 text-sm font-medium mb-2">
                 <div className="flex items-center">
                   <svg
-                    className="h-4 w-4 mr-2 text-gray-500"
+                    className="h-4 w-4 mr-2 text-neutral-60"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -362,7 +362,7 @@ export default function ExamEditor() {
               <select
                 value={gradeCriteria}
                 onChange={(e) => setGradeCriteria(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
+                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors"
               >
                 <option value="">Vælg evalueringskriterium</option>
                 <option value="no-grade">Ingen evaluering</option>
@@ -375,10 +375,10 @@ export default function ExamEditor() {
 
             {/* Feedback field */}
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-medium mb-2">
+              <label className="block text-neutral-90 text-sm font-medium mb-2">
                 <div className="flex items-center">
                   <svg
-                    className="h-4 w-4 mr-2 text-gray-500"
+                    className="h-4 w-4 mr-2 text-neutral-60"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -396,17 +396,17 @@ export default function ExamEditor() {
               <textarea
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
+                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
                 placeholder="Indtast feedback-instruktioner"
               />
             </div>
 
             {/* Learning Goals field */}
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-medium mb-2">
+              <label className="block text-neutral-90 text-sm font-medium mb-2">
                 <div className="flex items-center">
                   <svg
-                    className="h-4 w-4 mr-2 text-gray-500"
+                    className="h-4 w-4 mr-2 text-neutral-60"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -424,17 +424,17 @@ export default function ExamEditor() {
               <textarea
                 value={learningGoals}
                 onChange={(e) => setLearningGoals(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
+                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
                 placeholder="Indtast læringsmål"
               />
             </div>
 
             {/* Typical Questions field */}
             <div className="mb-6">
-              <label className="block text-gray-700 text-sm font-medium mb-2">
+              <label className="block text-neutral-90 text-sm font-medium mb-2">
                 <div className="flex items-center">
                   <svg
-                    className="h-4 w-4 mr-2 text-gray-500"
+                    className="h-4 w-4 mr-2 text-neutral-60"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -452,14 +452,14 @@ export default function ExamEditor() {
               <textarea
                 value={typicalQuestions}
                 onChange={(e) => setTypicalQuestions(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors h-32 resize-none"
+                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
                 placeholder="Indtast typiske spørgsmål til code review"
               />
             </div>
 
             {/* Is Public Checkbox */}
             <div className="mb-6">
-              <label className="flex items-center text-gray-700 text-sm font-medium">
+              <label className="flex items-center text-neutral-90 text-sm font-medium">
                 <input
                   type="checkbox"
                   checked={is_public}
@@ -468,17 +468,17 @@ export default function ExamEditor() {
                 />
                 Gør code review offentligt
               </label>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-neutral-500 mt-1">
                 Hvis markeret, vil andre brugere kunne se og tage dette code
                 review.
               </p>
             </div>
 
             {/* Form Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between pt-4 border-t border-neutral-30">
               <Link
                 to="/dashboard"
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium transition-colors"
+                className="px-4 py-2 text-neutral-700 hover:text-neutral-90 font-medium transition-colors"
               >
                 Annuller
               </Link>

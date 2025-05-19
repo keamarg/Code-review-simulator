@@ -20,7 +20,7 @@ import { AppRouter } from "./exam-simulator/navigation/AppRouter";
 
 function App() {
   return (
-    <div className="bg-white">
+    <div className="bg-neutral-dark">
       <AppRouter />
     </div>
   );

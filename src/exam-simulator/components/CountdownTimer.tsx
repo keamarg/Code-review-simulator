@@ -16,22 +16,22 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
 
   // Calculate percentage of time remaining for circle timer
   const timePercentage = Math.max(0, Math.min(100, (timeLeft / totalMs) * 100));
-  
+
   // Calculate stroke-dasharray and stroke-dashoffset for SVG circle
   const circumference = 2 * Math.PI * 45; // 45 is the radius of our circle
   const strokeDashoffset = circumference * (1 - timePercentage / 100);
-  
-  // Determine color based on time remaining
+
+  // Determine color based on time remaining - updated for Tokyo Night theme
   const getColor = () => {
-    if (timePercentage > 60) return "#1d4ed8"; // blue-700
-    if (timePercentage > 30) return "#3b82f6"; // blue-500
-    return "#93c5fd"; // blue-300
+    if (timePercentage > 60) return "var(--tokyo-accent)"; // primary accent
+    if (timePercentage > 30) return "var(--tokyo-purple)"; // purple
+    return "var(--tokyo-red)"; // red for low time
   };
 
   useEffect(() => {
     if (!running && !startTrigger) return;
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         const newTime = prev - 1000;
         if (newTime <= 0) {
           clearInterval(timer);
@@ -62,13 +62,13 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       {/* Round timer */}
       <div className="w-20 h-20 relative">
         <svg className="w-full h-full" viewBox="0 0 100 100">
-          {/* Gray background circle */}
+          {/* Background circle - updated for Tokyo Night */}
           <circle
             cx="50"
             cy="50"
             r="45"
-            fill="white"
-            stroke="#e5e7eb"
+            fill="var(--tokyo-bg-lighter)"
+            stroke="var(--tokyo-selection)"
             strokeWidth="8"
           />
           {/* Colored progress circle */}
@@ -87,7 +87,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
         </svg>
       </div>
       {/* Time display */}
-      <div className="mt-1 font-medium text-sm">
+      <div className="mt-1 font-medium text-sm text-tokyo-fg-bright">
         {formatTimeLeft(timeLeft)}
       </div>
     </div>
