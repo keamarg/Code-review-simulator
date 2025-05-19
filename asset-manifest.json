@@ -1,18 +1,18 @@
 {
   "files": {
-    "main.css": "/exam-simulator/static/css/main.82b4076b.css",
-    "main.js": "/exam-simulator/static/js/main.5c75aff5.js",
-    "static/js/198.c981c377.chunk.js": "/exam-simulator/static/js/198.c981c377.chunk.js",
-    "static/js/453.bb53e782.chunk.js": "/exam-simulator/static/js/453.bb53e782.chunk.js",
-    "static/media/logo.png": "/exam-simulator/static/media/logo.f82e9b64b7fcefa35937.png",
-    "index.html": "/exam-simulator/index.html",
-    "main.82b4076b.css.map": "/exam-simulator/static/css/main.82b4076b.css.map",
-    "main.5c75aff5.js.map": "/exam-simulator/static/js/main.5c75aff5.js.map",
-    "198.c981c377.chunk.js.map": "/exam-simulator/static/js/198.c981c377.chunk.js.map",
-    "453.bb53e782.chunk.js.map": "/exam-simulator/static/js/453.bb53e782.chunk.js.map"
+    "main.css": "/Code-review-simulator/static/css/main.82b4076b.css",
+    "main.js": "/Code-review-simulator/static/js/main.e147802f.js",
+    "static/js/198.c981c377.chunk.js": "/Code-review-simulator/static/js/198.c981c377.chunk.js",
+    "static/js/453.bb53e782.chunk.js": "/Code-review-simulator/static/js/453.bb53e782.chunk.js",
+    "static/media/logo.png": "/Code-review-simulator/static/media/logo.f82e9b64b7fcefa35937.png",
+    "index.html": "/Code-review-simulator/index.html",
+    "main.82b4076b.css.map": "/Code-review-simulator/static/css/main.82b4076b.css.map",
+    "main.e147802f.js.map": "/Code-review-simulator/static/js/main.e147802f.js.map",
+    "198.c981c377.chunk.js.map": "/Code-review-simulator/static/js/198.c981c377.chunk.js.map",
+    "453.bb53e782.chunk.js.map": "/Code-review-simulator/static/js/453.bb53e782.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.82b4076b.css",
-    "static/js/main.5c75aff5.js"
+    "static/js/main.e147802f.js"
   ]
 }
