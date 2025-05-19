@@ -47,7 +47,7 @@ This document provides a comprehensive overview of where all system prompts, gui
 
 - Handles OpenAI API calls
 - Uses GPT-4o-mini for generating exam content
-- Fetches API key from external server: "https://api-key-server-codereview.vercel.app/prompt1"
+- Fetches API key from external server: "https://api-key-server-codereview.vercel.app/api/prompt1"
 
 ### 2. `src/exam-simulator/pages/AIExaminerPage.tsx`
 

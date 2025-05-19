@@ -26,7 +26,7 @@ export default function LivePage() {
     // Define the endpoint URL where your API key is served
     // Replace '/api/get-key' with your actual endpoint
     const apiKeyEndpoint =
-      "https://api-key-server-codereview.vercel.app/prompt2";
+      "https://api-key-server-codereview.vercel.app/api/prompt2";
 
     const fetchApiKey = async () => {
       setIsLoadingKey(true);

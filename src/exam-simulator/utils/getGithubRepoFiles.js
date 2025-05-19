@@ -80,7 +80,7 @@ It is an 9 minute exam.
   };
 
   const apiKeyResponse = await fetch(
-    "https://api-key-server-codereview.vercel.app/prompt1"
+    "https://api-key-server-codereview.vercel.app/api/prompt1"
   );
   if (!apiKeyResponse.ok) {
     throw new Error("Failed to fetch API key");
