@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.2] - 2025-05-28
+
+### Changed
+
+- Completed the translation of all remaining Danish text to English throughout the application
+- Updated ExamEditor.tsx with English text for all form fields, labels, placeholders, and buttons
+- Updated Dashboard.tsx with English text for headings, search functionality, and empty state messages
+- Fixed time format display in the duration formatter to use "h" instead of "t" for hours
+- Simplified the hero section on the landing page to use a centered title in English
+- Removed example boxes and promotional content from the landing page
+
 ## [0.11.1] - 2025-05-27
 
 ### Changed

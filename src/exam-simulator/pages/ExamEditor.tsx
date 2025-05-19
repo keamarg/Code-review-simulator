@@ -78,14 +78,14 @@ export default function ExamEditor() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      showToast("Fejl: Kunne ikke gemme. Brugeroplysninger mangler.");
+      showToast("Error: Could not save. User information missing.");
       return; // Prevent saving if user is not found 14
     }
 
     if (isEditMode) {
       // Ensure exam is defined before accessing its properties
       if (!exam) {
-        showToast("Fejl: Kunne ikke finde code review der skal opdateres.");
+        showToast("Error: Could not find code review to update.");
         return;
       }
       const updatedExam: ExamSimulator = {
@@ -110,12 +110,12 @@ export default function ExamEditor() {
       if (updateError) {
         console.error("Error updating code review:", updateError);
         showToast(
-          `Fejl: Kunne ikke opdatere code review. ${updateError.message}`
+          `Error: Could not update code review. ${updateError.message}`
         );
         return;
       }
 
-      showToast("Code review opdateret!");
+      showToast("Code review updated!");
     } else {
       const newExam: Omit<ExamSimulator, "id" | "created_at"> & {
         user_id: string;
@@ -142,21 +142,19 @@ export default function ExamEditor() {
       if (insertError) {
         console.error("Error creating code review:", insertError);
         showToast(
-          `Fejl: Kunne ikke oprette code review. ${insertError.message}`
+          `Error: Could not create code review. ${insertError.message}`
         );
         return; // Stop execution if insert fails
       }
 
-      showToast("Code review oprettet!");
+      showToast("Code review created!");
     }
     //navigate("/dashboard");
   };
 
   const handleDelete = () => {
     if (!isEditMode) return;
-    if (
-      window.confirm("Er du sikker på, at du vil slette dette code review?")
-    ) {
+    if (window.confirm("Are you sure you want to delete this code review?")) {
       // delete exam using supabase
       const deleteExam = async () => {
         const { error } = await supabase
@@ -166,11 +164,11 @@ export default function ExamEditor() {
 
         if (error) {
           console.error("Error deleting code review:", error);
-          showToast(`Fejl: Kunne ikke slette code review. ${error.message}`);
+          showToast(`Error: Could not delete code review. ${error.message}`);
           return;
         }
 
-        showToast("Code review slettet!");
+        showToast("Code review deleted!");
         navigate("/dashboard");
       };
 
@@ -186,7 +184,7 @@ export default function ExamEditor() {
           <Link
             to="/dashboard"
             className="mr-4 p-2 rounded-full hover:bg-neutral-20 transition-colors"
-            aria-label="Tilbage til dashboard"
+            aria-label="Back to dashboard"
           >
             <svg
               className="h-5 w-5 text-neutral-60"
@@ -203,7 +201,7 @@ export default function ExamEditor() {
             </svg>
           </Link>
           <h1 className="text-3xl font-bold text-neutral-90">
-            {isEditMode ? "Rediger code review" : "Opret code review"}
+            {isEditMode ? "Edit Code Review" : "Create Code Review"}
           </h1>
         </div>
 
@@ -233,7 +231,7 @@ export default function ExamEditor() {
                       d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Titel
+                  Title
                 </div>
               </label>
               <input
@@ -241,7 +239,7 @@ export default function ExamEditor() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors"
-                placeholder="Indtast code review titel"
+                placeholder="Enter code review title"
                 required
               />
             </div>
@@ -263,14 +261,14 @@ export default function ExamEditor() {
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>
-                  Code review opgave
+                  Code Review Task
                 </div>
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Beskriv code review opgaven"
+                placeholder="Describe the code review task"
               />
             </div>
 
@@ -324,7 +322,7 @@ export default function ExamEditor() {
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Varighed: {duration} minut{duration !== 1 ? "ter" : ""}
+                  Duration: {duration} minute{duration !== 1 ? "s" : ""}
                 </div>
               </label>
               <div className="flex items-center">
@@ -356,7 +354,7 @@ export default function ExamEditor() {
                       d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                     />
                   </svg>
-                  Evalueringskriterier
+                  Evaluation Criteria
                 </div>
               </label>
               <select
@@ -364,12 +362,10 @@ export default function ExamEditor() {
                 onChange={(e) => setGradeCriteria(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors"
               >
-                <option value="">Vælg evalueringskriterium</option>
-                <option value="no-grade">Ingen evaluering</option>
-                <option value="7-skala">7-trinsskalaen</option>
-                <option value="bestået-ikke-bestået">
-                  Bestået/ikke bestået
-                </option>
+                <option value="">Select evaluation criteria</option>
+                <option value="no-grade">No evaluation</option>
+                <option value="7-skala">7-point scale</option>
+                <option value="bestået-ikke-bestået">Pass/fail</option>
               </select>
             </div>
 
@@ -397,7 +393,7 @@ export default function ExamEditor() {
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Indtast feedback-instruktioner"
+                placeholder="Enter feedback instructions"
               />
             </div>
 
@@ -418,14 +414,14 @@ export default function ExamEditor() {
                       d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
                     />
                   </svg>
-                  Læringsmål
+                  Learning Goals
                 </div>
               </label>
               <textarea
                 value={learningGoals}
                 onChange={(e) => setLearningGoals(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Indtast læringsmål"
+                placeholder="Enter learning goals"
               />
             </div>
 
@@ -446,14 +442,14 @@ export default function ExamEditor() {
                       d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
                     />
                   </svg>
-                  Typiske Spørgsmål
+                  Typical Questions
                 </div>
               </label>
               <textarea
                 value={typicalQuestions}
                 onChange={(e) => setTypicalQuestions(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Indtast typiske spørgsmål til code review"
+                placeholder="Enter typical questions for the code review"
               />
             </div>
 
@@ -466,10 +462,10 @@ export default function ExamEditor() {
                   onChange={(e) => setIsPublic(e.target.checked)}
                   className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                Gør code review offentligt
+                Make code review public
               </label>
               <p className="text-xs text-neutral-500 mt-1">
-                Hvis markeret, vil andre brugere kunne se og tage dette code
+                If checked, other users will be able to see and take this code
                 review.
               </p>
             </div>
@@ -480,7 +476,7 @@ export default function ExamEditor() {
                 to="/dashboard"
                 className="px-4 py-2 text-neutral-700 hover:text-neutral-90 font-medium transition-colors"
               >
-                Annuller
+                Cancel
               </Link>
               <div className="flex space-x-3">
                 {isEditMode && (
@@ -502,7 +498,7 @@ export default function ExamEditor() {
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                       />
                     </svg>
-                    Slet
+                    Delete
                   </button>
                 )}
                 <button
@@ -522,7 +518,7 @@ export default function ExamEditor() {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  {isEditMode ? "Opdater code review" : "Opret code review"}
+                  {isEditMode ? "Update Code Review" : "Create Code Review"}
                 </button>
               </div>
             </div>

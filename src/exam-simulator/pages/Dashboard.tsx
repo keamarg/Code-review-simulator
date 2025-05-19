@@ -7,11 +7,11 @@ import { ExamSimulator } from "./../contexts/ExamSimulatorContext";
 
 // Duration formatter
 const formatDuration = (minutes: number): string => {
-  if (!minutes) return "Ingen varighed sat";
+  if (!minutes) return "No duration set";
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  return remainingMinutes ? `${hours}t ${remainingMinutes}m` : `${hours}t`;
+  return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 };
 
 interface ExamSimulatorCardProps {
@@ -38,9 +38,9 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
       const fullUrl = `${window.location.origin}/live?id=${sim.id}`;
       await navigator.clipboard.writeText(fullUrl);
       setMenuOpen(false);
-      showToast("Link kopieret til udklipsholder!");
+      showToast("Link copied to clipboard!");
     } catch (err) {
-      showToast("Kunne ikke kopiere link");
+      showToast("Could not copy link");
     }
   };
 
@@ -106,7 +106,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
                     d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                   />
                 </svg>
-                Kopier Link
+                Copy Link
               </button>
               <Link
                 to={`/exam?id=${sim.id}`}
@@ -126,7 +126,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
                   />
                 </svg>
-                Rediger Code Review
+                Edit Code Review
               </Link>
             </div>
           )}
@@ -231,11 +231,10 @@ const EmptyState = () => (
       </svg>
     </div>
     <h3 className="text-xl font-semibold text-tokyo-fg-bright mb-2">
-      Ingen code reviews fundet.
+      No code reviews found.
     </h3>
     <p className="text-tokyo-fg mb-6">
-      Opret dit første code review for at komme i gang med at teste dine
-      udviklere.
+      Create your first code review to get started.
     </p>
     <Link
       to="/create"
@@ -254,7 +253,7 @@ const EmptyState = () => (
           d="M12 6v6m0 0v6m0-6h6m-6 0H6"
         />
       </svg>
-      Opret dit første code review
+      Create your first code review
     </Link>
   </div>
 );
@@ -309,7 +308,7 @@ export default function Dashboard() {
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
             <h1 className="text-3xl font-bold text-tokyo-fg-bright mb-4 md:mb-0">
-              Dine code reviews
+              Your code reviews
             </h1>
           </div>
 
@@ -332,7 +331,7 @@ export default function Dashboard() {
               </div>
               <input
                 type="text"
-                placeholder="Søg i code reviews..."
+                placeholder="Search code reviews..."
                 className="pl-10 pr-4 py-2 w-full md:w-64 border border-tokyo-selection bg-tokyo-bg-lighter text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -357,14 +356,14 @@ export default function Dashboard() {
             ) : (
               <div className="bg-tokyo-bg-lighter rounded-lg shadow-md p-8 text-center border border-tokyo-selection">
                 <p className="text-tokyo-fg">
-                  Ingen simulatorer matcher din søgning. Prøv et andet søgeord
-                  eller ryd din søgning.
+                  No code reviews match your search. Try a different search term
+                  or clear your search.
                 </p>
                 <button
                   onClick={() => setSearchTerm("")}
                   className="mt-4 text-tokyo-accent hover:text-tokyo-accent-lighter font-medium"
                 >
-                  Ryd Søgning
+                  Clear Search
                 </button>
               </div>
             )}
