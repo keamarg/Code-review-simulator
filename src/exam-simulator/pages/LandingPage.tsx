@@ -63,8 +63,8 @@ const LandingPage: React.FC = () => {
             </h2>
             <p className="text-lg text-tokyo-fg-bright mb-4">
               This code review simulator is part of an academic research project
-              investigating how AI can improve learning and skill development in
-              programming through interactive code reviews.
+              investigating how AI assisted task solving impacts worklife and
+              skill development through interactive code reviews.
             </p>
             <p className="text-tokyo-fg">
               By participating, you contribute to research on AI-assisted
