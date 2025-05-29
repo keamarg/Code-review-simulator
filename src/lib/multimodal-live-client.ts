@@ -68,6 +68,7 @@ export type MultimodalLiveAPIClientConnection = {
 export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEventTypes> {
   public ws: WebSocket | null = null;
   protected config: LiveConfig | null = null;
+  private sessionId: string | null = null;
   public url: string = "";
   public getConfig() {
     return { ...this.config };
@@ -95,7 +96,12 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
   connect(config: LiveConfig): Promise<boolean> {
     this.config = config;
 
-    const ws = new WebSocket(this.url);
+    let urlToConnect = this.url;
+    if (this.sessionId) {
+      urlToConnect += `&sessionId=${this.sessionId}`;
+    }
+
+    const ws = new WebSocket(urlToConnect);
 
     ws.addEventListener("message", async (evt: MessageEvent) => {
       if (evt.data instanceof Blob) {
@@ -183,6 +189,12 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
 
     if (isSetupCompleteMessage(response)) {
       this.log("server.send", "setupComplete");
+      // Attempt to extract sessionId from the response
+      const receivedSessionId = (response.setupComplete as any)?.sessionId;
+      if (receivedSessionId && typeof receivedSessionId === 'string') {
+        this.sessionId = receivedSessionId;
+        this.log("client.session", `Session ID received: ${this.sessionId}`);
+      }
       this.emit("setupcomplete");
       return;
     }
