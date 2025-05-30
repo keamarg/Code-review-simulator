@@ -39,29 +39,148 @@ function getLevelSpecificGuidance(level) {
   }
 }
 
+// Function to detect the project type and main code directory
+async function detectProjectStructure(owner, repoName) {
+  // Common source directories to check, ordered by priority
+  const potentialPaths = [
+    // Android
+    "app/src/main/java",
+    "app/src/main/kotlin",
+    // Java/Maven
+    "src/main/java",
+    "src/main/kotlin",
+    // JavaScript/Node.js
+    "src",
+    "lib",
+    // Python
+    "src",
+    "app",
+    // C#/.NET
+    "src",
+    // Go
+    "cmd",
+    "pkg",
+    "internal",
+    // PHP
+    "src",
+    "app",
+    // Ruby
+    "lib",
+    "app",
+    // React/Vue/Angular
+    "src/components",
+    "src/pages",
+    "components",
+    "pages",
+    // General fallback
+    ".",
+  ];
+
+  for (const path of potentialPaths) {
+    try {
+      const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
+      const response = await fetch(apiUrl);
+      if (response.ok) {
+        const items = await response.json();
+        // Check if this directory contains code files
+        const hasCodeFiles = items.some(
+          (item) => item.type === "file" && isCodeFile(item.name)
+        );
+        if (hasCodeFiles || items.some((item) => item.type === "dir")) {
+          return path;
+        }
+      }
+    } catch (error) {
+      // Continue to next path if this one fails
+      continue;
+    }
+  }
+
+  // If no specific structure found, return root
+  return ".";
+}
+
+// Function to check if a file is a code file
+function isCodeFile(filename) {
+  const codeExtensions = [
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".vue",
+    ".svelte",
+    ".java",
+    ".kt",
+    ".scala",
+    ".groovy",
+    ".py",
+    ".rb",
+    ".php",
+    ".go",
+    ".rs",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".cs",
+    ".vb",
+    ".fs",
+    ".swift",
+    ".m",
+    ".mm",
+    ".html",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+    ".sql",
+    ".r",
+    ".jl",
+    ".dart",
+    ".elm",
+    ".ex",
+    ".exs",
+    ".clj",
+    ".cljs",
+    ".hs",
+    ".ml",
+    ".pl",
+    ".sh",
+    ".ps1",
+  ];
+
+  return codeExtensions.some((ext) => filename.toLowerCase().endsWith(ext));
+}
+
 async function getRepoFiles(repoUrl) {
   // Extract the owner and repo name from the URL.
-  const regex = /github\.com\/([^\/]+)\/([^\/]+)/;
+  const regex = /github\.com\/([^/]+)\/([^/]+)/;
   const match = repoUrl.match(regex);
   if (!match) {
     throw new Error("Invalid GitHub repository URL");
   }
   const owner = match[1];
-  const repoName = match[2];
-  // Convert repo name to app name by replacing dashes with underscores
-  const appName = repoName.replace(/-/g, "_");
+  const repoName = match[2].replace(/\.git$/, ""); // Remove .git suffix if present
 
-  // Define the base folder path based on the app name
-  const basePath = `app/src/main/java/com/example/${appName}`;
+  // Detect the project structure automatically
+  const basePath = await detectProjectStructure(owner, repoName);
+
   let result = "";
   // Set delay in milliseconds
   const delayMs = 1500;
+  const maxFiles = 20; // Limit to prevent overwhelming the AI
+  let fileCount = 0;
 
   // Helper function to delay execution
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // Recursive function to process directories
-  async function processDirectory(path) {
+  async function processDirectory(path, depth = 0) {
+    // Limit recursion depth to prevent infinite loops
+    if (depth > 5 || fileCount >= maxFiles) {
+      return;
+    }
+
     const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
     const response = await fetch(apiUrl);
     if (!response.ok) {
@@ -69,31 +188,86 @@ async function getRepoFiles(repoUrl) {
     }
     const items = await response.json();
 
-    for (const item of items) {
+    // Sort items to process files first, then directories
+    const sortedItems = items.sort((a, b) => {
+      if (a.type === "file" && b.type === "dir") return -1;
+      if (a.type === "dir" && b.type === "file") return 1;
+      return 0;
+    });
+
+    for (const item of sortedItems) {
+      if (fileCount >= maxFiles) {
+        break;
+      }
+
       // Delay before processing each item
       await delay(delayMs);
+
       if (item.type === "dir") {
-        // Recurse into subdirectories
-        await processDirectory(item.path);
-      } else if (item.type === "file") {
-        // Fetch the raw content of the file using the download_url
-        const fileResponse = await fetch(item.download_url);
-        if (!fileResponse.ok) {
-          throw new Error(`Failed to fetch file ${item.path}`);
+        // Skip common non-code directories
+        const skipDirs = [
+          "node_modules",
+          ".git",
+          "target",
+          "build",
+          "dist",
+          ".gradle",
+          "vendor",
+          "__pycache__",
+        ];
+        if (!skipDirs.includes(item.name)) {
+          await processDirectory(item.path, depth + 1);
         }
-        let content = await fileResponse.text();
-        // Remove lines that start with "import"
-        content = content
-          .split("\n")
-          .filter((line) => !line.trim().startsWith("import "))
-          .join("\n");
-        // Append the formatted string for this file
-        result += "```\n" + item.path + "\n```\n" + content + "\n```\n\n";
+      } else if (item.type === "file" && isCodeFile(item.name)) {
+        // Only process code files
+        try {
+          const fileResponse = await fetch(item.download_url);
+          if (!fileResponse.ok) {
+            console.warn(`Failed to fetch file ${item.path}`);
+            continue;
+          }
+          let content = await fileResponse.text();
+
+          // Limit file size to prevent overwhelming the AI
+          if (content.length > 5000) {
+            content =
+              content.substring(0, 5000) + "\n... (file truncated for brevity)";
+          }
+
+          // Remove import/include lines to reduce noise
+          content = content
+            .split("\n")
+            .filter((line) => {
+              const trimmed = line.trim();
+              return (
+                (!trimmed.startsWith("import ") &&
+                  !trimmed.startsWith("#include") &&
+                  !trimmed.startsWith("using ") &&
+                  !trimmed.startsWith("require(") &&
+                  !trimmed.startsWith("from ")) ||
+                trimmed.startsWith("from typing")
+              );
+            })
+            .join("\n");
+
+          // Append the formatted string for this file
+          result += "```\n" + item.path + "\n```\n" + content + "\n```\n\n";
+          fileCount++;
+        } catch (error) {
+          console.warn(`Error processing file ${item.path}:`, error);
+        }
       }
     }
   }
 
   await processDirectory(basePath);
+
+  if (result.trim() === "") {
+    throw new Error(
+      "No code files found in the repository. Please check if the repository URL is correct and contains source code."
+    );
+  }
+
   return result;
 }
 

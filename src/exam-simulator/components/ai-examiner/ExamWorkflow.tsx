@@ -78,6 +78,7 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
     if (!examSimulator) return;
 
     setIsLoadingPrompt(true);
+    setExamError(""); // Clear any previous errors
     try {
       let finalPrompt = "";
       if (examSimulator.type === "Github Repo") {
@@ -90,15 +91,24 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
           console.log("Repo URL is required for GitHub exam type.");
           return;
         }
+
+        console.log("🔍 Starting GitHub repo processing for:", repoUrl);
+
         const githubQuestions = await getRepoQuestions(
           repoUrl,
           examSimulator.learning_goals
         );
+
+        console.log("✅ GitHub questions generated:", githubQuestions);
+
         finalPrompt = getPrompt.github(
           examSimulator,
           examDurationInMinutes,
           githubQuestions
         );
+
+        console.log("✅ Final prompt created for GitHub repo");
+
         // For GitHub, student task might be different or not applicable before starting
         setStudentTask(
           "Review the provided GitHub repository based on the learning goals."
@@ -115,11 +125,12 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
         );
       }
       setPrompt(finalPrompt);
+      console.log("✅ Prompt preparation completed successfully");
     } catch (error) {
-      console.error("Failed to prepare exam content:", error);
+      console.error("❌ Failed to prepare exam content:", error);
       setExamError(
         error instanceof Error
-          ? error.message
+          ? `Error: ${error.message}`
           : "Failed to load exam questions/prompt"
       );
     } finally {
@@ -143,14 +154,25 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
   // Effect for when exam intent starts (user clicks start button)
   useEffect(() => {
     if (examIntentStarted && examSimulator) {
+      console.log("🚀 Exam intent started!", {
+        examType: examSimulator.type,
+        repoUrl,
+        hasPrompt: !!prompt,
+      });
+
       if (examSimulator.type === "Github Repo") {
         if (repoUrl && !prompt) {
           // Only prepare if repoUrl is set and prompt not yet ready
+          console.log("📦 Preparing GitHub repo content...");
           prepareExamContent(); // This will set the prompt
         } else if (prompt) {
           // If prompt is ready, proceed to setConfig
+          console.log("⚙️ Creating live config with existing prompt...");
           const newConfig = createLiveConfig(prompt);
           setLiveConfig(newConfig);
+        } else if (!repoUrl) {
+          console.warn("⚠️ No repository URL provided");
+          setExamError("Please enter a GitHub repository URL before starting.");
         }
       } else {
         // Standard Exam
@@ -256,7 +278,7 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
         <div className="my-6">
           {" "}
           {/* Added margin for spacing */}
-          <label htmlFor="github-repo-url" className="block mb-2">
+          <label htmlFor="github-repo-url" className="block mb-2 text-tokyo-fg">
             GitHub Repository URL:
           </label>
           <input
@@ -269,7 +291,17 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
             disabled={examIntentStarted || isLoadingPrompt}
           />
           {examIntentStarted && isLoadingPrompt && repoUrl && (
-            <LoadingAnimation isLoading={true} />
+            <div className="mt-4">
+              <LoadingAnimation isLoading={true} />
+              <p className="text-center text-tokyo-fg-dim mt-2">
+                Processing GitHub repository... This may take a moment.
+              </p>
+            </div>
+          )}
+          {examIntentStarted && !repoUrl && (
+            <div className="mt-2 text-tokyo-orange">
+              Please enter a GitHub repository URL above.
+            </div>
           )}
         </div>
       )}

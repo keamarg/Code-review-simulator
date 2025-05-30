@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.5] - 2025-01-23
+
+### Fixed
+
+- **GitHub Repository Integration**: Fixed 404 errors when pasting GitHub repository URLs
+- **Intelligent Project Detection**: Replaced hardcoded Android project path with smart repository structure detection
+- **Multi-Language Support**: Added support for JavaScript, Python, Java, C#, Go, PHP, Ruby, and many other languages
+- **Better Error Handling**: Added proper error messages when repositories don't contain code files
+- **File Filtering**: Only processes actual code files and skips build/dependency directories
+
+### Added
+
+- **Automatic Project Structure Detection**: Detects common source directories across different project types
+- **File Type Recognition**: Recognizes code files by extension across 25+ programming languages
+- **Smart Directory Filtering**: Skips non-code directories like node_modules, build, target, etc.
+- **File Size Limits**: Prevents overwhelming the AI with extremely large files (5KB limit per file)
+- **Repository Validation**: Better validation of GitHub URLs including .git suffix handling
+
+### Changed
+
+- **Repository Processing**: Now works with any GitHub repository structure, not just Android projects
+- **Performance Improvements**: Added file count limits and depth restrictions to prevent timeouts
+- **Code Quality**: Fixed regex escape character warnings
+
+## [0.12.4] - 2025-01-23
+
+### Added
+
+- Created organized documentation structure in `docs/` folder
+- Separated documentation into `docs/development/`, `docs/supabase/`, and `docs/legacy/`
+
+### Changed
+
+- Moved all development documentation from root to `docs/development/`
+- Moved all Supabase-related files to `docs/supabase/`
+- Moved legacy/outdated files to `docs/legacy/`
+
+### Fixed
+
+- Removed ESLint warnings for unused constants in liveConfigUtils.ts
+- Cleaned up project structure by removing backup files
+
+### Removed
+
+- All `.bak`, `.backup`, `.old`, `.working`, `.fix`, `.clean`, and `.final` files
+- Duplicate CHANGELOG.md.addfix file
+- Scattered documentation files from root directory
+
 ## [0.12.3] - 2025-01-27
 
 ### Fixed
