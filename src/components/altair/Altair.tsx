@@ -16,7 +16,8 @@
 import React, { useEffect, useRef, useState, memo } from "react";
 import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { ExamSimulator } from "../../exam-simulator/contexts/ExamSimulatorContext";
-import { getCurrentModel } from "../../config/aiConfig"; // Import centralized config
+import { getCurrentModel, getTimerConfig } from "../../config/aiConfig"; // Import centralized config
+import prompts from "../../prompts.json";
 
 const EXAM_DURATION_IN_MINUTES = 8; // default duration
 
@@ -37,6 +38,7 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
   const examDurationInMs = examDurationInMinutes * 60 * 1000;
   const examDurationActiveExam = examDurationInMs - 60 * 1000;
   const HalfWaySeconds = Math.floor(examDurationInMs / 2);
+  const halfExamRemainingMinutes = examDurationInMinutes / 2;
 
   useEffect(() => {
     if (!connected) return; // only schedule if the client is connected
@@ -46,14 +48,22 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
       onVoiceStart();
     }
 
+    const timerConfig = getTimerConfig();
+
     const introTimer = setTimeout(() => {
-      client.send([{ text: "Please introduce the exam" }]);
-    }, 1000);
+      client.send([{ text: prompts.timerMessages.introduction }]);
+    }, timerConfig.introductionDelay);
 
     const halfExamTimer = setTimeout(() => {
+      // eslint-disable-next-line no-template-curly-in-string
+      const halfTimeMessage = prompts.timerMessages.halfTime.replace(
+        "${remainingMinutes}",
+        halfExamRemainingMinutes.toString()
+      );
+
       client.send([
         {
-          text: `Half of the exam has passed, and there are ${HalfWaySeconds} minutes remaining. Dont tell the student about this message, just carry on`,
+          text: halfTimeMessage,
         },
       ]);
     }, HalfWaySeconds);
@@ -61,17 +71,23 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
     const gradingTimer = setTimeout(() => {
       client.send([
         {
-          text: "Exam time is almost up. Please provide a grade and feedback.",
+          text: prompts.timerMessages.timeAlmostUp,
         },
       ]);
-    }, examDurationInMs - 60 * 1000);
+    }, examDurationInMs - timerConfig.timeWarningBeforeEnd);
 
     return () => {
       clearTimeout(introTimer);
       clearTimeout(halfExamTimer);
       clearTimeout(gradingTimer);
     };
-  }, [client, connected]);
+  }, [
+    client,
+    connected,
+    halfExamRemainingMinutes,
+    HalfWaySeconds,
+    examDurationInMs,
+  ]);
 
   const prompt = "";
 

@@ -4,10 +4,15 @@ import {
   StartSensitivity,
   EndSensitivity,
 } from "@google/genai";
-import { getCurrentVoice } from "../../config/aiConfig";
+import {
+  AI_CONFIG,
+  getCurrentVoice,
+  getVADConfig,
+} from "../../config/aiConfig";
 
 // Default values from centralized config
 const DEFAULT_VOICE_NAME = getCurrentVoice();
+const VAD_CONFIG = getVADConfig();
 
 // Interface for optional parameters to allow some flexibility
 interface CreateLiveConfigOptions {
@@ -15,6 +20,8 @@ interface CreateLiveConfigOptions {
   voiceName?: string; // Allow specifying voice name
   silenceDurationMs?: number;
   prefixPaddingMs?: number;
+  startOfSpeechSensitivity?: keyof typeof StartSensitivity;
+  endOfSpeechSensitivity?: keyof typeof EndSensitivity;
 }
 
 /**
@@ -29,6 +36,23 @@ export function createLiveConfig(
   options?: CreateLiveConfigOptions
 ): LiveConnectConfig {
   const voiceName = options?.voiceName || DEFAULT_VOICE_NAME;
+  const silenceDurationMs =
+    options?.silenceDurationMs || VAD_CONFIG.silenceDurationMs;
+  const prefixPaddingMs =
+    options?.prefixPaddingMs || VAD_CONFIG.prefixPaddingMs;
+
+  // Use centralized VAD sensitivity settings or allow override
+  const startSensitivity = options?.startOfSpeechSensitivity
+    ? StartSensitivity[options.startOfSpeechSensitivity]
+    : StartSensitivity[
+        VAD_CONFIG.startOfSpeechSensitivity as keyof typeof StartSensitivity
+      ];
+
+  const endSensitivity = options?.endOfSpeechSensitivity
+    ? EndSensitivity[options.endOfSpeechSensitivity]
+    : EndSensitivity[
+        VAD_CONFIG.endOfSpeechSensitivity as keyof typeof EndSensitivity
+      ];
 
   // The main LiveConnectConfig object with session resumption enabled
   const liveConfig: LiveConnectConfig = {
@@ -44,17 +68,16 @@ export function createLiveConfig(
     systemInstruction: {
       parts: [{ text: promptText }],
     },
-    // Enable session resumption to allow pause/resume functionality
-    // For initial connections, set to empty object to enable feature
-    sessionResumption: {},
-    // Configure Voice Activity Detection for balanced sensitivity
+    // Enable session resumption based on centralized config
+    ...(AI_CONFIG.SESSION_RESUMPTION_ENABLED && { sessionResumption: {} }),
+    // Configure Voice Activity Detection using centralized config values
     realtimeInputConfig: {
       automaticActivityDetection: {
-        disabled: false, // Keep VAD enabled with balanced settings
-        startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH, // High sensitivity to detect user speech
-        endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH, // High sensitivity for speech end detection
-        prefixPaddingMs: 100, // Moderate padding before speech starts
-        silenceDurationMs: 500, // Moderate silence duration to end speech (500ms)
+        disabled: false, // Keep VAD enabled with centralized settings
+        startOfSpeechSensitivity: startSensitivity,
+        endOfSpeechSensitivity: endSensitivity,
+        prefixPaddingMs: prefixPaddingMs, // From centralized config (or options override)
+        silenceDurationMs: silenceDurationMs, // From centralized config (or options override)
       },
     },
     // tools can be added here if needed in the future

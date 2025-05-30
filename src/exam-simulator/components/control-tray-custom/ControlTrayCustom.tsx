@@ -115,12 +115,23 @@ function ControlTray({
         },
       ]);
     };
+
+    // Clean up existing listeners first
+    audioRecorder.off("data", onData).off("volume", setInVolume);
+
     if (connected && !muted && audioRecorder) {
-      audioRecorder.on("data", onData).on("volume", setInVolume).start();
+      // Add listeners and start recording
+      audioRecorder.on("data", onData).on("volume", setInVolume);
+      audioRecorder.start().catch((error) => {
+        console.error("Failed to start audio recording:", error);
+      });
     } else {
+      // Stop recording when muted or disconnected
       audioRecorder.stop();
     }
+
     return () => {
+      // Clean up listeners on unmount or dependency change
       audioRecorder.off("data", onData).off("volume", setInVolume);
     };
   }, [connected, client, muted, audioRecorder]);

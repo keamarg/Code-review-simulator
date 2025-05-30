@@ -201,10 +201,15 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
         .then(() => {
           setExamStarted(true); // Start countdown now that connection is established
           setHasEverConnected(true); // Mark that we've connected at least once
-          examTimers({
-            client,
-            examDurationInMs: examDurationActiveExamMs,
-          });
+
+          // Only set up timers on initial connection, not on resume
+          if (!hasEverConnected) {
+            examTimers({
+              client,
+              examDurationInMs: examDurationActiveExamMs,
+              isInitialConnection: true,
+            });
+          }
         })
         .catch((error) => {
           console.error(`Failed to ${connectionType.toLowerCase()}:`, error);

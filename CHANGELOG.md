@@ -11,24 +11,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Session Resumption Configuration**: Updated `createLiveConfig` to use `LiveConnectConfig` from `@google/genai` instead of custom `LiveConfig` type
 - **Critical Session Resumption Fix**: Added missing `sessionResumption: {}` field to enable session resumption feature (this was the root cause of session handles not being received)
+- **Resume Timer Issue**: Fixed issue where AI would restart conversation on resume by preventing timer messages from being sent on resumed connections
+- **Mute Button Issue**: Fixed mute button not working properly due to multiple audio recorder start calls and improper event listener management
 - **Audio Cutout Issues**: Configured Voice Activity Detection (VAD) to be less sensitive to prevent AI voice from cutting in and out during conversations
+- **Configuration Usage**: Fixed VAD settings to use centralized `AI_CONFIG` values for `silenceDurationMs` and `prefixPaddingMs` instead of hardcoded values
 - **Modality Type Safety**: Fixed `responseModalities` to use `Modality.AUDIO` enum instead of string literal
 - **Config Structure**: Removed `model` property from config object as it's passed separately to connect/resume methods
 - **Session Resumption Enablement**: Configured proper session resumption to enable conversation continuity after pause/resume
+- **ESLint Warnings**: Fixed unused import warnings and template string expression warnings with appropriate disable comments
 
 ### Added
 
+- **Complete Prompt Centralization**: Moved ALL AI prompts, system instructions, and timer messages to `src/prompts.json`
+  - **Level Guidance**: Centralized junior/intermediate/senior developer focus areas
+  - **Timer Messages**: Centralized introduction, half-time, and time-up messages
+  - **Instruction Components**: Modular prompt components for screen sharing, context, and guidelines
+  - **Template System**: Support for dynamic placeholders like `${level}`, `${remainingMinutes}`, `${description}`
+- **Comprehensive Configuration System**: Expanded `aiConfig.ts` to centralize ALL configuration options
+  - **VAD Settings**: Centralized voice activity detection sensitivity and timing settings
+  - **Timer Configuration**: Centralized introduction delay and warning timing settings
+  - **Session Configuration**: Centralized session resumption and response modality settings
+  - **Helper Functions**: Added `getVADConfig()` and `getTimerConfig()` for easy access
 - **VAD Configuration**: Added comprehensive Voice Activity Detection settings:
   - `startOfSpeechSensitivity: START_SENSITIVITY_HIGH` - Sensitive enough to detect user speech properly
   - `endOfSpeechSensitivity: END_SENSITIVITY_HIGH` - Responsive speech end detection
   - `prefixPaddingMs: 100` - Moderate padding before speech detection starts
   - `silenceDurationMs: 500` - Balanced silence duration required to end speech (reduced from 1000ms after over-correction)
+- **Centralized Prompts Documentation**: Created `CENTRALIZED_PROMPTS_DOCUMENTATION.md` with comprehensive guide
+- **Comprehensive Configuration Guide**: Created `COMPREHENSIVE_CONFIGURATION_GUIDE.md` with complete configuration reference
 
 ### Changed
 
 - **liveConfigUtils.ts**: Migrated from custom `LiveConfig` to official `LiveConnectConfig` type and enabled session resumption
 - **ExamWorkflow.tsx**: Updated `createLiveConfig` calls to remove model parameter
+- **prompt.js**: Completely refactored to use centralized prompts instead of hardcoded strings
+- **useExamTimers.ts**: Updated to use centralized timer messages and timing configuration from `aiConfig.ts`
+- **Altair.tsx**: Updated to use centralized timer messages and timing configuration from `aiConfig.ts`
 - **Type Imports**: Added `Modality`, `StartSensitivity`, and `EndSensitivity` enum imports from `@google/genai`
+- **Configuration Architecture**: All hardcoded values moved to centralized configuration system
+- **VAD Settings**: Now fully configurable through `AI_CONFIG.VAD_SETTINGS` with type safety
+- **Timer Settings**: All timing values now controlled through `AI_CONFIG.TIMER_SETTINGS`
 
 ### Technical Notes
 
@@ -36,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Once enabled, the server will send `sessionResumptionUpdate` messages with handles for reconnection
 - Resume connections use `sessionResumption: { handle: previousHandle }` to continue conversation
 - VAD settings significantly reduce audio interruptions caused by background noise or brief sounds
+- **All AI behavior is now controlled from `src/prompts.json`** - no more scattered hardcoded prompts
+- Template variables support dynamic content: `${examDurationActiveExam}`, `${level}`, `${remainingMinutes}`, etc.
 
 ## [0.12.2] - 2025-01-27
 
