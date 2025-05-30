@@ -5,6 +5,83 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2025-01-27
+
+### Added
+
+- **Major Upgrade**: New GenAI Live Client implementation based on official `@google/genai` package
+- **Session Resumption**: Automatic session resumption with handles for connection continuity
+- **Automatic Reconnection**: Smart reconnection on WebSocket close (code 1011) with retry limits
+- **Enhanced Connection Management**: Status tracking ("connected" | "disconnected" | "connecting")
+- **Improved Event System**: Comprehensive event handling and logging
+- **Better Error Handling**: Detailed logging and graceful error recovery
+- New files:
+  - `src/lib/genai-live-client.ts` - Improved client implementation
+  - `src/hooks/use-genai-live.ts` - New hook for improved client
+  - `src/contexts/GenAILiveContext.tsx` - New context provider
+  - `src/types/index.ts` - Supporting types
+  - `GENAI_LIVE_CLIENT_UPGRADE.md` - Comprehensive upgrade documentation
+
+### Changed
+
+- Updated to use `@google/genai` package instead of custom WebSocket implementation
+- Improved model support for `models/gemini-2.0-flash-live-001`
+- Enhanced logging system for better debugging
+- More robust connection handling with 500ms reconnection delay
+
+### Fixed
+
+- Connection stability issues with automatic session resumption
+- Better WebSocket error handling and recovery
+- Improved memory management with proper cleanup
+
+### Compatibility
+
+- ✅ **Backward Compatible** - All existing code continues to work unchanged
+- ✅ **Additive Changes** - New implementation available alongside existing implementation
+- ✅ **Optional Migration** - Can gradually migrate to new client for enhanced features
+
+## [0.11.11] - 2025-01-27
+
+### Added
+
+- Centralized AI model configuration system in `src/config/aiConfig.ts`
+- Environment variable support for AI model selection (`REACT_APP_AI_MODEL`)
+- Environment variable support for AI voice selection (`REACT_APP_AI_VOICE`)
+- Comprehensive AI model configuration documentation (`AI_MODEL_CONFIGURATION.md`)
+
+### Changed
+
+- Centralized all hardcoded `models/gemini-2.0-flash-exp` references to use configurable system
+- Updated `liveConfigUtils.ts` to use centralized configuration
+- Updated `ExamWorkflow.tsx` to use centralized configuration
+- Updated `use-live-api.ts` to use centralized configuration
+- Updated `Altair.tsx` to use centralized configuration
+- Made AI model and voice settings easily configurable without code changes
+
+### Fixed
+
+- Eliminated multiple hardcoded model references throughout the codebase
+- Improved maintainability by centralizing AI configuration
+
+## [0.11.10] - 2025-01-27
+
+### Fixed
+
+- Fixed ESLint import order error in ExamWorkflow.tsx by moving CountdownTimer import to top
+- Resolved TypeScript errors related to missing 'model' property in ExamSimulator type
+- Fixed LoadingAnimation component usage by removing unsupported 'message' prop
+- Corrected responseModalities type from array to single string value in liveConfigUtils.ts
+- Removed unsupported realtimeInputConfig and sessionResumption properties from LiveConfig
+- Added missing babel plugin @babel/plugin-proposal-private-property-in-object to resolve build warnings
+- Application now builds successfully with only minor linting warnings remaining
+
+### Added
+
+- Comprehensive Supabase schema documentation with SQL import script
+- Row Level Security (RLS) policies for secure data access
+- Instructions for migrating to different Supabase accounts
+
 ## [0.11.9] - 2025-05-29
 
 ### Fixed

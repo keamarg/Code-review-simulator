@@ -1,10 +1,15 @@
 import { LiveConfig, LiveGenerationConfig } from "../../multimodal-live-types"; // Adjust path as needed
+import {
+  AI_CONFIG,
+  getCurrentModel,
+  getCurrentVoice,
+} from "../../config/aiConfig";
 
-// Default values - consider making these configurable if necessary
-const DEFAULT_MODEL = "models/gemini-2.0-flash-exp";
-const DEFAULT_VOICE_NAME = "Puck"; // Or "Aoede" or others as per LiveGenerationConfig
-const DEFAULT_SILENCE_DURATION_MS = 1000;
-const DEFAULT_PREFIX_PADDING_MS = 100;
+// Default values from centralized config
+const DEFAULT_MODEL = getCurrentModel();
+const DEFAULT_VOICE_NAME = getCurrentVoice();
+const DEFAULT_SILENCE_DURATION_MS = AI_CONFIG.DEFAULT_SILENCE_DURATION_MS;
+const DEFAULT_PREFIX_PADDING_MS = AI_CONFIG.DEFAULT_PREFIX_PADDING_MS;
 
 // Interface for optional parameters to allow some flexibility
 interface CreateLiveConfigOptions {
@@ -27,12 +32,13 @@ export function createLiveConfig(
 ): LiveConfig {
   const model = options?.model || DEFAULT_MODEL;
   const voiceName = options?.voiceName || DEFAULT_VOICE_NAME;
-  const silenceDurationMs = options?.silenceDurationMs || DEFAULT_SILENCE_DURATION_MS;
+  const silenceDurationMs =
+    options?.silenceDurationMs || DEFAULT_SILENCE_DURATION_MS;
   const prefixPaddingMs = options?.prefixPaddingMs || DEFAULT_PREFIX_PADDING_MS;
 
   // Construct the generationConfig part, ensuring correct typing
   const generationConfig: Partial<LiveGenerationConfig> = {
-    responseModalities: ["audio"], // As per requirement
+    responseModalities: "audio", // As per requirement
     speechConfig: {
       voiceConfig: {
         prebuiltVoiceConfig: {
@@ -49,14 +55,6 @@ export function createLiveConfig(
     systemInstruction: {
       parts: [{ text: promptText }],
     },
-    // As per requirements for the new fields:
-    realtimeInputConfig: {
-      automaticActivityDetection: {
-        silenceDurationMs: silenceDurationMs,
-        prefixPaddingMs: prefixPaddingMs,
-      },
-    },
-    sessionResumption: {}, // Empty object for session resumption
     // tools can be added here if needed in the future
   };
 

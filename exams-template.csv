@@ -1,0 +1,4 @@
+id,created_at,title,description,type,duration,learning_goals,is_public,user_id
+,,Sample Code Review 1,Review this React component for best practices,Standard,15,intermediate,true,
+,,GitHub Repository Review,Analyze the entire codebase structure,Github Repo,30,senior,false,
+,,Junior Developer Review,Focus on basic syntax and structure,Standard,10,beginner,true, 

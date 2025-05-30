@@ -16,6 +16,7 @@
 import React, { useEffect, useRef, useState, memo } from "react";
 import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { ExamSimulator } from "../../exam-simulator/contexts/ExamSimulatorContext";
+import { getCurrentModel } from "../../config/aiConfig"; // Import centralized config
 
 const EXAM_DURATION_IN_MINUTES = 8; // default duration
 
@@ -29,7 +30,6 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
   // New state variable to store the task for the student
   const [studentTask, setStudentTask] = useState<string>("");
   const { client, setConfig, connected } = useLiveAPIContext();
-  
 
   // Calculate dynamic exam duration based on examSimulator. Use fallback if not provided.
   const examDurationInMinutes =
@@ -73,11 +73,11 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
     };
   }, [client, connected]);
 
-  const prompt = ""
+  const prompt = "";
 
   /* useEffect(() => {
     setConfig({
-      model: "models/gemini-2.0-flash-exp",
+      model: getCurrentModel(),
       generationConfig: {
         responseModalities: "audio",
         speechConfig: {
@@ -95,9 +95,7 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
   }, [setConfig]); */
 
   const prepareExamQuestions = async () => {
-  
-
-   /*  try {
+    /*  try {
       const examContent = await getExaminerQuestions(
         examSimulator.learningGoals,
         examDurationInMinutes,

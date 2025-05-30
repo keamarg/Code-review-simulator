@@ -15,40 +15,31 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  MultimodalLiveAPIClientConnection,
-  MultimodalLiveClient,
-} from "../lib/multimodal-live-client";
-import { LiveConfig } from "../multimodal-live-types";
+import { LiveConnectConfig } from "@google/genai";
+import { GenAILiveClient } from "../lib/genai-live-client";
+import { LiveClientOptions } from "../types";
 import { AudioStreamer } from "../lib/audio-streamer";
 import { audioContext } from "../lib/utils";
 import VolMeterWorket from "../lib/worklets/vol-meter";
 import { getCurrentModel } from "../config/aiConfig";
 
-export type UseLiveAPIResults = {
-  client: MultimodalLiveClient;
-  setConfig: (config: LiveConfig) => void;
-  config: LiveConfig;
+export type UseGenAILiveResults = {
+  client: GenAILiveClient;
   connected: boolean;
-  connect: () => Promise<void>;
+  connect: (model: string, config: LiveConnectConfig) => Promise<void>;
   disconnect: () => Promise<void>;
   volume: number;
+  status: "connected" | "disconnected" | "connecting";
 };
 
-export function useLiveAPI({
-  url,
-  apiKey,
-}: MultimodalLiveAPIClientConnection): UseLiveAPIResults {
+export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
   const client = useMemo(
-    () => new MultimodalLiveClient({ url, apiKey }),
-    [url, apiKey]
+    () => new GenAILiveClient(options),
+    [options.apiKey] // Only recreate if API key changes
   );
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
 
   const [connected, setConnected] = useState(false);
-  const [config, setConfig] = useState<LiveConfig>({
-    model: getCurrentModel(),
-  });
   const [volume, setVolume] = useState(0);
 
   // register audio for streaming server -> speakers
@@ -68,6 +59,10 @@ export function useLiveAPI({
   }, [audioStreamerRef]);
 
   useEffect(() => {
+    const onOpen = () => {
+      setConnected(true);
+    };
+
     const onClose = () => {
       setConnected(false);
     };
@@ -78,39 +73,37 @@ export function useLiveAPI({
       audioStreamerRef.current?.addPCM16(new Uint8Array(data));
 
     client
+      .on("open", onOpen)
       .on("close", onClose)
       .on("interrupted", stopAudioStreamer)
       .on("audio", onAudio);
 
     return () => {
       client
+        .off("open", onOpen)
         .off("close", onClose)
         .off("interrupted", stopAudioStreamer)
         .off("audio", onAudio);
     };
   }, [client]);
 
-  const connect = useCallback(async () => {
-    if (!config) {
-      throw new Error("config has not been set");
-    }
-    client.disconnect();
-    await client.connect(config);
-    setConnected(true);
-  }, [client, setConnected, config]);
+  const connect = useCallback(
+    async (model: string, config: LiveConnectConfig) => {
+      await client.connect(model, config);
+    },
+    [client]
+  );
 
   const disconnect = useCallback(async () => {
     client.disconnect();
-    setConnected(false);
-  }, [setConnected, client]);
+  }, [client]);
 
   return {
     client,
-    config,
-    setConfig,
     connected,
     connect,
     disconnect,
     volume,
+    status: client.status,
   };
 }

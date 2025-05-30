@@ -10,10 +10,10 @@ import { createLiveConfig } from "../../utils/liveConfigUtils"; // Import the ne
 import ReactMarkdown from "react-markdown";
 import { LoadingAnimation } from "../ui/LoadingAnimation"; // Check path
 import { AIExaminerDisplay } from "./AIExaminer"; // Import the refactored display component
+import { CountdownTimer } from "../CountdownTimer"; // Import CountdownTimer
+import { getCurrentModel } from "../../../config/aiConfig"; // Import centralized config
 
 const EXAM_DURATION_IN_MINUTES = 8; // default duration
-
-import { CountdownTimer } from "../CountdownTimer"; // Import CountdownTimer
 
 interface ExamWorkflowProps {
   examId: string;
@@ -21,11 +21,10 @@ interface ExamWorkflowProps {
   // onExamStarted is now internal to ExamWorkflow as CountdownTimer is moved here
 }
 
-export function ExamWorkflow({
-  examId,
-  examIntentStarted,
-}: ExamWorkflowProps) {
-  const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(null);
+export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
+  const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(
+    null
+  );
   const [examStarted, setExamStarted] = useState(false); // For CountdownTimer
   const [isLoadingExamData, setIsLoadingExamData] = useState<boolean>(true);
   const [examError, setExamError] = useState<string | null>(null);
@@ -84,7 +83,9 @@ export function ExamWorkflow({
         if (!repoUrl) {
           // Maybe set an error state here to inform user to enter URL
           setIsLoadingPrompt(false);
-          setExamError("GitHub repository URL is required to start this exam type.");
+          setExamError(
+            "GitHub repository URL is required to start this exam type."
+          );
           console.log("Repo URL is required for GitHub exam type.");
           return;
         }
@@ -98,7 +99,9 @@ export function ExamWorkflow({
           githubQuestions
         );
         // For GitHub, student task might be different or not applicable before starting
-        setStudentTask("Review the provided GitHub repository based on the learning goals.");
+        setStudentTask(
+          "Review the provided GitHub repository based on the learning goals."
+        );
       } else {
         // Standard exam type
         const examContent = await getExaminerQuestions(examSimulator);
@@ -136,56 +139,78 @@ export function ExamWorkflow({
     }
   }, [examSimulator, prepareExamContent]);
 
-
   // Effect for when exam intent starts (user clicks start button)
   useEffect(() => {
     if (examIntentStarted && examSimulator) {
       if (examSimulator.type === "Github Repo") {
-        if (repoUrl && !prompt) { // Only prepare if repoUrl is set and prompt not yet ready
+        if (repoUrl && !prompt) {
+          // Only prepare if repoUrl is set and prompt not yet ready
           prepareExamContent(); // This will set the prompt
-        } else if (prompt) { // If prompt is ready, proceed to setConfig
-          const newConfig = createLiveConfig(prompt, { model: examSimulator.model });
+        } else if (prompt) {
+          // If prompt is ready, proceed to setConfig
+          const newConfig = createLiveConfig(prompt, {
+            model: getCurrentModel(),
+          });
           setConfig(newConfig);
         }
-      } else { // Standard Exam
-        if (prompt) { // Ensure prompt is ready
-          const newConfig = createLiveConfig(prompt, { model: examSimulator.model });
+      } else {
+        // Standard Exam
+        if (prompt) {
+          // Ensure prompt is ready
+          const newConfig = createLiveConfig(prompt, {
+            model: getCurrentModel(),
+          });
           setConfig(newConfig);
         }
       }
     } else if (!examIntentStarted && connected) {
       // If exam intent is stopped and client is connected, disconnect.
       client.disconnect();
-      setPrompt(""); 
+      setPrompt("");
       setStudentTask("");
       // Not resetting repoUrl by default, could be a user choice
       setExamStarted(false); // Stop countdown timer display and reset exam started state
       // Reset the config in the context if it holds exam-specific instructions
-      setConfig({ model: examSimulator?.model || "models/gemini-2.0-flash-exp" }); // Reset to a basic config
+      setConfig({
+        model: getCurrentModel(),
+      }); // Reset to a basic config
     }
-  }, [examIntentStarted, examSimulator, repoUrl, prompt, setConfig, prepareExamContent, connected, client]);
-
+  }, [
+    examIntentStarted,
+    examSimulator,
+    repoUrl,
+    prompt,
+    setConfig,
+    prepareExamContent,
+    connected,
+    client,
+  ]);
 
   // Effect to connect and start timers when config is set and intent is active
   useEffect(() => {
     // Only connect if exam intent is started, config has a system instruction, and not already connected.
-    if (examIntentStarted && config?.systemInstruction?.parts?.[0]?.text && !connected) {
-      connect().then(() => {
-        setExamStarted(true); // Start countdown now that connection is established
-        examTimers({
-          client,
-          examDurationInMs: examDurationActiveExamMs,
+    if (
+      examIntentStarted &&
+      config?.systemInstruction?.parts?.[0]?.text &&
+      !connected
+    ) {
+      connect()
+        .then(() => {
+          setExamStarted(true); // Start countdown now that connection is established
+          examTimers({
+            client,
+            examDurationInMs: examDurationActiveExamMs,
+          });
+        })
+        .catch((error) => {
+          console.error("Failed to connect:", error);
+          setExamError("Failed to connect to the exam server.");
         });
-      }).catch(error => {
-        console.error("Failed to connect:", error);
-        setExamError("Failed to connect to the exam server.");
-      });
     }
   }, [config, connect, client, examDurationActiveExamMs, connected]);
 
-
   if (isLoadingExamData) {
-    return <LoadingAnimation isLoading={true} message="Loading exam details..." />;
+    return <LoadingAnimation isLoading={true} />;
   }
 
   if (examError) {
@@ -207,7 +232,9 @@ export function ExamWorkflow({
         startTrigger={examStarted}
       />
       {examSimulator.type === "Github Repo" && (
-        <div className="my-6"> {/* Added margin for spacing */}
+        <div className="my-6">
+          {" "}
+          {/* Added margin for spacing */}
           <label htmlFor="github-repo-url" className="block mb-2">
             GitHub Repository URL:
           </label>
@@ -221,21 +248,26 @@ export function ExamWorkflow({
             disabled={examIntentStarted || isLoadingPrompt}
           />
           {examIntentStarted && isLoadingPrompt && repoUrl && (
-            <LoadingAnimation isLoading={true} message="Analyzing repository..." />
+            <LoadingAnimation isLoading={true} />
           )}
         </div>
       )}
 
       {/* Display student task area for standard exams */}
       {examSimulator.type !== "Github Repo" && (
-        <AIExaminerDisplay studentTask={studentTask} isLoading={isLoadingPrompt} />
+        <AIExaminerDisplay
+          studentTask={studentTask}
+          isLoading={isLoadingPrompt}
+        />
       )}
 
       {/* General loading indicator for when examIntentStarted but prompt isn't ready yet (mostly for standard) */}
       {/* For GitHub, specific loading is shown near the input field */}
-      {examIntentStarted && isLoadingPrompt && examSimulator.type !== "Github Repo" && (
-         <LoadingAnimation isLoading={true} message="Preparing your exam questions..." />
-      )}
+      {examIntentStarted &&
+        isLoadingPrompt &&
+        examSimulator.type !== "Github Repo" && (
+          <LoadingAnimation isLoading={true} />
+        )}
       {/* Ghost loader styles are now encapsulated within AIExaminerDisplay.
           The style block below can be removed if it only contained those.
           Keeping it if it contains other styles for ExamWorkflow.
