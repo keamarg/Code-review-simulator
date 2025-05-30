@@ -11,6 +11,5 @@ const apiKey = await apiKeyResponse.json();
 
 export const supabase = createClient(
   "https://gzoltpvnxwjoeycomcby.supabase.co",
-
   apiKey
 );
