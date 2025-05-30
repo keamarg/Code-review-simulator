@@ -54,6 +54,9 @@ function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
 
+  // Add screen sharing instruction
+  prompt += "\n\nImportant: Before you begin the code review or ask any questions about the code, please ensure you have acknowledged that you can see the user's shared screen. Wait for the user to indicate they are ready for you to start the review after they have shared their screen.\n\n";
+
   // Get developer level guidance
   const levelGuidance = getLevelSpecificGuidance(
     examSimulator.learning_goals || "intermediate"
@@ -112,6 +115,9 @@ function getGithubPrompt(
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
+
+  // Add screen sharing instruction
+  prompt += "\n\nImportant: Before you begin the code review or ask any questions about the code, please ensure you have acknowledged that you can see the user's shared screen. Wait for the user to indicate they are ready for you to start the review after they have shared their screen.\n\n";
 
   // Get developer level guidance
   const levelGuidance = getLevelSpecificGuidance(
