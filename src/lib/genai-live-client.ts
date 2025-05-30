@@ -85,6 +85,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   private sessionResumptionHandle: string | undefined = "";
   private reconnectionAttempts: number = 0;
   private readonly maxReconnectionAttempts: number = 1;
+  private manualDisconnect: boolean = false;
 
   private _session: Session | null = null;
   public get session() {
@@ -127,6 +128,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     }
 
     this._status = "connecting";
+    this.manualDisconnect = false;
     this.config = config;
     this._model = model;
 
@@ -153,10 +155,59 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     return true;
   }
 
+  async resume(model: string, config: LiveConnectConfig): Promise<boolean> {
+    if (this._status === "connected" || this._status === "connecting") {
+      return false;
+    }
+
+    // Debug logging for resume
+    console.log("🔍 Resume Debug:", {
+      hasSessionHandle: !!this.sessionResumptionHandle,
+      sessionHandle: this.sessionResumptionHandle,
+      originalConfig: config,
+      willUseResumption: !!this.sessionResumptionHandle,
+    });
+
+    // Use session resumption if we have a handle
+    const resumptionConfig = this.sessionResumptionHandle
+      ? {
+          ...config,
+          sessionResumption: { handle: this.sessionResumptionHandle },
+        }
+      : config;
+
+    console.log("🔍 Final Resume Config:", resumptionConfig);
+
+    this.log(
+      "client.resume",
+      this.sessionResumptionHandle
+        ? `Resuming with session handle: ${this.sessionResumptionHandle}`
+        : "No session handle available, starting fresh session"
+    );
+
+    return this.connect(model, resumptionConfig);
+  }
+
   public disconnect() {
     if (!this.session) {
       return false;
     }
+    // Set flag to prevent automatic reconnection
+    this.manualDisconnect = true;
+
+    // Debug logging for session resumption
+    console.log("🔍 Disconnect Debug:", {
+      hasSessionHandle: !!this.sessionResumptionHandle,
+      sessionHandle: this.sessionResumptionHandle,
+      hasConfig: !!this.config,
+      hasModel: !!this._model,
+    });
+
+    this.log(
+      "client.disconnect",
+      `Session handle: ${this.sessionResumptionHandle || "none"}`
+    );
+
     this.session?.close();
     this._session = null;
     this._status = "disconnected";
@@ -198,7 +249,8 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       this.sessionResumptionHandle &&
       this.config &&
       this._model &&
-      this.reconnectionAttempts < this.maxReconnectionAttempts
+      this.reconnectionAttempts < this.maxReconnectionAttempts &&
+      !this.manualDisconnect
     ) {
       // reconnect with resumption handle
       // BUT only once! keep a counter
@@ -254,6 +306,10 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       if ("newHandle" in message.sessionResumptionUpdate) {
         this.sessionResumptionHandle =
           message.sessionResumptionUpdate.newHandle;
+        console.log(
+          "🔍 Session Resumption Handle Received:",
+          this.sessionResumptionHandle
+        );
         this.log(
           "client.sessionResumption",
           `New handle received: ${this.sessionResumptionHandle}`

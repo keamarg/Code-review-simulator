@@ -4,12 +4,14 @@ interface CountdownTimerProps {
   totalMs: number;
   autoStart?: boolean;
   startTrigger?: boolean;
+  pauseTrigger?: boolean;
 }
 
 export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   totalMs,
   autoStart = false,
   startTrigger = false,
+  pauseTrigger = false,
 }) => {
   const [timeLeft, setTimeLeft] = useState<number>(totalMs);
   const [running, setRunning] = useState<boolean>(autoStart);
@@ -29,7 +31,8 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   };
 
   useEffect(() => {
-    if (!running && !startTrigger) return;
+    if (!running || pauseTrigger) return;
+
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         const newTime = prev - 1000;
@@ -41,12 +44,14 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [running, startTrigger]);
+  }, [running, pauseTrigger]);
 
   // When startTrigger becomes true, start the timer
   useEffect(() => {
     if (startTrigger) {
       setRunning(true);
+    } else {
+      setRunning(false);
     }
   }, [startTrigger]);
 
@@ -85,6 +90,14 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
             transform="rotate(-90 50 50)"
           />
         </svg>
+        {/* Pause indicator overlay */}
+        {pauseTrigger && running && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-tokyo-fg-bright text-xs bg-tokyo-bg-darker bg-opacity-80 rounded px-1">
+              PAUSED
+            </div>
+          </div>
+        )}
       </div>
       {/* Time display */}
       <div className="mt-1 font-medium text-sm text-tokyo-fg-bright">

@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../config/supabaseClient";
-import { useLiveAPIContext } from "../../../contexts/LiveAPIContext";
+import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
 import { ExamSimulator } from "../../contexts/ExamSimulatorContext"; // Ensure this type is correctly defined and exported
 import { getExaminerQuestions } from "../../utils/getExaminerQuestions";
 import getRepoQuestions from "../../utils/getGithubRepoFiles.js"; // Assuming .js is correct
 import getPrompt from "../../utils/prompt";
 import examTimers from "../../hooks/useExamTimers"; // Ensure this is correctly typed
 import { createLiveConfig } from "../../utils/liveConfigUtils"; // Import the new utility
-import ReactMarkdown from "react-markdown";
 import { LoadingAnimation } from "../ui/LoadingAnimation"; // Check path
 import { AIExaminerDisplay } from "./AIExaminer"; // Import the refactored display component
 import { CountdownTimer } from "../CountdownTimer"; // Import CountdownTimer
@@ -33,8 +32,10 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
   const [repoUrl, setRepoUrl] = useState<string>(""); // For GitHub type exams
   const [prompt, setPrompt] = useState<string>("");
   const [isLoadingPrompt, setIsLoadingPrompt] = useState<boolean>(false);
+  const [liveConfig, setLiveConfig] = useState<any>(null); // Local config state
+  const [hasEverConnected, setHasEverConnected] = useState<boolean>(false); // Track if we've connected before
 
-  const { client, setConfig, connected, connect, config } = useLiveAPIContext();
+  const { client, connected, connect, resume } = useGenAILiveContext();
 
   const examDurationInMinutes =
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
@@ -148,39 +149,30 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
           prepareExamContent(); // This will set the prompt
         } else if (prompt) {
           // If prompt is ready, proceed to setConfig
-          const newConfig = createLiveConfig(prompt, {
-            model: getCurrentModel(),
-          });
-          setConfig(newConfig);
+          const newConfig = createLiveConfig(prompt);
+          setLiveConfig(newConfig);
         }
       } else {
         // Standard Exam
         if (prompt) {
           // Ensure prompt is ready
-          const newConfig = createLiveConfig(prompt, {
-            model: getCurrentModel(),
-          });
-          setConfig(newConfig);
+          const newConfig = createLiveConfig(prompt);
+          setLiveConfig(newConfig);
         }
       }
     } else if (!examIntentStarted && connected) {
-      // If exam intent is stopped and client is connected, disconnect.
+      // If exam intent is stopped (pause pressed) and client is connected, disconnect.
       client.disconnect();
-      setPrompt("");
-      setStudentTask("");
-      // Not resetting repoUrl by default, could be a user choice
       setExamStarted(false); // Stop countdown timer display and reset exam started state
-      // Reset the config in the context if it holds exam-specific instructions
-      setConfig({
-        model: getCurrentModel(),
-      }); // Reset to a basic config
+      // Note: We keep prompt, studentTask, and liveConfig so that task information remains visible
+      // and the exam can be resumed without re-preparing content
     }
   }, [
     examIntentStarted,
     examSimulator,
     repoUrl,
     prompt,
-    setConfig,
+    setLiveConfig,
     prepareExamContent,
     connected,
     client,
@@ -191,23 +183,46 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
     // Only connect if exam intent is started, config has a system instruction, and not already connected.
     if (
       examIntentStarted &&
-      config?.systemInstruction?.parts?.[0]?.text &&
+      liveConfig?.systemInstruction?.parts?.[0]?.text &&
       !connected
     ) {
-      connect()
+      const connectionMethod = hasEverConnected ? resume : connect;
+      const connectionType = hasEverConnected ? "Resuming" : "Connecting";
+
+      console.log(`🔍 ExamWorkflow ${connectionType}:`, {
+        hasEverConnected,
+        connectionMethod: hasEverConnected ? "resume" : "connect",
+        liveConfig: !!liveConfig,
+      });
+
+      console.log(`${connectionType} to GenAI Live...`);
+
+      connectionMethod(getCurrentModel(), liveConfig)
         .then(() => {
           setExamStarted(true); // Start countdown now that connection is established
+          setHasEverConnected(true); // Mark that we've connected at least once
           examTimers({
             client,
             examDurationInMs: examDurationActiveExamMs,
           });
         })
         .catch((error) => {
-          console.error("Failed to connect:", error);
-          setExamError("Failed to connect to the exam server.");
+          console.error(`Failed to ${connectionType.toLowerCase()}:`, error);
+          setExamError(
+            `Failed to ${connectionType.toLowerCase()} to the exam server.`
+          );
         });
     }
-  }, [config, connect, client, examDurationActiveExamMs, connected]);
+  }, [
+    liveConfig,
+    connect,
+    resume,
+    client,
+    examDurationActiveExamMs,
+    connected,
+    examIntentStarted,
+    hasEverConnected,
+  ]);
 
   if (isLoadingExamData) {
     return <LoadingAnimation isLoading={true} />;
@@ -230,6 +245,7 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
         totalMs={examDurationActiveExamMs}
         autoStart={false} // Will be controlled by examStarted state
         startTrigger={examStarted}
+        pauseTrigger={!examIntentStarted} // Pause when exam intent is not started
       />
       {examSimulator.type === "Github Repo" && (
         <div className="my-6">

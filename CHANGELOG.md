@@ -5,6 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.3] - 2025-01-27
+
+### Fixed
+
+- **Session Resumption Configuration**: Updated `createLiveConfig` to use `LiveConnectConfig` from `@google/genai` instead of custom `LiveConfig` type
+- **Critical Session Resumption Fix**: Added missing `sessionResumption: {}` field to enable session resumption feature (this was the root cause of session handles not being received)
+- **Audio Cutout Issues**: Configured Voice Activity Detection (VAD) to be less sensitive to prevent AI voice from cutting in and out during conversations
+- **Modality Type Safety**: Fixed `responseModalities` to use `Modality.AUDIO` enum instead of string literal
+- **Config Structure**: Removed `model` property from config object as it's passed separately to connect/resume methods
+- **Session Resumption Enablement**: Configured proper session resumption to enable conversation continuity after pause/resume
+
+### Added
+
+- **VAD Configuration**: Added comprehensive Voice Activity Detection settings:
+  - `startOfSpeechSensitivity: START_SENSITIVITY_HIGH` - Sensitive enough to detect user speech properly
+  - `endOfSpeechSensitivity: END_SENSITIVITY_HIGH` - Responsive speech end detection
+  - `prefixPaddingMs: 100` - Moderate padding before speech detection starts
+  - `silenceDurationMs: 500` - Balanced silence duration required to end speech (reduced from 1000ms after over-correction)
+
+### Changed
+
+- **liveConfigUtils.ts**: Migrated from custom `LiveConfig` to official `LiveConnectConfig` type and enabled session resumption
+- **ExamWorkflow.tsx**: Updated `createLiveConfig` calls to remove model parameter
+- **Type Imports**: Added `Modality`, `StartSensitivity`, and `EndSensitivity` enum imports from `@google/genai`
+
+### Technical Notes
+
+- Session resumption must be explicitly enabled in the initial connection config by setting `sessionResumption: {}`
+- Once enabled, the server will send `sessionResumptionUpdate` messages with handles for reconnection
+- Resume connections use `sessionResumption: { handle: previousHandle }` to continue conversation
+- VAD settings significantly reduce audio interruptions caused by background noise or brief sounds
+
+## [0.12.2] - 2025-01-27
+
+### Fixed
+
+- **WebSocket Connection Errors**: Completely migrated from legacy `useLiveAPIContext` to new `useGenAILiveContext`
+- **"WebSocket is not connected" Error**: Resolved error when pressing stop button by removing legacy MultimodalLiveClient references
+- **Timer and Voice Issues**: Fixed problems where timer wouldn't start and voice wouldn't receive instructions due to legacy client usage
+- **Mixed Client Usage**: Eliminated all mixed usage of old and new GenAI Live clients
+- **Connection Management**: Improved connection handling with proper disconnect on pause/stop
+- **Context Provider Error**: Fixed "useGenAILiveContext must be used within a GenAILiveProvider" by restructuring component hierarchy
+- **Voice Continuation on Pause**: Fixed issue where AI voice continued speaking after pressing pause button
+- **Task Information Disappearing**: Fixed task information being cleared when pausing, now remains visible during pause
+- **Automatic Reconnection**: Prevented unwanted automatic reconnection when user manually disconnects/pauses
+- **Conversation Continuity**: Fixed issue where resume started a new conversation instead of continuing the existing one
+- **Button Text Inconsistency**: Button now shows "Resume" instead of "Start code review" when resuming a paused session
+
+### Added
+
+- **Manual Disconnect Tracking**: Added flag to distinguish between manual and automatic disconnections
+- **Immediate Audio Stop**: AudioStreamer now stops immediately on disconnect to cut off voice
+- **Proper Pause/Resume**: Task information and config remain available for seamless resume
+- **Session Resumption for Manual Resume**: Added `resume()` method that uses session resumption handles to continue conversations
+- **Dynamic Button Text**: Button text changes based on session state (Start/Resume/Pause)
+- **Connection State Tracking**: Added tracking for first-time vs. resume connections
+
+### Changed
+
+- **Complete Client Migration**: Updated all components to use new GenAI Live Client:
+  - `ControlTrayCustom.tsx`: Migrated from legacy to new context
+  - `ExamWorkflow.tsx`: Updated to use new client API with proper config management and pause handling
+  - `AIExaminerPage.tsx`: Replaced LiveAPIProvider with GenAILiveProvider and restructured component hierarchy
+- **Code Cleanup**: Removed unused imports and variables throughout codebase
+- **Simplified Architecture**: Consolidated screen share notification logic directly in main component
+- **Component Restructure**: Created ExamPageContent component to properly wrap GenAI Live Context usage
+- **Audio Management**: Enhanced disconnect behavior to immediately stop audio streamer and prevent buffered audio playback
+- **Pause Logic**: Improved pause functionality to preserve exam state while stopping voice and timer
+
+### Removed
+
+- All references to legacy `useLiveAPIContext` and `LiveAPIProvider`
+- Deprecated WebSocket implementation and MultimodalLiveClient usage
+- Unused PageContent component and interface
+- Legacy URI constants and unused imports
+
+## [0.12.1] - 2025-01-27
+
+### Fixed
+
+- **Timer Pause Functionality**: CountdownTimer now properly pauses when the exam is paused
+- **Voice Pause Behavior**: Audio recorder and live client now disconnect immediately when pause is pressed
+- **Permission Denied Error**: Fixed `NotAllowedError: Permission denied` when restarting after pause by improving media stream error handling
+- **Button State Management**: Enhanced pause/start button logic to properly manage connection state
+- **Error Handling**: Added proper error handling for media stream operations to prevent unhandled promise rejections
+
+### Added
+
+- **Pause Indicator**: Visual "PAUSED" indicator on countdown timer when exam is paused
+- **Enhanced Error Logging**: Better error messages and logging for media stream operations
+- **Graceful Error Recovery**: Improved error handling that doesn't break the UI when permissions are denied
+
+### Changed
+
+- CountdownTimer component now accepts `pauseTrigger` prop for proper pause/resume functionality
+- Enhanced ControlTrayCustom button handling with async error management
+- Improved media stream button click handlers with proper error boundaries
+
 ## [0.12.0] - 2025-01-27
 
 ### Added

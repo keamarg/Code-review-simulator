@@ -28,6 +28,7 @@ export type UseGenAILiveResults = {
   connected: boolean;
   connect: (model: string, config: LiveConnectConfig) => Promise<void>;
   disconnect: () => Promise<void>;
+  resume: (model: string, config: LiveConnectConfig) => Promise<void>;
   volume: number;
   status: "connected" | "disconnected" | "connecting";
 };
@@ -65,6 +66,8 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
 
     const onClose = () => {
       setConnected(false);
+      // Stop audio streamer when connection closes to immediately stop voice
+      audioStreamerRef.current?.stop();
     };
 
     const stopAudioStreamer = () => audioStreamerRef.current?.stop();
@@ -95,14 +98,24 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
   );
 
   const disconnect = useCallback(async () => {
+    // Stop audio streamer immediately to cut off voice
+    audioStreamerRef.current?.stop();
     client.disconnect();
   }, [client]);
+
+  const resume = useCallback(
+    async (model: string, config: LiveConnectConfig) => {
+      await client.resume(model, config);
+    },
+    [client]
+  );
 
   return {
     client,
     connected,
     connect,
     disconnect,
+    resume,
     volume,
     status: client.status,
   };

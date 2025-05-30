@@ -17,7 +17,7 @@
 import cn from "classnames";
 
 import { memo, ReactNode, RefObject, useEffect, useRef, useState } from "react";
-import { useLiveAPIContext } from "../../../contexts/LiveAPIContext";
+import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
 import { UseMediaStreamResult } from "../../../hooks/use-media-stream-mux";
 import { useScreenCapture } from "../../../hooks/use-screen-capture";
 import { useWebcam } from "../../../hooks/use-webcam";
@@ -31,6 +31,7 @@ export type ControlTrayProps = {
   supportsVideo: boolean;
   onVideoStreamChange?: (stream: MediaStream | null) => void;
   onButtonClicked?: (isButtonOn: boolean) => void;
+  hasExamStarted?: boolean;
 };
 
 type MediaStreamButtonProps = {
@@ -56,7 +57,15 @@ const MediaStreamButton = memo(
     ) : (
       <button
         className="transition duration-200 ease-in-out focus:outline-none rounded bg-tokyo-bg-lighter border border-tokyo-selection text-tokyo-fg shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
-        onClick={start}
+        onClick={async (e) => {
+          e.preventDefault();
+          try {
+            await start();
+          } catch (error) {
+            console.error("Error starting media stream:", error);
+            // Don't throw the error to prevent unhandled promise rejection
+          }
+        }}
       >
         <span className="material-symbols-outlined">{offIcon}</span>
       </button>
@@ -69,11 +78,12 @@ function ControlTray({
   onVideoStreamChange = () => {},
   onButtonClicked = (isButtonOn) => {},
   supportsVideo,
+  hasExamStarted,
 }: ControlTrayProps) {
   const videoStreams = [useWebcam(), useScreenCapture()];
   const [activeVideoStream, setActiveVideoStream] =
     useState<MediaStream | null>(null);
-  const [webcam, screenCapture] = videoStreams;
+  const [, screenCapture] = videoStreams;
   const [inVolume, setInVolume] = useState(0);
   const [audioRecorder] = useState(() => new AudioRecorder());
   const [muted, setMuted] = useState(false);
@@ -81,14 +91,14 @@ function ControlTray({
   const connectButtonRef = useRef<HTMLButtonElement>(null);
   const [buttonIsOn, setButtonIsOn] = useState(false);
 
-  const { client, connected, connect, disconnect, volume } =
-    useLiveAPIContext();
+  const { client, connected, disconnect, volume } = useGenAILiveContext();
 
   useEffect(() => {
     if (!connected && connectButtonRef.current) {
       connectButtonRef.current.focus();
     }
   }, [connected]);
+
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--volume",
@@ -151,18 +161,50 @@ function ControlTray({
     };
   }, [connected, activeVideoStream, client, videoRef]);
 
-  //handler for swapping from one video-stream to the next
+  // Enhanced handler for swapping from one video-stream to the next
   const changeStreams = (next?: UseMediaStreamResult) => async () => {
-    if (next) {
-      const mediaStream = await next.start();
-      setActiveVideoStream(mediaStream);
-      onVideoStreamChange(mediaStream);
-    } else {
-      setActiveVideoStream(null);
-      onVideoStreamChange(null);
-    }
+    try {
+      if (next) {
+        const mediaStream = await next.start();
+        setActiveVideoStream(mediaStream);
+        onVideoStreamChange(mediaStream);
+      } else {
+        setActiveVideoStream(null);
+        onVideoStreamChange(null);
+      }
 
-    videoStreams.filter((msr) => msr !== next).forEach((msr) => msr.stop());
+      videoStreams.filter((msr) => msr !== next).forEach((msr) => msr.stop());
+    } catch (error) {
+      console.error("Error changing video streams:", error);
+      // Handle the error gracefully without throwing
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        console.warn(
+          "Media permission denied. User may need to grant permission."
+        );
+      }
+    }
+  };
+
+  // Enhanced button click handler
+  const handleMainButtonClick = async () => {
+    const newButtonState = !buttonIsOn;
+    setButtonIsOn(newButtonState);
+
+    try {
+      if (newButtonState) {
+        // Starting - notify parent component first
+        onButtonClicked(newButtonState);
+      } else {
+        // Pausing - disconnect from the API
+        await disconnect();
+        // Notify parent component
+        onButtonClicked(newButtonState);
+      }
+    } catch (error) {
+      console.error("Error toggling connection:", error);
+      // Revert button state on error
+      setButtonIsOn(!newButtonState);
+    }
   };
 
   return (
@@ -174,14 +216,14 @@ function ControlTray({
           className={cn(
             "transition duration-200 ease-in-out focus:outline-none rounded border bg-tokyo-accent text-white shadow-sm hover:bg-tokyo-accent-darker hover:shadow-lg mb-6 py-5 px-8 cursor-pointer"
           )}
-          onClick={() => {
-            setButtonIsOn(!buttonIsOn);
-            // A bit weird that i also do !buttonIsOn here but it is because the setButtonIsOn
-            // is async
-            onButtonClicked(!buttonIsOn);
-          }}
+          onClick={handleMainButtonClick}
+          disabled={false} // Always enabled for better UX
         >
-          {connected ? "Pause" : "Start code review"}
+          {connected
+            ? "Pause"
+            : hasExamStarted
+            ? "Resume"
+            : "Start code review"}
         </button>
       </div>
 
