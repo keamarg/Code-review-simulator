@@ -20,10 +20,11 @@ function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
   prompt = prompt.replace(/\\n/g, "\n");
 
   // Add screen sharing instruction from prompts.json
-  prompt += prompts.instructionComponents.screenSharingInstruction.replace(
+  /*prompt += prompts.instructionComponents.screenSharingInstruction.replace(
     /\\n/g,
     "\n"
   );
+  */
 
   // Get developer level guidance from prompts.json
   const levelGuidance = getLevelSpecificGuidance(
@@ -89,10 +90,11 @@ function getGithubPrompt(
   prompt = prompt.replace(/\\n/g, "\n");
 
   // Add screen sharing instruction from prompts.json
-  prompt += prompts.instructionComponents.screenSharingInstruction.replace(
+  /*prompt += prompts.instructionComponents.screenSharingInstruction.replace(
     /\\n/g,
     "\n"
   );
+  */
 
   // Get developer level guidance from prompts.json
   const levelGuidance = getLevelSpecificGuidance(

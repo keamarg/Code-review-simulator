@@ -13,7 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Critical Session Resumption Fix**: Added missing `sessionResumption: {}` field to enable session resumption feature (this was the root cause of session handles not being received)
 - **Resume Timer Issue**: Fixed issue where AI would restart conversation on resume by preventing timer messages from being sent on resumed connections
 - **Mute Button Issue**: Fixed mute button not working properly due to multiple audio recorder start calls and improper event listener management
-- **Screen Sharing Request Issue**: Fixed AI asking user to share screen by disabling automatic screen sharing notification in AIExaminerPage.tsx
 - **Audio Cutout Issues**: Configured Voice Activity Detection (VAD) to be less sensitive to prevent AI voice from cutting in and out during conversations
 - **Configuration Usage**: Fixed VAD settings to use centralized `AI_CONFIG` values for `silenceDurationMs` and `prefixPaddingMs` instead of hardcoded values
 - **Modality Type Safety**: Fixed `responseModalities` to use `Modality.AUDIO` enum instead of string literal

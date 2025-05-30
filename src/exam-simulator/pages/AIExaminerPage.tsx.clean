@@ -41,7 +41,7 @@ function ExamPageContent({
       try {
         client.send([
           {
-            // text: "Ask the user to share their screen. Please acknowledge this and wait for my cue before starting the review.", // DISABLED
+            // text: "Ask the user to share their screen. Please acknowledge this and wait for my cue before starting the review.", // DISABLED: Screen sharing now integrated
           },
         ]);
         hasNotifiedScreenShareRef.current = false;

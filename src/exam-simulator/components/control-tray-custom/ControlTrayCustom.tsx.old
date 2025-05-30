@@ -196,57 +196,18 @@ function ControlTray({
     }
   };
 
-  // Enhanced button click handler with integrated screen sharing
+  // Enhanced button click handler
   const handleMainButtonClick = async () => {
     const newButtonState = !buttonIsOn;
     setButtonIsOn(newButtonState);
 
     try {
       if (newButtonState) {
-        // Starting - first ensure screen sharing is active
-        if (!screenCapture.isStreaming) {
-          console.log("Starting screen sharing before AI connection...");
-          try {
-            const mediaStream = await screenCapture.start();
-            setActiveVideoStream(mediaStream);
-            onVideoStreamChange(mediaStream);
-            console.log("Screen sharing started successfully");
-          } catch (screenShareError) {
-            console.error("Screen sharing failed:", screenShareError);
-            // Revert button state if screen sharing fails
-            setButtonIsOn(false);
-
-            // Show user-friendly error message
-            if (
-              screenShareError instanceof DOMException &&
-              screenShareError.name === "NotAllowedError"
-            ) {
-              alert(
-                "Screen sharing is required to start the code review. Please allow screen sharing and try again."
-              );
-            } else {
-              alert("Failed to start screen sharing. Please try again.");
-            }
-            return; // Don't proceed with AI connection
-          }
-        }
-
-        // Only proceed with AI connection after screen sharing is confirmed
-        console.log(
-          "Screen sharing confirmed, proceeding with AI connection..."
-        );
+        // Starting - notify parent component first
         onButtonClicked(newButtonState);
       } else {
-        // Pausing - disconnect from the API and stop screen sharing
+        // Pausing - disconnect from the API
         await disconnect();
-
-        // Stop screen sharing when pausing
-        if (screenCapture.isStreaming) {
-          screenCapture.stop();
-          setActiveVideoStream(null);
-          onVideoStreamChange(null);
-        }
-
         // Notify parent component
         onButtonClicked(newButtonState);
       }
@@ -260,11 +221,11 @@ function ControlTray({
   return (
     <section className="control-tray flex flex-col items-center">
       <canvas style={{ display: "none" }} ref={renderCanvasRef} />
-      <div className="connection-button-container flex flex-col items-center">
+      <div className="connection-button-container flex justify-center">
         <button
           ref={connectButtonRef}
           className={cn(
-            "transition duration-200 ease-in-out focus:outline-none rounded border bg-tokyo-accent text-white shadow-sm hover:bg-tokyo-accent-darker hover:shadow-lg mb-2 py-5 px-8 cursor-pointer"
+            "transition duration-200 ease-in-out focus:outline-none rounded border bg-tokyo-accent text-white shadow-sm hover:bg-tokyo-accent-darker hover:shadow-lg mb-6 py-5 px-8 cursor-pointer"
           )}
           onClick={handleMainButtonClick}
           disabled={false} // Always enabled for better UX
@@ -273,22 +234,12 @@ function ControlTray({
             ? "Pause"
             : hasExamStarted
             ? "Resume"
-            : "Share screen & start review"}
+            : "Start code review"}
         </button>
-
-        {/* Screen sharing status indicator */}
-        {screenCapture.isStreaming && (
-          <div className="flex items-center text-sm text-tokyo-fg-dim mb-4">
-            <span className="material-symbols-outlined mr-1 text-green-400">
-              present_to_all
-            </span>
-            Screen sharing active
-          </div>
-        )}
       </div>
 
       <nav
-        className={cn("actions-nav flex justify-center w-36", {
+        className={cn("actions-nav flex justify-between w-36", {
           disabled: !connected,
         })}
       >
@@ -302,7 +253,17 @@ function ControlTray({
           <AudioPulse volume={volume} active={connected} hover={false} />
         </button>
 
-        {/* Screen sharing is now integrated into the main button */}
+        {supportsVideo && (
+          <>
+            <MediaStreamButton
+              isStreaming={screenCapture.isStreaming}
+              start={changeStreams(screenCapture)}
+              stop={changeStreams()}
+              onIcon="cancel_presentation"
+              offIcon="present_to_all"
+            />
+          </>
+        )}
         {children}
       </nav>
     </section>
