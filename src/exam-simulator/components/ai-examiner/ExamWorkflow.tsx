@@ -12,7 +12,7 @@ import { AIExaminerDisplay } from "./AIExaminer"; // Import the refactored displ
 import { CountdownTimer } from "../CountdownTimer"; // Import CountdownTimer
 import { getCurrentModel } from "../../../config/aiConfig"; // Import centralized config
 
-const EXAM_DURATION_IN_MINUTES = 8; // default duration
+const EXAM_DURATION_IN_MINUTES = 10; // default duration
 
 interface ExamWorkflowProps {
   examId: string;

@@ -54,7 +54,7 @@ function ExamSimulatorCard({
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent menu close from click outside
     try {
-      const fullUrl = `${window.location.origin}/live?id=${sim.id}`;
+      const fullUrl = `${window.location.origin}/Code-review-simulator/live?id=${sim.id}`;
       await navigator.clipboard.writeText(fullUrl);
       setMenuOpen(false);
       showToast("Link copied to clipboard!");
@@ -77,8 +77,8 @@ function ExamSimulatorCard({
       {(isNew || isUpdated) && (
         <div className="absolute top-0.5 right-1 z-10">
           <span
-            className={`text-white text-xs px-3 py-0 rounded-full shadow-md ${
-              isNew ? "bg-green-500" : "bg-orange-500"
+            className={`text-white text-xs px-3 py-0 rounded-full ${
+              isNew ? "bg-green-500" : "bg-purple-600"
             }`}
           >
             {isNew ? "NEW" : "UPDATED"}

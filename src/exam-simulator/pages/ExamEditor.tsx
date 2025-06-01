@@ -12,6 +12,10 @@ export default function ExamEditor() {
   const [exam, setExam] = useState<any>(null);
   // const [loading, setLoading] = useState(examId !== "");
 
+  // Add ref for immediate click protection
+  const isSavingRef = React.useRef(false);
+  const lastClickTimeRef = React.useRef(0);
+
   useEffect(() => {
     const fetchExam = async () => {
       if (examId) {
@@ -34,12 +38,13 @@ export default function ExamEditor() {
 
   const [title, setTitle] = useState(exam ? exam.title : "");
   const [developerLevel, setDeveloperLevel] = useState("intermediate");
-  const [duration, setDuration] = useState<number>(8);
+  const [duration, setDuration] = useState<number>(10);
   const [description, setDescription] = useState("");
   const [type, setType] = useState("Standard");
   const [is_public, setIsPublic] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [isToastVisible, setIsToastVisible] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const isEditMode = examId !== "" && exam !== undefined;
 
@@ -47,7 +52,7 @@ export default function ExamEditor() {
     if (exam) {
       setTitle(exam.title || "");
       setDeveloperLevel(exam.learning_goals || "intermediate");
-      setDuration(!isNaN(Number(exam.duration)) ? Number(exam.duration) : 8);
+      setDuration(!isNaN(Number(exam.duration)) ? Number(exam.duration) : 10);
       setDescription(exam.description || "");
       setType(exam.type || "Standard");
       setIsPublic(exam.is_public || false);
@@ -66,90 +71,116 @@ export default function ExamEditor() {
   };
 
   const handleSave = async () => {
-    // Assuming 'supabase' is your Supabase client instance available in this scope
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const now = Date.now();
 
-    if (!user) {
-      showToast("Error: Could not save. User information missing.");
-      return; // Prevent saving if user is not found 14
+    // Multiple layers of protection
+    if (isSaving || isSavingRef.current) return;
+
+    // Debouncing - prevent clicks within 1 second of each other
+    if (now - lastClickTimeRef.current < 1000) {
+      console.log("Click ignored due to debouncing");
+      return;
     }
 
-    if (isEditMode) {
-      // Ensure exam is defined before accessing its properties
-      if (!exam) {
-        showToast("Error: Could not find code review to update.");
-        return;
-      }
-      const updatedExam: ExamSimulator = {
-        ...exam,
-        title,
-        description,
-        type,
-        duration,
-        learning_goals: developerLevel,
-        is_public,
-        user_id: user.id,
-      };
+    lastClickTimeRef.current = now;
+    isSavingRef.current = true;
+    setIsSaving(true);
 
-      const { error: updateError } = await supabase
-        .from("exams")
-        .update(updatedExam)
-        .eq("id", examId);
+    try {
+      // Assuming 'supabase' is your Supabase client instance available in this scope
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (updateError) {
-        console.error("Error updating code review:", updateError);
-        showToast(
-          `Error: Could not update code review. ${updateError.message}`
-        );
-        return;
+      if (!user) {
+        showToast("Error: Could not save. User information missing.");
+        return; // Prevent saving if user is not found 14
       }
 
-      showToast("Code review updated!");
+      if (isEditMode) {
+        // Ensure exam is defined before accessing its properties
+        if (!exam) {
+          showToast("Error: Could not find code review to update.");
+          return;
+        }
+        const updatedExam: ExamSimulator = {
+          ...exam,
+          title,
+          description,
+          type,
+          duration,
+          learning_goals: developerLevel,
+          is_public,
+          user_id: user.id,
+        };
 
-      // Store the recently updated exam ID in localStorage for highlighting in dashboard
-      localStorage.setItem("recentlyUpdatedExamId", examId);
+        const { error: updateError } = await supabase
+          .from("exams")
+          .update(updatedExam)
+          .eq("id", examId);
 
-      // Navigate back to dashboard after successful update
-      setTimeout(() => navigate("/dashboard"), 800);
-    } else {
-      const newExam: Omit<ExamSimulator, "id" | "created_at"> & {
-        user_id: string;
-      } = {
-        // Use Omit to exclude DB-generated fields if Supabase handles them
-        title,
-        description,
-        type,
-        duration,
-        learning_goals: developerLevel,
-        is_public,
-        user_id: user.id,
-      };
-      // create newExam to supabase
-      const { data: createdExam, error: insertError } = await supabase
-        .from("exams") // Ensure 'exams' is the correct table name
-        .insert([newExam])
-        .select()
-        .single(); // To get the newly created record back, including DB-generated ID/timestamps
+        if (updateError) {
+          console.error("Error updating code review:", updateError);
+          showToast(
+            `Error: Could not update code review. ${updateError.message}`
+          );
+          return;
+        }
 
-      if (insertError) {
-        console.error("Error creating code review:", insertError);
-        showToast(
-          `Error: Could not create code review. ${insertError.message}`
-        );
-        return; // Stop execution if insert fails
+        showToast("Code review updated!");
+
+        // Store the recently updated exam ID in localStorage for highlighting in dashboard
+        localStorage.setItem("recentlyUpdatedExamId", examId);
+
+        // Navigate back to dashboard after successful update
+        setTimeout(() => navigate("/dashboard"), 800);
+      } else {
+        const newExam: Omit<ExamSimulator, "id" | "created_at"> & {
+          user_id: string;
+        } = {
+          // Use Omit to exclude DB-generated fields if Supabase handles them
+          title,
+          description,
+          type,
+          duration,
+          learning_goals: developerLevel,
+          is_public,
+          user_id: user.id,
+        };
+        // create newExam to supabase
+        const { data: createdExam, error: insertError } = await supabase
+          .from("exams") // Ensure 'exams' is the correct table name
+          .insert([newExam])
+          .select()
+          .single(); // To get the newly created record back, including DB-generated ID/timestamps
+
+        if (insertError) {
+          console.error("Error creating code review:", insertError);
+          showToast(
+            `Error: Could not create code review. ${insertError.message}`
+          );
+          return; // Stop execution if insert fails
+        }
+
+        showToast("Code review created!");
+
+        // Store the newly created exam ID in localStorage for highlighting in dashboard
+        if (createdExam?.id) {
+          localStorage.setItem("newlyCreatedExamId", createdExam.id);
+        }
+
+        // Navigate to dashboard after successful creation
+        setTimeout(() => navigate("/dashboard"), 800);
       }
-
-      showToast("Code review created!");
-
-      // Store the newly created exam ID in localStorage for highlighting in dashboard
-      if (createdExam?.id) {
-        localStorage.setItem("newlyCreatedExamId", createdExam.id);
-      }
-
-      // Navigate to dashboard after successful creation
-      setTimeout(() => navigate("/dashboard"), 800);
+    } catch (error) {
+      console.error("Unexpected error during save:", error);
+      showToast("An unexpected error occurred. Please try again.");
+    } finally {
+      // Reset after a delay to prevent rapid re-clicking
+      setTimeout(() => {
+        isSavingRef.current = false;
+        setIsSaving(false);
+      }, 1000);
     }
   };
 
@@ -207,10 +238,18 @@ export default function ExamEditor() {
         </div>
 
         {/* Main form */}
-        <div className="bg-neutral-15 rounded-lg shadow-md p-6 border border-neutral-30">
+        <div
+          className={`bg-neutral-15 rounded-lg shadow-md p-6 border border-neutral-30 ${
+            isSaving ? "pointer-events-none opacity-75" : ""
+          }`}
+        >
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              // Additional protection at form level
+              if (isSaving || isSavingRef.current) return;
+              const now = Date.now();
+              if (now - lastClickTimeRef.current < 1000) return;
               handleSave();
             }}
             className="space-y-6"
@@ -330,10 +369,10 @@ export default function ExamEditor() {
                 <input
                   type="range"
                   min="0"
-                  max="8"
+                  max="20"
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
-                  className="w-full h-2 bg-neutral-20 rounded-lg appearance-none cursor-pointer"
+                  className="duration-slider w-full h-2 rounded-lg cursor-pointer"
                 />
               </div>
             </div>
@@ -381,7 +420,7 @@ export default function ExamEditor() {
                   type="checkbox"
                   checked={is_public}
                   onChange={(e) => setIsPublic(e.target.checked)}
-                  className="mr-2 h-4 w-4 text-tokyo-accent focus:ring-tokyo-accent border-gray-300 rounded"
+                  className="custom-checkbox mr-2 h-4 w-4 rounded"
                 />
                 Make code review public
               </label>
@@ -395,7 +434,7 @@ export default function ExamEditor() {
             <div className="flex items-center justify-between pt-4 border-t border-neutral-30">
               <Link
                 to="/dashboard"
-                className="px-4 py-2 text-tokyo-fg hover:text-tokyo-fg-bright hover:bg-tokyo-bg-lightest font-medium transition-all duration-200 rounded-md"
+                className="px-4 py-2 bg-neutral-20 text-tokyo-fg hover:text-tokyo-fg-bright hover:bg-tokyo-bg-lightest border border-neutral-30 font-medium transition-all duration-200 rounded-md"
               >
                 Cancel
               </Link>
@@ -424,22 +463,59 @@ export default function ExamEditor() {
                 )}
                 <button
                   type="submit"
-                  className="flex items-center px-6 py-2 bg-tokyo-accent hover:bg-tokyo-accent-darker hover:shadow-lg text-white font-medium rounded-md transition-all duration-200 transform hover:scale-105"
+                  disabled={isSaving || isSavingRef.current}
+                  className={`flex items-center px-6 py-2 ${
+                    isSaving || isSavingRef.current
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : isEditMode
+                      ? "bg-tokyo-accent hover:bg-tokyo-accent-darker"
+                      : "bg-green-600 hover:bg-green-700"
+                  } hover:shadow-lg text-white font-medium rounded-md transition-all duration-200 transform ${
+                    !(isSaving || isSavingRef.current) ? "hover:scale-105" : ""
+                  }`}
                 >
-                  <svg
-                    className="h-4 w-4 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  {isEditMode ? "Update Code Review" : "Create Code Review"}
+                  {isSaving ? (
+                    <svg
+                      className="animate-spin h-4 w-4 mr-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="h-4 w-4 mr-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                  {isSaving
+                    ? isEditMode
+                      ? "Updating..."
+                      : "Creating..."
+                    : isEditMode
+                    ? "Update Code Review"
+                    : "Create Code Review"}
                 </button>
               </div>
             </div>
@@ -467,6 +543,156 @@ export default function ExamEditor() {
           </svg>
           {toastMessage}
         </div>
+
+        {/* Custom CSS for Duration Slider */}
+        <style>
+          {`
+            /* Tokyo Theme Colors */
+            .bg-tokyo-accent {
+              background-color: #7c3aed !important;
+            }
+            
+            .bg-tokyo-accent-darker {
+              background-color: #5b21b6 !important;
+            }
+            
+            .hover\\:bg-tokyo-accent-darker:hover {
+              background-color: #5b21b6 !important;
+            }
+            
+            .bg-green-600 {
+              background-color: #16a34a !important;
+            }
+            
+            .bg-green-700 {
+              background-color: #15803d !important;
+            }
+            
+            .hover\\:bg-green-700:hover {
+              background-color: #15803d !important;
+            }
+            
+            .text-tokyo-fg {
+              color: #e2e8f0 !important;
+            }
+            
+            .text-tokyo-fg-bright {
+              color: #f1f5f9 !important;
+            }
+            
+            .hover\\:text-tokyo-fg-bright:hover {
+              color: #f1f5f9 !important;
+            }
+            
+            .bg-tokyo-bg-lightest {
+              background-color: #334155 !important;
+            }
+            
+            .hover\\:bg-tokyo-bg-lightest:hover {
+              background-color: #334155 !important;
+            }
+
+            .duration-slider {
+              -webkit-appearance: none;
+              appearance: none;
+              background: #2a2e3a;
+              border-radius: 8px;
+              outline: none;
+            }
+            
+            .duration-slider::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              height: 20px;
+              width: 20px;
+              border-radius: 50%;
+              background: #7c3aed;
+              cursor: pointer;
+              border: 2px solid #5b21b6;
+              transition: all 0.2s ease;
+            }
+            
+            .duration-slider::-webkit-slider-thumb:hover {
+              background: #8b5cf6;
+              transform: scale(1.1);
+            }
+            
+            .duration-slider::-moz-range-thumb {
+              height: 20px;
+              width: 20px;
+              border-radius: 50%;
+              background: #7c3aed;
+              cursor: pointer;
+              border: 2px solid #5b21b6;
+              transition: all 0.2s ease;
+            }
+            
+            .duration-slider::-moz-range-thumb:hover {
+              background: #8b5cf6;
+              transform: scale(1.1);
+            }
+            
+            .duration-slider::-moz-range-track {
+              background: #2a2e3a;
+              border-radius: 8px;
+              height: 8px;
+            }
+
+            .custom-checkbox {
+              -webkit-appearance: none;
+              -moz-appearance: none;
+              appearance: none;
+              background-color: #2a2e3a;
+              border: 2px solid #4a5568;
+              border-radius: 4px;
+              cursor: pointer;
+              transition: all 0.2s ease;
+            }
+            
+            .custom-checkbox:checked {
+              background-color: #7c3aed;
+              border-color: #7c3aed;
+            }
+            
+            .custom-checkbox:checked::after {
+              content: '✓';
+              color: white;
+              font-size: 12px;
+              font-weight: bold;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+              height: 100%;
+            }
+            
+            .custom-checkbox:hover {
+              border-color: #7c3aed;
+            }
+            
+            .custom-checkbox:focus {
+              outline: none;
+              ring: 2px solid #7c3aed;
+              ring-opacity: 50%;
+            }
+
+            .bg-gray-400 {
+              background-color: #9ca3af !important;
+            }
+            
+            .cursor-not-allowed {
+              cursor: not-allowed !important;
+            }
+            
+            .pointer-events-none {
+              pointer-events: none !important;
+            }
+            
+            .opacity-75 {
+              opacity: 0.75 !important;
+            }
+          `}
+        </style>
       </div>
     </Layout>
   );

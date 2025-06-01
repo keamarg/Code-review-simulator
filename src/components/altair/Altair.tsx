@@ -19,7 +19,7 @@ import { ExamSimulator } from "../../types/ExamSimulator";
 import { getCurrentModel, getTimerConfig } from "../../config/aiConfig"; // Import centralized config
 import prompts from "../../prompts.json";
 
-const EXAM_DURATION_IN_MINUTES = 8; // default duration
+const EXAM_DURATION_IN_MINUTES = 10; // default duration
 
 interface AltairProps {
   examSimulator?: ExamSimulator;

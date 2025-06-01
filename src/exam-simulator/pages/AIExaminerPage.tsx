@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ExamWorkflow } from "../components/ai-examiner/ExamWorkflow";
-import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
+import { useNavigate } from "react-router-dom";
 import Layout from "../layout/Layout";
+import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
+import { ExamWorkflow } from "../components/ai-examiner/ExamWorkflow";
 import { useGenAILiveContext } from "../../contexts/GenAILiveContext";
 import { GenAILiveProvider } from "../../contexts/GenAILiveContext";
 import cn from "classnames";
@@ -16,6 +17,7 @@ interface ExamPageContentProps {
   setVideoStream: (stream: MediaStream | null) => void;
   examIntentStarted: boolean;
   handleStartExamClicked: (isButtonOn: boolean) => void;
+  onEndReview: () => void;
 }
 
 function ExamPageContent({
@@ -25,6 +27,7 @@ function ExamPageContent({
   setVideoStream,
   examIntentStarted,
   handleStartExamClicked,
+  onEndReview,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
   const hasNotifiedScreenShareRef = useRef(true);
@@ -96,6 +99,7 @@ function ExamPageContent({
         supportsVideo={true}
         onVideoStreamChange={setVideoStream}
         onButtonClicked={handleStartExamClicked}
+        onEndReview={onEndReview}
         hasExamStarted={hasExamEverStarted}
       />
     </div>
@@ -114,6 +118,14 @@ export default function LivePage() {
 
   // examIntentStarted is controlled by the ControlTrayCustom button
   const [examIntentStarted, setExamIntentStarted] = useState(false);
+
+  const navigate = useNavigate();
+
+  const handleEndReview = () => {
+    // End the exam and redirect to dashboard
+    setExamIntentStarted(false);
+    navigate("/dashboard");
+  };
 
   useEffect(() => {
     const apiKeyEndpoint =
@@ -197,6 +209,7 @@ export default function LivePage() {
           setVideoStream={setVideoStream}
           examIntentStarted={examIntentStarted}
           handleStartExamClicked={handleStartExamClicked}
+          onEndReview={handleEndReview}
         />
       </GenAILiveProvider>
     </Layout>

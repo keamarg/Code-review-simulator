@@ -181,8 +181,8 @@ const RecentCodeReviews: React.FC = () => {
                 {(isNew || isUpdated) && (
                   <div className="absolute top-0.5 right-1 z-10">
                     <span
-                      className={`text-white text-xs px-3 py-0 rounded-full shadow-md ${
-                        isNew ? "bg-green-500" : "bg-orange-500"
+                      className={`absolute top-0.5 right-1 text-white text-xs font-bold px-3 py-0 rounded-full ${
+                        isNew ? "bg-green-500" : "bg-purple-600"
                       }`}
                     >
                       {isNew ? "NEW" : "UPDATED"}

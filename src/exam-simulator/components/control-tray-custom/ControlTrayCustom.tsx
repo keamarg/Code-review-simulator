@@ -31,6 +31,7 @@ export type ControlTrayProps = {
   supportsVideo: boolean;
   onVideoStreamChange?: (stream: MediaStream | null) => void;
   onButtonClicked?: (isButtonOn: boolean) => void;
+  onEndReview?: () => void;
   hasExamStarted?: boolean;
 };
 
@@ -77,6 +78,7 @@ function ControlTray({
   children,
   onVideoStreamChange = () => {},
   onButtonClicked = (isButtonOn) => {},
+  onEndReview,
   supportsVideo,
   hasExamStarted,
 }: ControlTrayProps) {
@@ -288,7 +290,7 @@ function ControlTray({
       </div>
 
       <nav
-        className={cn("actions-nav flex justify-center w-36", {
+        className={cn("actions-nav flex justify-center", {
           disabled: !connected,
         })}
       >
@@ -301,6 +303,43 @@ function ControlTray({
           </span>
           <AudioPulse volume={volume} active={connected} hover={false} />
         </button>
+
+        {/* End Review Button */}
+        {connected && onEndReview && (
+          <button
+            className="transition duration-200 ease-in-out focus:outline-none rounded bg-red-500 border border-red-600 text-white shadow-sm hover:bg-red-600 hover:shadow-lg px-3 py-2 cursor-pointer flex items-center ml-2"
+            onClick={async () => {
+              if (
+                window.confirm(
+                  "Are you sure you want to end this code review early?"
+                )
+              ) {
+                // Stop audio recording
+                audioRecorder.stop();
+
+                // Disconnect from the API
+                await disconnect();
+
+                // Stop screen sharing
+                if (screenCapture.isStreaming) {
+                  screenCapture.stop();
+                  setActiveVideoStream(null);
+                  onVideoStreamChange(null);
+                }
+
+                // Reset button state
+                setButtonIsOn(false);
+
+                // Call the end review handler
+                onEndReview();
+              }
+            }}
+            title="End Review Early"
+          >
+            <span className="material-symbols-outlined mr-1">stop</span>
+            <span className="text-xs whitespace-nowrap">Stop Code Review</span>
+          </button>
+        )}
 
         {/* Screen sharing is now integrated into the main button */}
         {children}

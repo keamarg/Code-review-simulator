@@ -5,6 +5,162 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.17] - 2025-06-01
+
+### Fixed
+
+- **Copy Link URL Path**: Fixed copy link functionality to include correct base path in generated URLs
+  - **Correct URL Generation**: Changed from `/live?id=...` to `/Code-review-simulator/live?id=${sim.id}`
+  - **Base Path Recognition**: Copy link now accounts for subdirectory deployment path
+  - **Proper Navigation**: Copied links now work correctly in subdirectory environments
+  - **URL Consistency**: Generated URLs match the actual application structure
+
+### Technical Details
+
+- **URL Template**: Updated from `${window.location.origin}/live?id=${sim.id}` to `${window.location.origin}/Code-review-simulator/live?id=${sim.id}`
+- **Path Resolution**: Ensures copied links navigate to correct route in deployed environment
+
+## [0.13.16] - 2025-06-01
+
+### Fixed
+
+- **Ultra-Aggressive Multiple Button Submission Protection**: Absolute bulletproof protection against duplicate code review creation with multiple defensive layers
+  - **Timestamp Debouncing**: Prevents any clicks within 1 second of each other using `Date.now()` comparison
+  - **Complete Form Disabling**: Entire form becomes `pointer-events-none` and semi-transparent during submission
+  - **Triple Protection**: Combined `isSaving` state, `isSavingRef.current`, and timestamp debouncing
+  - **Form-Level Guards**: Multiple protection checks in form's `onSubmit` handler
+  - **Delayed Reset**: 1-second delay before re-enabling to prevent rapid re-attempts
+  - **Visual Feedback**: Form grays out and shows loading spinner during submission
+  - **Console Logging**: Debounced clicks are logged for debugging
+
+### Added
+
+- **Timestamp Tracking**: `lastClickTimeRef` tracks when last click occurred
+- **1-Second Debouncing**: Prevents any action within 1000ms of previous click
+- **Form Opacity**: Visual indication when form is disabled (`opacity-75`)
+- **Pointer Events Control**: Complete interaction blocking with `pointer-events-none`
+- **Delayed State Reset**: Protection persists for 1 second after completion
+
+### Technical Details
+
+- **Triple Check System**: State + Ref + Timestamp all must pass for function to execute
+- **Debounce Implementation**: `if (now - lastClickTimeRef.current < 1000) return;`
+- **Form Disabling**: `pointer-events-none opacity-75` classes applied during saving
+- **Delayed Cleanup**: `setTimeout(() => { ... }, 1000)` in finally block
+- **Multiple Guard Points**: Protection at function entry, form submission, and button level
+
+## [0.13.15] - 2025-06-01
+
+### Fixed
+
+- **Task Generation Line Number Issue**: Fixed AI generating tasks with explicit file names and line numbers before review starts
+  - **Separated Prompts**: Removed line number references from `taskPrompts.examinerQuestions` and `taskPrompts.repoQuestions`
+  - **System Prompts**: Cleaned up `systemPrompts.examinerQuestions` and `systemPrompts.githubRepoQuestions` to remove premature line number expectations
+  - **Proper Context**: Line number requirements now only apply during actual code review when AI can see the shared screen
+  - **Task Clarity**: Initial task descriptions now focus on general areas and concepts rather than specific files and lines
+  - **Logical Flow**: AI will only reference specific line numbers after confirming they can see the developer's screen
+
+### Technical Details
+
+- **Task Generation Phase**: Prompts now focus on creating helpful, general review guidance without specific code references
+- **Review Phase**: Maintained all line number precision requirements for when AI is actually reviewing visible code
+- **Clean Separation**: Clear distinction between pre-review task preparation and actual code review feedback
+
+## [0.13.14] - 2025-06-01
+
+### Changed
+
+- **Coordinated Color Scheme**: Aligned pill and button colors for logical consistency
+  - **UPDATE Pills**: Changed from orange to Tokyo purple (`bg-purple-600`) to match Update button styling
+  - **Create Button**: Changed from Tokyo purple to green (`bg-green-600`) to match NEW pill color
+  - **Visual Logic**: NEW/Create actions now use green, UPDATE actions use purple for consistent user experience
+  - **Both Components**: Updated colors in Dashboard and RecentCodeReviews components for consistency
+  - **CSS Definitions**: Added proper green color definitions (`bg-green-600`, `bg-green-700`) with hover states
+
+### Fixed
+
+- **Color Consistency**: Eliminated confusing color mismatches between related UI elements
+- **User Experience**: Actions that create new items (green) are now visually distinct from update actions (purple)
+
+## [0.13.13] - 2025-06-01
+
+### Fixed
+
+- **Create Code Review Button Visibility**: Fixed invisible Create/Update Code Review button on ExamEditor form
+  - **Tokyo Theme Colors**: Added proper CSS definitions for `bg-tokyo-accent`, `bg-tokyo-accent-darker`, and other Tokyo theme classes
+  - **Consistent Styling**: All Tokyo theme colors now have explicit CSS definitions with `!important` flags
+  - **Button Visibility**: Create/Update button now properly displays with purple background (#7c3aed) and darker hover state (#5b21b6)
+  - **Theme Integration**: Cancel button and other form elements also use proper Tokyo theme colors
+
+### Added
+
+- **Enhanced End Review Button**: Added comprehensive early termination functionality for code review sessions
+  - **Complete Session Cleanup**: "Stop Code Review" button now properly stops microphone, disconnects API, and stops screen sharing
+  - **Explicit Button Text**: Button now clearly states "Stop Code Review" with stop icon for better UX
+  - **Confirmation Dialog**: Prevents accidental termination with "Are you sure?" confirmation
+  - **Dashboard Redirect**: Automatically returns to dashboard after ending review early
+  - **Smart Display**: Button only appears when review session is active and connected
+  - **Professional Styling**: Red button with proper hover effects and responsive layout
+
+### Changed
+
+- **Control Tray Enhancement**: Improved navigation layout to accommodate enhanced End Review button with text
+- **Component Props**: Extended ControlTrayCustom interface to support onEndReview callback
+- **Session Management**: Better integration between control buttons and complete session cleanup
+- **Audio Management**: End Review now properly stops all audio recording and streaming
+
+## [0.13.12] - 2025-06-01
+
+### Enhanced
+
+- **Precise Line Number References in AI Code Reviews**: Dramatically improved the AI reviewer's ability to pinpoint exactly where it's focusing
+
+  - **Mandatory Line Numbers**: AI now ALWAYS references specific line numbers when discussing code (e.g., "On line 42", "Lines 15-18")
+  - **Enhanced Main Prompts**: Updated both `standardExam` and `githubExam` prompts to emphasize exact line number usage
+  - **Improved Guidelines**: Added specific instructions to always cite line numbers when mentioning functions, variables, or code blocks
+  - **Level-Specific Precision**: Enhanced all developer levels (junior/intermediate/senior) to include line-specific analysis
+  - **Repository Reviews**: GitHub repository reviews now include file paths with specific line number ranges
+  - **Actionable Feedback**: Developers can now immediately navigate to the exact locations mentioned by the AI reviewer
+  - **Consistent Format**: Standardized line number references across all prompt components for uniform behavior
+
+- **Extended Code Review Duration Options**: Increased flexibility for code review session lengths
+  - **Maximum Duration**: Increased from 8 minutes to 20 minutes maximum for comprehensive reviews
+  - **New Default**: Changed default duration from 8 to 10 minutes for better-paced sessions
+  - **Improved Range**: Duration slider now supports 0-20 minute range for varied review needs
+  - **Consistent Defaults**: Updated all components to use 10-minute default consistently
+
+### Changed
+
+- **System Prompts**: Updated examiner personas to emphasize line number precision and location accuracy
+- **Task Preparation**: Enhanced task creation prompts to mention specific files and code sections when possible
+- **Timer Messages**: Updated to remind AI to continue providing line-specific feedback throughout the session
+- **Screen Sharing Flow**: Modified to mention that line numbers will be referenced once code is visible
+
+### Technical Details
+
+- **All Prompt Components Updated**: Modified `mainPrompts`, `systemPrompts`, `taskPrompts`, `instructionComponents`, `levelGuidance`, and `timerMessages`
+- **Format Examples**: Added specific formatting examples like "In UserService.js on line 23" and "Lines 45-50 in the main component"
+- **Cross-Reference Support**: Enhanced GitHub reviews to reference implementation lines across multiple files
+- **Accessibility**: Line number references make reviews more accessible for developers using screen readers or line-jumping tools
+
+### Fixed
+
+- **Duration Slider Visibility**: Fixed invisible range slider on ExamEditor form
+
+  - **Custom Styling**: Added proper CSS styling to replace removed default browser appearance
+  - **Tokyo Theme Colors**: Used Tokyo theme colors (#7c3aed accent, #2a2e3a background) for consistent design
+  - **Interactive Elements**: Added hover effects and smooth transitions for better user experience
+  - **Cross-Browser Support**: Included styling for both WebKit and Mozilla browsers
+  - **Visual Feedback**: Slider thumb now properly visible with purple accent color and hover animations
+
+- **Form Element Visibility Issues**: Fixed invisible form elements on ExamEditor form
+  - **Duration Slider**: Added proper CSS styling to replace removed default browser appearance with Tokyo theme colors (#7c3aed accent, #2a2e3a background)
+  - **Cancel Button**: Added background color (`bg-neutral-20`) and border to make button visible and clickable
+  - **Custom Checkbox**: Replaced default browser checkbox with custom Tokyo-themed styling with purple accent
+  - **Interactive Elements**: Added hover effects and smooth transitions for better user experience
+  - **Cross-Browser Support**: Included styling for both WebKit and Mozilla browsers
+  - **Visual Feedback**: All form elements now properly visible with consistent Tokyo theme styling and animations
+
 ## [0.13.11] - 2025-01-26
 
 ### Fixed
@@ -531,3 +687,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Smart Cleanup**: Pills are only removed from localStorage after both components have displayed them
   - **Component Tracking**: Added tracking flags to prevent duplicate pill displays on same component
   - **Cross-Component Sync**: Proper coordination between Dashboard and Landing page pill systems
+
+### Fixed
+
+- **Form Element Visibility Issues**: Fixed invisible form elements on ExamEditor form
+  - **Duration Slider**: Added proper CSS styling to replace removed default browser appearance with Tokyo theme colors (#7c3aed accent, #2a2e3a background)
+  - **Cancel Button**: Added background color (`bg-neutral-20`) and border to make button visible and clickable
+  - **Custom Checkbox**: Replaced default browser checkbox with custom Tokyo-themed styling with purple accent
+  - **Interactive Elements**: Added hover effects and smooth transitions for better user experience
+  - **Cross-Browser Support**: Included styling for both WebKit and Mozilla browsers
+  - **Visual Feedback**: All form elements now properly visible with consistent Tokyo theme styling and animations
