@@ -1,60 +1,57 @@
-# Multimodal Exam Simulator
+# Code Review Simulator
 
-A modern application that helps students prepare for oral exams by simulating realistic exam environments using AI-powered examiners.
+## Overview
 
-![Exam Simulator Screenshot](screenshot.png)
+An AI-powered code review simulator that provides practice sessions using Google's Gemini 2.0 Flash Live API for real-time voice interactions.
 
-## Features
+## ✨ Features
 
-- **Dynamic Exam Environments**: Practice with various exam types including standard and Github repository-based exams
-- **Customizable Examiners**: Choose friendly, strict, or other examiner personalities
+- **Real-time Voice Interaction**: Conduct voice-based code reviews with AI
 - **Real-time Feedback**: Get immediate evaluation of your performance
-- **Adjustable Duration**: Set custom time limits for your practice sessions
-- **Countdown Timer**: Visual tracking of your remaining exam time
+- **Customizable Sessions**: Create sessions tailored to specific technologies and skill levels
+- **Repository Analysis**: Upload GitHub repositories for comprehensive code reviews
 - **Learning Goal Assessment**: Customize which competencies you want to be evaluated on
-- **Multiple Grading Systems**: Support for 7-point scale, pass/fail, and more
+- **Multiple Session Types**: Support for standard and GitHub repository-based reviews
 
-## Setup
+## 🚀 Quick Start
 
-### Prerequisites
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up your API keys (see Configuration section)
+4. Start the development server: `npm start`
 
-- Node.js (v14 or later)
-- npm or yarn
-- Chrome browser (recommended for optimal experience)
+## 🛠️ Tech Stack
 
-### Getting Started
+- React + TypeScript
+- Tailwind CSS for styling
+- Supabase for authentication and data storage
+- Google Gemini 2.0 Flash Live API for AI interactions
+- Web Audio API for real-time audio processing
 
-1. Clone this repository to your local machine
-   ```bash
-   git clone https://github.com/keamarg/Code-review-simulator.git
-   cd multimodal-exam-simulator
-   ```
-2. Get a Google Gemini API key and an OpenAI key
+## 📋 How it Works
 
-- Visit: https://aistudio.google.com/apikey Follow the instructions to create your API key
-- Visit: https://platform.openai.com/settings/organization/api-keys to get an OpenAI key
+1. Create or select a code review session
+2. Configure learning goals and session parameters
+3. Start a live voice session with the AI reviewer
+4. Receive constructive feedback and guidance
+5. Review session results and improve your skills
 
-3. Create a `.env` file and add the keys to the .env file in the project root.
+## 🔧 Configuration
 
-4. Install dependencies and start the application
+See the configuration files for detailed setup instructions:
 
-```
-npm install
-npm run start
-```
+- API keys and environment variables
+- Session parameters and timing
+- AI model configurations
 
-5. Open the application in your browser
+## 📚 Documentation
 
-- The development server will typically start at http://localhost:3000
-- You can find the exact URL in your terminal output
+Comprehensive documentation is available in the `/docs` folder, including:
 
-## Usage
-
-1. From the dashboard, select an exam type or create a new custom exam
-2. Configure exam settings (duration, examiner type, learning goals)
-3. Start the exam and practice answering questions
-4. Receive feedback and a grade at the end of your session
-5. Review your performance and try again to improve
+- Setup and installation guides
+- API configuration details
+- Session management
+- Troubleshooting common issues
 
 ## Structure
 

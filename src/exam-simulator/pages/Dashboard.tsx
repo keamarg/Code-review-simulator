@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { useExamSimulators } from "../contexts/ExamSimulatorContext";
 import Layout from "../layout/Layout";
 import { supabase } from "../config/supabaseClient";
-import { ExamSimulator } from "./../contexts/ExamSimulatorContext";
+import { ExamSimulator } from "../../types/ExamSimulator";
 
 // Duration formatter
 const formatDuration = (minutes: number): string => {
@@ -17,19 +16,39 @@ const formatDuration = (minutes: number): string => {
 interface ExamSimulatorCardProps {
   sim: ExamSimulator;
   showToast: (message: string) => void;
+  isNew?: boolean;
+  isUpdated?: boolean;
 }
 
-function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
+function ExamSimulatorCard({
+  sim,
+  showToast,
+  isNew = false,
+  isUpdated = false,
+}: ExamSimulatorCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
   useEffect(() => {
     if (!menuOpen) return;
 
-    const handleClickOutside = () => setMenuOpen(false);
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    // Add a small delay to prevent immediate closing
+    const timeoutId = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 10);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, [menuOpen]);
 
   const handleCopyLink = async (e: React.MouseEvent) => {
@@ -48,20 +67,35 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
     <div
       className={`relative p-5 bg-tokyo-bg-lighter rounded-lg shadow-md transition-all duration-200 flex flex-col justify-between h-full border border-tokyo-selection ${
         isHovered ? "shadow-lg transform -translate-y-1" : ""
+      } ${
+        isNew || isUpdated ? "ring-2 ring-tokyo-accent ring-opacity-50" : ""
       }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* NEW/UPDATED indicator pill */}
+      {(isNew || isUpdated) && (
+        <div className="absolute top-0.5 right-1 z-10">
+          <span
+            className={`text-white text-xs px-3 py-0 rounded-full shadow-md ${
+              isNew ? "bg-green-500" : "bg-orange-500"
+            }`}
+          >
+            {isNew ? "NEW" : "UPDATED"}
+          </span>
+        </div>
+      )}
+
       {/* Card Header with Title and Menu */}
       <div className="flex justify-between items-start mb-3">
-        <Link to={`/exam?id=${sim.id}`} className="group">
+        <Link to={`/exam?id=${sim.id}`} className="group pr-20">
           <h2 className="text-xl font-bold text-tokyo-fg-bright group-hover:text-tokyo-accent transition-colors">
             {sim.title}
           </h2>
         </Link>
 
         {/* Three-dots Menu Button */}
-        <div className="relative">
+        <div className="relative" ref={menuRef}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -88,7 +122,7 @@ function ExamSimulatorCard({ sim, showToast }: ExamSimulatorCardProps) {
 
           {/* Dropdown Menu */}
           {menuOpen && (
-            <div className="absolute top-full right-0 mt-1 bg-tokyo-bg-lighter border border-tokyo-selection rounded-md shadow-lg z-10 w-48 py-1 overflow-hidden">
+            <div className="absolute top-full right-0 mt-1 bg-tokyo-bg-lightest border border-tokyo-selection rounded-md shadow-xl backdrop-blur-sm z-20 w-48 py-1 overflow-hidden">
               <button
                 onClick={handleCopyLink}
                 className="flex items-center w-full text-left px-4 py-2 text-sm text-tokyo-fg hover:bg-tokyo-selection transition-colors cursor-pointer"
@@ -259,17 +293,23 @@ const EmptyState = () => (
 );
 
 export default function Dashboard() {
-  //const { examSimulators } = useExamSimulators();
   const [toastMessage, setToastMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isToastVisible, setIsToastVisible] = useState(false);
   const [examSimulators, setExamSimulators] = useState<ExamSimulator[]>([]);
+  const [newlyCreatedExamId, setNewlyCreatedExamId] = useState<string | null>(
+    null
+  );
+  const [recentlyUpdatedExamId, setRecentlyUpdatedExamId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     async function getExamSimulators() {
       const { data: fetchedExamSimulators, error } = await supabase
         .from("exams")
-        .select();
+        .select()
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Error fetching exams:", error);
@@ -282,6 +322,42 @@ export default function Dashboard() {
     }
 
     getExamSimulators();
+
+    // Check for newly created exam ID in localStorage
+    const newlyCreatedId = localStorage.getItem("newlyCreatedExamId");
+    const dashboardShownNew = localStorage.getItem("dashboardShownNew");
+    if (newlyCreatedId && !dashboardShownNew) {
+      setNewlyCreatedExamId(newlyCreatedId);
+      // Mark that dashboard has shown the NEW pill
+      localStorage.setItem("dashboardShownNew", "true");
+    }
+
+    // Check for recently updated exam ID in localStorage
+    const recentlyUpdatedId = localStorage.getItem("recentlyUpdatedExamId");
+    const dashboardShownUpdated = localStorage.getItem("dashboardShownUpdated");
+    if (recentlyUpdatedId && !dashboardShownUpdated) {
+      setRecentlyUpdatedExamId(recentlyUpdatedId);
+      // Mark that dashboard has shown the UPDATED pill
+      localStorage.setItem("dashboardShownUpdated", "true");
+    }
+
+    // Clean up if both components have shown their pills
+    const landingPageShownNew = localStorage.getItem("landingPageShownNew");
+    const landingPageShownUpdated = localStorage.getItem(
+      "landingPageShownUpdated"
+    );
+
+    if (landingPageShownNew && dashboardShownNew) {
+      localStorage.removeItem("newlyCreatedExamId");
+      localStorage.removeItem("landingPageShownNew");
+      localStorage.removeItem("dashboardShownNew");
+    }
+
+    if (landingPageShownUpdated && dashboardShownUpdated) {
+      localStorage.removeItem("recentlyUpdatedExamId");
+      localStorage.removeItem("landingPageShownUpdated");
+      localStorage.removeItem("dashboardShownUpdated");
+    }
   }, []);
 
   // Filter simulators based on search term
@@ -350,6 +426,8 @@ export default function Dashboard() {
                     key={sim.id}
                     sim={sim}
                     showToast={showToast}
+                    isNew={sim.id === newlyCreatedExamId}
+                    isUpdated={sim.id === recentlyUpdatedExamId}
                   />
                 ))}
               </div>

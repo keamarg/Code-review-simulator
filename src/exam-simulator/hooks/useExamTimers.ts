@@ -29,7 +29,6 @@ export default function examTimers({
   const halfExamRemainingMinutes = examDurationInMinutes / 2;
 
   const halfExamTimer = setTimeout(() => {
-    // eslint-disable-next-line no-template-curly-in-string
     const halfTimeMessage = prompts.timerMessages.halfTime.replace(
       "${remainingMinutes}",
       halfExamRemainingMinutes.toString()
@@ -42,7 +41,7 @@ export default function examTimers({
     ]);
   }, halfExamDelay);
 
-  const gradingTimer = setTimeout(() => {
+  const finalWarningTimer = setTimeout(() => {
     client.send([
       {
         text: prompts.timerMessages.timeAlmostUp,
@@ -53,6 +52,6 @@ export default function examTimers({
   return () => {
     clearTimeout(introTimer);
     clearTimeout(halfExamTimer);
-    clearTimeout(gradingTimer);
+    clearTimeout(finalWarningTimer);
   };
 }

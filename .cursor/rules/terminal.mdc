@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## Development Environment
+- Use Cursor's integrated terminal panel for all command suggestions
+- When npm run start is already running in one terminal tab, suggest opening a new terminal tab (+ button in terminal panel) for additional commands or restart the running session if it is necesarry
+- Always assume commands will be executed in the integrated terminal unless otherwise specified

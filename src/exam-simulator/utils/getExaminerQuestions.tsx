@@ -1,4 +1,4 @@
-import { ExamSimulator } from "../contexts/ExamSimulatorContext";
+import { ExamSimulator } from "../../types/ExamSimulator";
 import getCompletion from "./getCompletion";
 import prompts from "../../prompts.json";
 

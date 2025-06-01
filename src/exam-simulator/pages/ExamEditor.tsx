@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import Layout from "../layout/Layout";
 import { supabase } from "../config/supabaseClient";
-import { ExamSimulator } from "../contexts/ExamSimulatorContext";
+import { ExamSimulator } from "../../types/ExamSimulator";
 
 export default function ExamEditor() {
   const [searchParams] = useSearchParams();
@@ -10,7 +10,7 @@ export default function ExamEditor() {
   const examId = searchParams.get("id") || "";
 
   const [exam, setExam] = useState<any>(null);
-  const [loading, setLoading] = useState(examId !== "");
+  // const [loading, setLoading] = useState(examId !== "");
 
   useEffect(() => {
     const fetchExam = async () => {
@@ -25,7 +25,7 @@ export default function ExamEditor() {
         } else {
           setExam(data);
         }
-        setLoading(false);
+        // setLoading(false);
       }
     };
 
@@ -107,6 +107,12 @@ export default function ExamEditor() {
       }
 
       showToast("Code review updated!");
+
+      // Store the recently updated exam ID in localStorage for highlighting in dashboard
+      localStorage.setItem("recentlyUpdatedExamId", examId);
+
+      // Navigate back to dashboard after successful update
+      setTimeout(() => navigate("/dashboard"), 800);
     } else {
       const newExam: Omit<ExamSimulator, "id" | "created_at"> & {
         user_id: string;
@@ -121,7 +127,7 @@ export default function ExamEditor() {
         user_id: user.id,
       };
       // create newExam to supabase
-      const { data: insertedExam, error: insertError } = await supabase
+      const { data: createdExam, error: insertError } = await supabase
         .from("exams") // Ensure 'exams' is the correct table name
         .insert([newExam])
         .select()
@@ -136,8 +142,15 @@ export default function ExamEditor() {
       }
 
       showToast("Code review created!");
+
+      // Store the newly created exam ID in localStorage for highlighting in dashboard
+      if (createdExam?.id) {
+        localStorage.setItem("newlyCreatedExamId", createdExam.id);
+      }
+
+      // Navigate to dashboard after successful creation
+      setTimeout(() => navigate("/dashboard"), 800);
     }
-    //navigate("/dashboard");
   };
 
   const handleDelete = () => {
@@ -226,7 +239,7 @@ export default function ExamEditor() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors"
+                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
                 placeholder="Enter code review title"
                 required
               />
@@ -255,7 +268,7 @@ export default function ExamEditor() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors h-32 resize-none"
+                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors h-32 resize-none"
                 placeholder="Describe the code review task"
               />
             </div>
@@ -285,7 +298,7 @@ export default function ExamEditor() {
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
-                  className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors"
+                  className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
                 >
                   <option value="Standard">Standard</option>
                   <option value="Github Repo">Github Repo</option>
@@ -348,7 +361,7 @@ export default function ExamEditor() {
               <select
                 value={developerLevel}
                 onChange={(e) => setDeveloperLevel(e.target.value)}
-                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors"
+                className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
                 required
               >
                 <option value="junior">Junior Developer</option>
@@ -368,7 +381,7 @@ export default function ExamEditor() {
                   type="checkbox"
                   checked={is_public}
                   onChange={(e) => setIsPublic(e.target.checked)}
-                  className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="mr-2 h-4 w-4 text-tokyo-accent focus:ring-tokyo-accent border-gray-300 rounded"
                 />
                 Make code review public
               </label>
@@ -382,7 +395,7 @@ export default function ExamEditor() {
             <div className="flex items-center justify-between pt-4 border-t border-neutral-30">
               <Link
                 to="/dashboard"
-                className="px-4 py-2 text-neutral-700 hover:text-neutral-90 font-medium transition-colors"
+                className="px-4 py-2 text-tokyo-fg hover:text-tokyo-fg-bright hover:bg-tokyo-bg-lightest font-medium transition-all duration-200 rounded-md"
               >
                 Cancel
               </Link>
@@ -391,7 +404,7 @@ export default function ExamEditor() {
                   <button
                     type="button"
                     onClick={handleDelete}
-                    className="flex items-center px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-medium rounded-md transition-colors"
+                    className="flex items-center px-4 py-2 bg-red-500 hover:bg-red-600 hover:shadow-lg text-white font-medium rounded-md transition-all duration-200 transform hover:scale-105"
                   >
                     <svg
                       className="h-4 w-4 mr-2"
@@ -411,7 +424,7 @@ export default function ExamEditor() {
                 )}
                 <button
                   type="submit"
-                  className="flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors shadow-sm"
+                  className="flex items-center px-6 py-2 bg-tokyo-accent hover:bg-tokyo-accent-darker hover:shadow-lg text-white font-medium rounded-md transition-all duration-200 transform hover:scale-105"
                 >
                   <svg
                     className="h-4 w-4 mr-2"
@@ -435,12 +448,12 @@ export default function ExamEditor() {
 
         {/* Toast Notification */}
         <div
-          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white py-3 px-6 rounded-lg shadow-lg z-50 flex items-center transition-opacity duration-300 ${
+          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-tokyo-bg-lightest text-tokyo-fg-bright py-3 px-6 rounded-lg shadow-lg z-50 flex items-center transition-opacity duration-300 ${
             isToastVisible ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
         >
           <svg
-            className="h-5 w-5 text-green-400 mr-2"
+            className="h-5 w-5 text-tokyo-green mr-2"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"

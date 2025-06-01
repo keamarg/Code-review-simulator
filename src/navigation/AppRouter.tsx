@@ -4,11 +4,10 @@ import LandingPage from "../exam-simulator/pages/LandingPage";
 import LivePage from "../exam-simulator/pages/AIExaminerPage";
 import Dashboard from "../exam-simulator/pages/Dashboard";
 import ExamEditor from "../exam-simulator/pages/ExamEditor";
-import { ExamSimulatorProvider } from "../exam-simulator/contexts/ExamSimulatorContext";
 
 export function AppRouter() {
   return (
-    <ExamSimulatorProvider>
+    
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -18,6 +17,6 @@ export function AppRouter() {
           <Route path="/exam" element={<ExamEditor />} />
         </Routes>
       </BrowserRouter>
-    </ExamSimulatorProvider>
+    
   );
 }

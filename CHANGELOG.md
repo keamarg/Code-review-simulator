@@ -5,7 +5,311 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.12.5] - 2025-01-23
+## [0.13.11] - 2025-01-26
+
+### Fixed
+
+- Fixed intermittent fade-in animation on landing page by removing immediate scroll check and adjusting trigger threshold to ensure Recent Code Reviews section consistently requires scrolling to appear
+- **Landing Page Pills Not Showing**: Fixed NEW/UPDATED pills not appearing on landing page when Dashboard was visited first
+  - **Independent Display**: Both Dashboard and Landing page can now show pills independently without interfering
+  - **Smart Cleanup**: Pills are only removed from localStorage after both components have displayed them
+  - **Component Tracking**: Added tracking flags to prevent duplicate pill displays on same component
+  - **Cross-Component Sync**: Proper coordination between Dashboard and Landing page pill systems
+
+### Enhanced
+
+- **Improved Landing Page Animation Flow**: Enhanced fade-in behavior for better user experience
+
+  - **Research Section Auto-Fade**: Research Project section now automatically fades in 300ms after page load
+  - **Scroll-Triggered Reviews**: Recent Code Reviews section still requires scrolling to appear (preserved user preference)
+  - **Dual Animation System**: Added `fade-in-auto` class for immediate content and kept `fade-in` for scroll-triggered content
+  - **Smooth Transitions**: 0.6s ease transitions for both auto and scroll-triggered animations
+
+- **Landing Page NEW/UPDATED Pills**: Extended pill system to Recent Code Reviews section
+  - **Visual Consistency**: NEW (green) and UPDATED (orange) pills now appear on landing page cards
+  - **First-Time Display**: Pills show only on first visit to landing page after creating/updating a code review
+  - **Auto-Cleanup**: localStorage automatically clears after displaying pills to prevent stale indicators
+  - **Accent Ring**: NEW/UPDATED cards get subtle accent ring highlighting like on dashboard
+  - **User Feedback**: Immediate visual confirmation when users navigate to landing page after actions
+
+## [0.13.10] - 2025-06-01
+
+### Enhanced
+
+- **Aggressive Front Page Refresh**: Implemented multiple mechanisms to ensure latest projects appear immediately
+  - **5-Second Polling**: Reduced refresh interval from 30 seconds to 5 seconds for near real-time updates
+  - **Tab Focus Refresh**: Automatically refreshes when user switches back to the browser tab
+  - **Window Focus Refresh**: Updates data when window regains focus
+  - **Manual Refresh Button**: Added refresh icon next to "Recent Code Reviews" title for instant user control
+  - **Cache Busting**: Added timestamp-based cache busting to force fresh database queries
+  - **Debug Logging**: Added console logging to track refresh timing and data counts
+
+### Fixed
+
+- **Stale Data Issue**: Resolved front page showing outdated project list
+- **Immediate Updates**: New/updated code reviews now appear on front page within 5 seconds or instantly with manual refresh
+- **Browser Tab Switching**: Ensures fresh data when user returns to the tab
+
+### UI Improvements
+
+- **Refresh Control**: Subtle refresh button with hover effects integrated into section header
+- **Visual Feedback**: Loading states properly reset during manual refresh
+- **User Empowerment**: Users can now force immediate refresh if needed
+
+### Technical Details
+
+- **Multiple Event Listeners**: Handles `visibilitychange` and `focus` events for comprehensive refresh triggers
+- **Abort Controllers**: Ensures fresh database requests without caching interference
+- **Memory Management**: Proper cleanup of all intervals and event listeners on component unmount
+- **Performance**: 5-second polling provides immediate updates while maintaining reasonable server load
+
+## [0.13.9] - 2025-06-01
+
+### Fixed
+
+- **Reverted Pill Positioning**: Restored user's preferred pill positioning and three-dots menu spacing
+
+  - **Pill Position**: Back to `top-0.5 right-1` with original `px-3 py-0` padding as preferred by user
+  - **Three-dots Menu**: Removed `mt-8` margin to restore original spacing
+  - **User Preference**: Maintained user's carefully chosen positioning and styling
+
+- **Front Page Data Refresh**: Fixed recent code reviews not updating with latest projects
+  - **Auto-refresh**: Added 30-second interval to fetch latest public code reviews
+  - **Real-time Updates**: Front page now shows newest code reviews as they're created
+  - **Cleanup**: Proper interval cleanup on component unmount to prevent memory leaks
+
+### Changed
+
+- **Reduced Vertical Spacing**: Made front page more compact with tighter spacing
+  - **Section Padding**: Reduced from `py-12 md:py-16` to `py-8 md:py-12` across all front page sections
+  - **Heading Margins**: Reduced title margins from `mb-4/mb-6` to `mb-3` for tighter layout
+  - **Research Section**: Reduced icon margin from `mb-6` to `mb-4`
+  - **Paragraph Spacing**: Tightened text spacing for better visual flow
+
+### Technical Details
+
+- **Polling Strategy**: Added 30-second refresh interval for RecentCodeReviews component
+- **Memory Management**: Proper cleanup of intervals to prevent memory leaks
+- **Consistent Spacing**: Applied uniform spacing reduction across all front page sections
+- **User Experience**: Maintains functionality while respecting user's visual preferences
+
+## [0.13.8] - 2025-06-01
+
+### Added
+
+- **Smart Project Ordering**: Projects now display newest first across the entire application
+
+  - **Dashboard Ordering**: Added `.order("created_at", { ascending: false })` to display most recently created/updated projects first
+  - **Front Page Consistency**: Confirmed front page already displays latest projects (maintained existing ordering)
+  - **Improved Discovery**: Users can immediately see their newest work at the top
+
+- **Enhanced NEW/UPDATED Pill System**: Complete redesign of project status indicators with intelligent color coding
+  - **NEW Pills**: Green (`bg-green-500`) for newly created code reviews - positive association with creation
+  - **UPDATED Pills**: Orange (`bg-orange-500`) for recently updated code reviews - attention-grabbing for modifications
+  - **Smart Logic**: Automatically detects creation vs. update actions and shows appropriate pill
+  - **Updated Tracking**: Added `recentlyUpdatedExamId` state management and localStorage persistence
+  - **Single Visit Display**: Pills show only on first dashboard visit after action, then automatically clear
+
+### Changed
+
+- **ExamEditor Integration**: Enhanced save workflow to track both creation and update actions
+
+  - **Update Detection**: Stores `recentlyUpdatedExamId` in localStorage when saving existing code reviews
+  - **Creation Tracking**: Maintains existing `newlyCreatedExamId` tracking for new code reviews
+  - **Seamless UX**: Users immediately see status of their latest actions when returning to dashboard
+
+- **Visual Improvements**: Enhanced pill positioning and appearance
+  - **Perfect Positioning**: Moved to `top-2 right-2` for optimal corner placement with proper margins
+  - **Three-dots Spacing**: Restored `mt-8` margin to prevent overlap with status pills
+  - **Typography**: Enhanced font weight to `font-bold` for better readability
+  - **Consistent Padding**: Standardized `px-2 py-1` for uniform pill appearance
+
+### Technical Details
+
+- **State Management**: Added `recentlyUpdatedExamId` state alongside existing `newlyCreatedExamId`
+- **Database Optimization**: Leveraged existing `created_at` field for efficient chronological ordering
+- **Memory Management**: Automatic localStorage cleanup prevents stale indicators
+- **Component Interface**: Extended `ExamSimulatorCardProps` with `isUpdated` prop for clean separation of concerns
+- **Performance**: Minimal overhead - single additional database order clause and localStorage operation
+
+## [0.13.7] - 2025-06-01
+
+### Changed
+
+- **Enhanced Form Button Hover Effects**: Significantly improved visual feedback for better user experience
+  - **Cancel Button**: Added background color change on hover (`hover:bg-tokyo-bg-lightest`) with subtle border radius
+  - **Create/Update Button**: Added scaling effect (`hover:scale-105`) and enhanced shadow (`hover:shadow-lg`)
+  - **Delete Button**: Added scaling effect (`hover:scale-105`) and enhanced shadow (`hover:shadow-lg`)
+  - **Smooth Animations**: Updated all buttons to use `transition-all duration-200` for smooth, consistent animations
+  - **Visual Feedback**: All buttons now provide clear visual indication when hovered, improving usability
+
+### Fixed
+
+- **Button Interaction Clarity**: Previously subtle hover effects now provide clear visual feedback to users
+- **User Experience**: Enhanced interactive elements to meet modern web standards for button responsiveness
+
+## [0.13.6] - 2025-06-01
+
+### Changed
+
+- **Perfect NEW Indicator Positioning**: Final positioning improvements for the NEW badge
+
+  - **Top Right Corner**: Positioned at `top-2 right-2` for perfect corner placement with proper margins
+  - **No Overlap**: Three-dot menu moved down (`mt-8`) to avoid any visual conflicts
+  - **Better Spacing**: Title padding increased to `pr-20` for clean text flow
+
+- **Complete Tokyo Theme Integration**: Updated ExamEditor to match design system
+  - **Primary Button**: Changed from blue to `bg-tokyo-accent hover:bg-tokyo-accent-darker`
+  - **Delete Button**: Updated to proper red styling `bg-red-500 hover:bg-red-600` with white text
+  - **Cancel Link**: Changed to `text-tokyo-fg hover:text-tokyo-fg-bright`
+  - **Form Focus States**: All inputs now use `focus:ring-tokyo-accent` instead of blue
+  - **Checkbox Styling**: Updated to `text-tokyo-accent focus:ring-tokyo-accent`
+  - **Toast Notification**: Changed to `bg-tokyo-bg-lightest text-tokyo-fg-bright` with `text-tokyo-green` icon
+
+### Fixed
+
+- **Consistent Theme**: All form elements now follow the Tokyo color scheme
+- **Visual Hierarchy**: Proper contrast and focus states throughout the form
+- **Button Consistency**: Delete and create buttons now have proper styling with shadows
+
+## [0.13.5] - 2025-06-01
+
+### Fixed
+
+- **NEW Indicator Color Scheme**: Changed color from bright green to orange (`bg-orange-500`) to better fit the Tokyo theme
+- **Menu Overlap Issue**: Repositioned NEW indicator to avoid overlapping with three-dot menu button
+  - **Position**: Moved from `right-3` to `right-14` to provide adequate spacing
+  - **Title Padding**: Increased from `pr-12` to `pr-16` to accommodate new positioning
+  - **Clean Layout**: Ensures all elements have proper spacing without visual conflicts
+
+### Changed
+
+- **Better Visual Hierarchy**: Orange color provides good visibility while maintaining theme consistency
+
+## [0.13.4] - 2025-06-01
+
+### Changed
+
+- **Enhanced NEW Indicator Design**: Final improvements to the newly created code review indicator
+  - **Prominent Color**: Changed to bright green (`bg-green-500`) for better visibility and positive association
+  - **Top Right Position**: Moved to top right corner of card (`absolute top-3 right-3`) while staying inside borders
+  - **Simplified Persistence**: Removed 10-second timer - indicator now shows only on first dashboard visit after creation
+  - **Better Title Spacing**: Added right padding (`pr-12`) to title link to prevent overlap with NEW indicator
+
+### Fixed
+
+- **No Timer Complexity**: Simplified behavior - NEW indicator appears once and clears on navigation
+- **Visual Clarity**: Better contrast and positioning for immediate recognition of newly created reviews
+
+## [0.13.3] - 2025-06-01
+
+### Changed
+
+- **Faster Navigation**: Reduced dashboard navigation delay from 1.5 seconds to 0.8 seconds for snappier user experience
+- **Improved NEW Indicator**: Redesigned the "NEW" badge for better visual integration
+  - **Pill Design**: Changed from overlapping badge to inline pill next to title
+  - **No Animation**: Removed distracting pulse animation for cleaner appearance
+  - **Better Positioning**: Moved inside card header to avoid border overlap
+  - **Consistent Styling**: Maintains Tokyo theme colors with subtle shadow
+
+### Fixed
+
+- **Visual Overlap**: NEW indicator no longer overlaps with card borders
+- **Animation Distraction**: Removed unnecessary pulse animation that drew too much attention
+
+## [0.13.2] - 2025-06-01
+
+### Added
+
+- **Enhanced Create Code Review Workflow**: Improved user experience after creating code reviews
+  - **Auto-navigation to Dashboard**: After successfully creating a code review, users are automatically taken to the dashboard
+  - **"NEW" Indicator**: Newly created code reviews display a prominent "NEW" badge in the dashboard
+  - **Visual Highlighting**: New reviews get a subtle accent ring to draw attention
+  - **Smart Persistence**: The "NEW" indicator automatically disappears after 10 seconds
+  - **Error-Safe Navigation**: Navigation only occurs when all required fields are properly filled and save is successful
+
+### Changed
+
+- **ExamEditor Save Flow**: Modified to navigate to dashboard after successful creation/update
+- **Dashboard Card Component**: Enhanced to accept `isNew` prop for displaying new indicators
+- **Toast Timing**: Adjusted navigation delay to allow users to see the success message (1.5 seconds)
+
+### Technical Details
+
+- Uses localStorage to persist newly created exam IDs across page navigation
+- Automatic cleanup prevents stale "NEW" indicators from persisting
+- Backward compatible - existing functionality unchanged
+- Follows existing Tokyo theme styling for consistency
+
+## [0.13.1] - 2025-06-01
+
+### Added
+
+- **Recent Code Reviews on Landing Page**: Added new section displaying the last three created public code reviews
+  - **RecentCodeReviews Component**: New component that fetches and displays recent public reviews with loading states
+  - **Interactive Cards**: Each review card shows title, description, duration, type, and developer level
+  - **Try Review Action**: Direct links to start any displayed code review session
+  - **Responsive Design**: Mobile-friendly grid layout that adapts to different screen sizes
+  - **Loading Animation**: Skeleton loading animation while fetching reviews
+  - **Empty State**: Graceful handling when no public reviews are available
+  - **View All Link**: Link to dashboard for users who want to see all available reviews
+
+### Changed
+
+- **Landing Page Enhancement**: Improved user experience by showcasing actual content
+- **ExamSimulator Type**: Added optional `created_at` field to support ordering by creation date
+- **CSS Utilities**: Added `line-clamp-2` and `line-clamp-3` classes for proper text truncation
+
+### Technical Details
+
+- Fetches only public reviews using `is_public = true` filter for security
+- Orders by `created_at DESC` to show most recent reviews first
+- Limits results to 3 items for optimal page performance
+- Uses same styling system as Dashboard cards for consistency
+
+## [0.13.0] - 2025-05-30
+
+### Removed
+
+- **Complete Grading System Removal**: Eliminated all grading functionality to focus on constructive code review feedback
+- **Dual Prompt System**: Removed `src/prompts_exam.json` and consolidated on `src/prompts.json`
+- **Grade Criteria**: Removed `gradeCriteria` fields from all exam configurations
+- **Grading Scale Definitions**: Removed Danish 7-point grading scale and pass/fail options
+- **Legacy Grading Documentation**: Removed `docs/legacy/example-prompt.txt` with grading instructions
+
+### Changed
+
+- **Timer Naming**: Renamed `gradingTimer` to `finalWarningTimer` for clarity
+- **AI Behavior**: All AI interactions now focus on constructive feedback instead of scoring
+- **Documentation**: Updated README.md and documentation to emphasize code review rather than evaluation
+- **Prompt System**: Unified on single prompt system optimized for code review sessions
+
+### Fixed
+
+- **Terminology Consistency**: Removed conflicting exam vs code review messaging
+- **Architecture Simplification**: Eliminated unused grading logic and dual prompt complexity
+
+## [0.12.6] - 2025-05-30
+
+### Fixed
+
+- **Dashboard Popup Menu Visibility**: Fixed transparent background issue on three-dots menu popup that made text unreadable
+  - Changed background from `bg-tokyo-bg-lighter` to `bg-tokyo-bg-lightest` for better contrast
+  - Added `backdrop-blur-sm` for enhanced visual separation
+  - Increased shadow depth from `shadow-lg` to `shadow-xl` for better definition
+  - Increased z-index from `z-10` to `z-20` for proper layering
+- **Dashboard Popup Menu Click Outside**: Fixed menu not closing when clicking outside
+  - Replaced simple click listener with robust `useRef` and `contains()` method for proper boundary detection
+  - Changed from `click` to `mousedown` event for more reliable detection
+  - Added 10ms delay to prevent immediate menu closing on open
+  - Proper cleanup of event listeners and timeouts
+
+### Changed
+
+- **Improved Menu Interaction**: Enhanced user experience with more reliable popup menu behavior
+- **Better Visual Design**: Popup menu now has clear visual separation from background content
+
+## [0.12.5] - 2025-04-29
 
 ### Fixed
 
@@ -29,7 +333,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Performance Improvements**: Added file count limits and depth restrictions to prevent timeouts
 - **Code Quality**: Fixed regex escape character warnings
 
-## [0.12.4] - 2025-01-23
+## [0.12.4] - 2025-05-19
 
 ### Added
 
@@ -53,7 +357,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Duplicate CHANGELOG.md.addfix file
 - Scattered documentation files from root directory
 
-## [0.12.3] - 2025-01-27
+## [0.12.3] - 2025-05-30
 
 ### Fixed
 
@@ -116,7 +420,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **All AI behavior is now controlled from `src/prompts.json`** - no more scattered hardcoded prompts
 - Template variables support dynamic content: `${examDurationActiveExam}`, `${level}`, `${remainingMinutes}`, etc.
 
-## [0.12.2] - 2025-01-27
+## [0.12.2] - 2025-05-30
 
 ### Fixed
 
@@ -160,7 +464,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unused PageContent component and interface
 - Legacy URI constants and unused imports
 
-## [0.12.1] - 2025-01-27
+## [0.12.1] - 2025-05-30
 
 ### Fixed
 
@@ -182,7 +486,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced ControlTrayCustom button handling with async error management
 - Improved media stream button click handlers with proper error boundaries
 
-## [0.12.0] - 2025-01-27
+## [0.12.0] - 2025-05-29
 
 ### Added
 
@@ -218,290 +522,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ✅ **Additive Changes** - New implementation available alongside existing implementation
 - ✅ **Optional Migration** - Can gradually migrate to new client for enhanced features
 
-## [0.11.11] - 2025-01-27
-
-### Added
-
-- Centralized AI model configuration system in `src/config/aiConfig.ts`
-- Environment variable support for AI model selection (`REACT_APP_AI_MODEL`)
-- Environment variable support for AI voice selection (`REACT_APP_AI_VOICE`)
-- Comprehensive AI model configuration documentation (`AI_MODEL_CONFIGURATION.md`)
-
-### Changed
-
-- Centralized all hardcoded `models/gemini-2.0-flash-exp` references to use configurable system
-- Updated `liveConfigUtils.ts` to use centralized configuration
-- Updated `ExamWorkflow.tsx` to use centralized configuration
-- Updated `use-live-api.ts` to use centralized configuration
-- Updated `Altair.tsx` to use centralized configuration
-- Made AI model and voice settings easily configurable without code changes
+## [0.11.11] - 2025-05-19
 
 ### Fixed
 
-- Eliminated multiple hardcoded model references throughout the codebase
-- Improved maintainability by centralizing AI configuration
-
-## [0.11.10] - 2025-01-27
-
-### Fixed
-
-- Fixed ESLint import order error in ExamWorkflow.tsx by moving CountdownTimer import to top
-- Resolved TypeScript errors related to missing 'model' property in ExamSimulator type
-- Fixed LoadingAnimation component usage by removing unsupported 'message' prop
-- Corrected responseModalities type from array to single string value in liveConfigUtils.ts
-- Removed unsupported realtimeInputConfig and sessionResumption properties from LiveConfig
-- Added missing babel plugin @babel/plugin-proposal-private-property-in-object to resolve build warnings
-- Application now builds successfully with only minor linting warnings remaining
-
-### Added
-
-- Comprehensive Supabase schema documentation with SQL import script
-- Row Level Security (RLS) policies for secure data access
-- Instructions for migrating to different Supabase accounts
-
-## [0.11.9] - 2025-05-29
-
-### Fixed
-
-- Addressed AI behavior issues by thoroughly revising prompts
-- Fixed problem where AI would try to end reviews prematurely before the full time was used
-- Removed all references to grading and evaluation from prompts and templates
-- Changed AI instruction to focus more on direct feedback rather than asking excessive questions
-- Added explicit instructions to use the full allocated time for each review
-- Enhanced instruction components to emphasize specific, actionable feedback over theoretical questions
-- Replaced outdated grading scales with explicit instructions not to use grades
-
-## [0.11.8] - 2025-05-28
-
-### Fixed
-
-- Fixed duration calculation issue where 1 minute was incorrectly subtracted from the total duration
-- Updated AIExaminer and AIExaminerGithub components to use the correct full duration
-
-### Changed
-
-- Improved prompts to generate more concise responses from AI models
-- Limited task descriptions to approximately 150 words for better readability
-- Added explicit brevity instructions to system prompts
-- Enhanced repo questions prompt to generate more focused questions
-- Updated prompt templates to encourage direct, clear communication style
-
-## [0.11.7] - 2025-05-28
-
-### Fixed
-
-- Resolved 400 Bad Request error when creating code reviews
-- Updated data model to use existing database column names for backward compatibility
-- Reverted ExamSimulator type to use 'learning_goals' instead of 'developer_level'
-- Maintained developer level selection UI while adapting to existing database schema
-
-## [0.11.6] - 2025-05-28
-
-### Fixed
-
-- Fixed error when creating new code reviews by setting "intermediate" as the default developer level
-- Made developer level a required field in the code review form
-- Removed empty option from the developer level dropdown
-
-## [0.11.5] - 2025-05-28
-
-### Fixed
-
-- Fixed TypeScript error where 'learning_goals' property was referenced but no longer exists
-- Updated AIExaminerGithub.tsx to use developer_level instead of learning_goals
-- Updated getGithubRepoFiles.js to generate level-specific guidance based on developer_level
-- Improved GitHub repository UI with Tokyo Night theme styling
-- Changed text from "exam" to "code review" in the GitHub repository component
-
-## [0.11.4] - 2025-05-28
-
-### Changed
-
-- Updated the prompt system to use developer_level (junior, intermediate, senior) instead of learning_goals
-- Replaced grade criteria with level-specific code review guidance
-- Modified getExaminerQuestions.tsx to generate level-appropriate review focus areas
-- Updated prompt.js to provide tailored review guidance based on developer level
-- Added appropriate fallback content when description is not available
-
-## [0.11.3] - 2025-05-28
-
-### Changed
-
-- Improved code review creation process to focus on developer experience levels
-- Updated ExamSimulator data model to replace exam-specific fields with developer_level
-- Modified ExamEditor.tsx to show "Junior", "Intermediate", and "Senior" developer options
-- Removed learning goals, feedback, and typical questions fields from the code review form
-- Added explanatory text about how developer level influences review feedback
-- Streamlined the form to focus solely on code review aspects
-
-## [0.11.2] - 2025-05-28
-
-### Changed
-
-- Completed the translation of all remaining Danish text to English throughout the application
-- Updated ExamEditor.tsx with English text for all form fields, labels, placeholders, and buttons
-- Updated Dashboard.tsx with English text for headings, search functionality, and empty state messages
-- Fixed time format display in the duration formatter to use "h" instead of "t" for hours
-- Simplified the hero section on the landing page to use a centered title in English
-- Removed example boxes and promotional content from the landing page
-
-## [0.11.1] - 2025-05-27
-
-### Changed
-
-- Updated the API server URLs from `api-key-server-sigma.vercel.app` to `api-key-server-codereview.vercel.app`
-- Changed repository name in `package.json` homepage from `https://behu-kea.github.io/exam-simulator` to `https://keamarg.github.io/Code-review-simulator`
-
-### Added
-
-- Created this CHANGELOG.md file to track changes
-- Added AI-System-Documentation.md to document how the AI models are used in the system
-- Added 404.html for improved routing on GitHub Pages
-
-### Fixed
-
-- Addressed CORS issues for the OpenAI and Gemini API keys
-
-## [0.11.0] - 2025-05-27
-
-### Changed
-
-- Removed commercial elements from the application
-- Updated footer with research disclaimer and removed marketing text
-- Replaced testimonial section with research project information
-- Changed CTA sections to focus on research contribution rather than commercial signup
-- Updated Login and Signup pages to focus on research participation
-- Changed form fields in Signup page to be more relevant for research (organization, role, experience)
-- Added explicit research consent notice to the signup form
-- Converted all remaining Danish text to English across the application
-
-## [0.10.2] - 2025-05-26
-
-### Changed
-
-- Updated code review page to match the Tokyo Night theme
-- Fixed welcome text that was previously black on dark background
-- Updated countdown timer with Tokyo Night colors
-- Redesigned control tray with proper dark theme styling
-- Fixed mic button and share screen elements to use theme colors
-- Improved readability of all text elements on the review page
-
-## [0.10.1] - 2025-05-26
-
-### Changed
-
-- Updated Login and Signup pages to match the Tokyo Night theme
-- Applied dark theme styling to form inputs, buttons, and background elements
-- Fixed contrast issues with text and form fields
-- Improved visual consistency across all authentication pages
-
-## [0.10.0] - 2025-05-26
-
-### Changed
-
-- Implemented Tokyo Night theme across the application
-- Updated color scheme with deep blues, purples, and carefully selected accent colors
-- Improved contrast for text elements and UI components
-- Added JetBrains Mono font mapping to the Tokyo Night theme
-- Modernized all buttons, cards, and interactive elements with the new color palette
-- Ensured consistent styling across all pages and components
-- Enhanced overall aesthetic appeal with one of the most highly acclaimed dark themes
-
-## [0.9.0] - 2025-05-25
-
-### Changed
-
-- Enhanced dark theme implementation across the application
-- Added JetBrains Mono as the primary font for better code readability
-- Updated blue color palette to be more compatible with dark backgrounds
-- Changed "Dine code reviews" heading and other text elements to ensure proper contrast
-- Updated all card components, forms, and input elements to use dark theme styling
-- Changed navigation labels to English: "Create Review", "Dashboard", "Sign In", etc.
-- Updated footer text to be more research-focused
-
-## [0.8.0] - 2025-05-24
-
-### Changed
-
-- Implemented dark theme UI across the application
-- Updated App.scss with dark theme color variables and classes
-- Modified Layout.tsx to use dark-themed styles for header, footer, and navigation
-- Updated AIExaminer component to use dark theme styling
-- Changed App.tsx root element to use dark background
-- Updated document title to "Code Review Simulator" in index.html
-
-## [0.7.0] - 2025-05-23
-
-### Changed
-
-- Updated the user interface text content based on UI-Text-Content-CodeReview.md
-- Modified Layout.tsx to update header and footer text
-- Updated LandingPage.tsx with code review specific content
-- Changed Dashboard.tsx to use code review terminology
-- Modified ExamEditor.tsx to reflect code review editing functionality
-- Updated LoadingAnimation.tsx to show code review loading message
-
-## [0.6.0] - 2025-05-22
-
-### Added
-
-- Created UI-Text-Content-CodeReview.md with updated text content for the Code Review Simulator
-- Converted exam-related terminology to code review terminology while preserving Danish language
-- Updated role references from student/teacher to developer/reviewer
-
-## [0.5.0] - 2025-05-21
-
-### Added
-
-- Created UI-Text-Content.md document cataloging all user-facing text content
-- Documented text from all major components with source file references
-- Organized content by component type for easier reference during transformation
-
-## [0.4.0] - 2025-05-20
-
-### Changed
-
-- Refactored prompt handling to use the centralized prompts.json file
-- Updated prompt.js, getExaminerQuestions.tsx, and getGithubRepoFiles.js to draw prompts from the JSON file
-- Improved maintainability by separating prompts from code logic
-- Moved prompts.json to the src folder to ensure proper importing
-
-## [0.3.0] - 2025-05-20
-
-### Added
-
-- Created prompts.json file containing all system prompts, user prompts, and AI configurations used in the project
-- Documented model configurations, grading scales, and instruction components in a structured JSON format
-
-## [0.2.0] - 2025-05-19
-
-### Added
-
-- Created Code-Review-Transformation-Plan.md outlining the process to convert the application from an exam simulator to a code review simulator
-- Added comprehensive plan for updating prompts, UI, terminology, and removing commercial elements
-- Detailed dark theme implementation strategy
-
-## [0.1.1] - 2025-05-19
-
-### Changed
-
-- Updated all API key server URLs in the codebase to use `api-key-server-codereview.vercel.app` for OpenAI and Gemini API key endpoints instead of the previous `api-key-server-sigma.vercel.app`.
-
-## [0.1.0] - 2025-05-18
-
-### Added
-
-- Initial project setup and features.
-
-## [1.0.0] - 2025-05-13
-
-### Added
-
-- AI-System-Documentation.md file documenting all AI system prompts, guidelines, and settings in the codebase
-- Comprehensive documentation of AI components including:
-  - Main system prompt files
-  - AI model configurations
-  - API and authentication settings
-  - Voice and response configurations
-  - Example prompts
-  - System architecture overview
+- **Landing Page Pills Not Showing**: Fixed NEW/UPDATED pills not appearing on landing page when Dashboard was visited first
+  - **Independent Display**: Both Dashboard and Landing page can now show pills independently without interfering
+  - **Smart Cleanup**: Pills are only removed from localStorage after both components have displayed them
+  - **Component Tracking**: Added tracking flags to prevent duplicate pill displays on same component
+  - **Cross-Component Sync**: Proper coordination between Dashboard and Landing page pill systems

@@ -4,7 +4,6 @@ import LandingPage from "../pages/LandingPage";
 import AIExaminerPage from "../pages/AIExaminerPage";
 import Dashboard from "../pages/Dashboard";
 import ExamEditor from "../pages/ExamEditor";
-import { ExamSimulatorProvider } from "../contexts/ExamSimulatorContext";
 
 import { AuthProvider } from "./../contexts/AuthContext";
 import { ProtectedRoute } from "./../pages/ProtectedRoute";
@@ -18,7 +17,7 @@ const basename = new URL(process.env.PUBLIC_URL || "", window.location.origin)
 export function AppRouter() {
   return (
     <AuthProvider>
-      <ExamSimulatorProvider>
+      
         <BrowserRouter basename={basename}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -34,7 +33,7 @@ export function AppRouter() {
             </Route>
           </Routes>
         </BrowserRouter>
-      </ExamSimulatorProvider>
+      
     </AuthProvider>
   );
 }

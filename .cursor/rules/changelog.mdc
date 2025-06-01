@@ -6,6 +6,8 @@ alwaysApply: true
 ## Changelog Management
 - Maintain or update a CHANGELOG.md file after each completed task.
 - Create CHANGELOG.md if it does not exist.
+- **ALWAYS get the current date** before updating changelog entries by running: `date +"%Y-%m-%d"`
+- Use the actual system date returned from the command, never assume or use outdated dates
 - Follow Semantic Versioning 2.0.0 with this structure:
 
     - [MAJOR.MINOR.PATCH] - YYYY-MM-DD
@@ -24,6 +26,6 @@ alwaysApply: true
    
 
 ### Example Changelog Entry
-[1.2.0] - 2025-05-12
+[1.2.0] - 2025-06-01
 Added
 - LoginForm component with SCSS styling and email validation

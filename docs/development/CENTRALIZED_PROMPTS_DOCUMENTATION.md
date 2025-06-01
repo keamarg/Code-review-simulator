@@ -43,12 +43,6 @@ All AI prompts, system instructions, and timer messages have been centralized in
 - **`halfTime`**: Half-time reminder message (supports `${remainingMinutes}` placeholder)
 - **`timeAlmostUp`**: Final warning message when time is running out
 
-### Grading Scale (`gradingScale`)
-
-- **`7-skala`**: Reminder not to use 7-point grading scale
-- **`bestået-ikke-bestået`**: Reminder not to use pass/fail grading
-- **`no-grade`**: General reminder that this is a review, not graded evaluation
-
 ## Files Using Centralized Prompts
 
 ### Core Prompt Generation

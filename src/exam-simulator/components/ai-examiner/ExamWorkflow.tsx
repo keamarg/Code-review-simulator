@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../config/supabaseClient";
 import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
-import { ExamSimulator } from "../../contexts/ExamSimulatorContext"; // Ensure this type is correctly defined and exported
+import { ExamSimulator } from "../../../types/ExamSimulator";
 import { getExaminerQuestions } from "../../utils/getExaminerQuestions";
 import getRepoQuestions from "../../utils/getGithubRepoFiles.js"; // Assuming .js is correct
 import getPrompt from "../../utils/prompt";

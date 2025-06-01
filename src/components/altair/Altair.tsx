@@ -15,7 +15,7 @@
  */
 import React, { useEffect, useRef, useState, memo } from "react";
 import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
-import { ExamSimulator } from "../../exam-simulator/contexts/ExamSimulatorContext";
+import { ExamSimulator } from "../../types/ExamSimulator";
 import { getCurrentModel, getTimerConfig } from "../../config/aiConfig"; // Import centralized config
 import prompts from "../../prompts.json";
 
@@ -68,7 +68,7 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
       ]);
     }, HalfWaySeconds);
 
-    const gradingTimer = setTimeout(() => {
+    const finalWarningTimer = setTimeout(() => {
       client.send([
         {
           text: prompts.timerMessages.timeAlmostUp,
@@ -79,7 +79,7 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
     return () => {
       clearTimeout(introTimer);
       clearTimeout(halfExamTimer);
-      clearTimeout(gradingTimer);
+      clearTimeout(finalWarningTimer);
     };
   }, [
     client,
