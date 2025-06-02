@@ -13,6 +13,7 @@ import {
 import { LiveSuggestionsPanel } from "../components/ui/LiveSuggestionsPanel";
 import { LoadingAnimation } from "../components/ui/LoadingAnimation";
 import cn from "classnames";
+import PopupWindow from "../components/ui/PopupWindow";
 // supabase might not be needed here anymore if ExamWorkflow handles all supabase interactions
 // import { supabase } from "../config/supabaseClient";
 
@@ -33,6 +34,8 @@ interface ExamPageContentProps {
   suggestions: Suggestion[];
   isProcessing: boolean;
   onLoadingStateChange: (isLoading: boolean) => void;
+  showSuggestionsPopup: boolean;
+  onCloseSuggestionsPopup: () => void;
 }
 
 function ExamPageContent({
@@ -52,6 +55,8 @@ function ExamPageContent({
   suggestions,
   isProcessing,
   onLoadingStateChange,
+  showSuggestionsPopup,
+  onCloseSuggestionsPopup,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
   const hasNotifiedScreenShareRef = useRef(true);
@@ -143,12 +148,16 @@ function ExamPageContent({
         />
       </div>
 
-      {/* Live Suggestions Panel */}
-      <LiveSuggestionsPanel
-        suggestions={suggestions}
-        isProcessing={isProcessing}
-        isVisible={examIntentStarted}
-      />
+      {/* Live Suggestions Panel - Now conditionally rendered in a popup */}
+      {showSuggestionsPopup && (
+        <PopupWindow onClose={onCloseSuggestionsPopup} title="Live Suggestions">
+          <LiveSuggestionsPanel
+            suggestions={suggestions}
+            isProcessing={isProcessing}
+            isVisible={true}
+          />
+        </PopupWindow>
+      )}
     </div>
   );
 }
@@ -193,7 +202,14 @@ export default function LivePage() {
     isProcessing,
   } = useLiveSuggestionExtractor();
 
+  // State for controlling the suggestions popup
+  const [showSuggestionsPopup, setShowSuggestionsPopup] = useState(false);
+
   const navigate = useNavigate();
+
+  const onCloseSuggestionsPopup = useCallback(() => {
+    setShowSuggestionsPopup(false);
+  }, [setShowSuggestionsPopup]);
 
   const handleEndReview = () => {
     // Terminate the AI session completely if client is available
@@ -205,6 +221,7 @@ export default function LivePage() {
     setForceStopAudio(true);
     setForceStopVideo(true);
     setExamIntentStarted(false);
+    setShowSuggestionsPopup(false);
 
     // Reset force stop after a longer delay to ensure everything stops
     setTimeout(() => {
@@ -216,6 +233,7 @@ export default function LivePage() {
   // Add a new handler for summary modal close
   const handleSummaryModalClose = () => {
     navigate("/dashboard");
+    setShowSuggestionsPopup(false);
   };
 
   // Handle timer expiration - reset state and force stop audio/video
@@ -229,6 +247,7 @@ export default function LivePage() {
     setForceStopAudio(true);
     setForceStopVideo(true);
     setExamIntentStarted(false);
+    setShowSuggestionsPopup(false);
 
     // Clear all suggestions since review is complete
     clearAllSuggestions();
@@ -244,6 +263,7 @@ export default function LivePage() {
   const handleManualStop = () => {
     console.log("🛑 Manual stop initiated");
     handleEndReview();
+    setShowSuggestionsPopup(false);
   };
 
   const handleClientReady = useCallback((client: any) => {
@@ -256,6 +276,7 @@ export default function LivePage() {
       if (genaiClient) {
         genaiClient.terminateSession();
       }
+      setShowSuggestionsPopup(false);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -272,13 +293,23 @@ export default function LivePage() {
   // Stop video stream when forceStopVideo is triggered
   useEffect(() => {
     if (forceStopVideo && videoStream) {
-      // Stop all tracks in the video stream to end screen sharing
       videoStream.getTracks().forEach((track) => {
         track.stop();
       });
       setVideoStream(null);
+      setShowSuggestionsPopup(false);
     }
   }, [forceStopVideo, videoStream]);
+
+  // Show popup when exam starts and video stream is available (screen is shared)
+  // Hide it when exam stops or video stream is lost
+  useEffect(() => {
+    if (examIntentStarted && videoStream) {
+      setShowSuggestionsPopup(true);
+    } else {
+      setShowSuggestionsPopup(false);
+    }
+  }, [examIntentStarted, videoStream]);
 
   useEffect(() => {
     const apiKeyEndpoint =
@@ -315,6 +346,7 @@ export default function LivePage() {
       setExamIntentStarted(true);
     } else {
       setExamIntentStarted(false);
+      setShowSuggestionsPopup(false);
     }
   };
 
@@ -372,6 +404,8 @@ export default function LivePage() {
           suggestions={suggestions}
           isProcessing={isProcessing}
           onLoadingStateChange={setIsTaskLoading}
+          showSuggestionsPopup={showSuggestionsPopup}
+          onCloseSuggestionsPopup={onCloseSuggestionsPopup}
         />
       </GenAILiveProvider>
     </Layout>

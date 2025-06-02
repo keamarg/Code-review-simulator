@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2025-06-02
+
+### Added
+
+- **SVG File Icons for Suggestions**: Replaced text-based file type placeholders (e.g., "[JS]") with SVG icons in the `LiveSuggestionsPanel`.
+  - Icons for JS, TS, Python, CSS, HTML, JSON, and a generic file type are included.
+  - `SuggestionFileIcon` component dynamically selects the appropriate icon based on `suggestion.filename` extension.
+
+### Changed
+
+- **Live Suggestions Panel UI**:
+  - Increased left padding in the header of the `LiveSuggestionsPanel` for better visual balance.
+  - Removed the display of filenames next to the timestamp in individual suggestion items, relying on the new SVG icons for file type context.
+
 ## [0.15.0] - 2025-06-02
 
 ### Fixed
@@ -1432,3 +1446,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Cleanup Coordination**: Proper cleanup of timers, connections, and tracking flags during session end
   - **Debug Information**: Enhanced logging shows connection attempts, success/failure, and cleanup status
   - **Race Condition Prevention**: Eliminated timing issues that could create overlapping AI sessions
+
+## [0.16.0] - 2025-06-02
+
+### Added
+
+- **Live Suggestions Popup Window**: Implemented a new pop-up window for displaying live AI-generated code review suggestions during an active review session.
+  - **Dedicated View**: Suggestions now appear in a separate window, allowing users to position them freely for better visibility alongside their code/screen share.
+  - **Dynamic Sizing**: Popup window defaults to two-thirds of the screen height and a responsive width.
+  - **Window Management**: Includes robust handling for window opening, closing, and lifecycle management via a reusable `PopupWindow.tsx` component.
+  - **Style Porting**: Stylesheets from the main application are copied to the popup to maintain visual consistency (with graceful error handling for external fonts like Google Fonts).
+
+### Changed
+
+- **Live Suggestions Panel UI/UX Overhaul**: Significantly redesigned the `LiveSuggestionsPanel.tsx` component for enhanced readability and user experience within the new popup.
+  - **Modern Aesthetics**: Updated styling with a focus on clarity, using theme variables (`--tokyo-` prefixed) for colors, backgrounds, and borders.
+  - **Newest First**: Suggestions are displayed with the latest one at the top, with auto-scroll to the newest suggestion.
+  - **Visual Hierarchy for Latest Suggestion**: The most recent suggestion is prominently highlighted with a distinct gradient background (`--tokyo-accent` to `--tokyo-accent-hover`) and a stronger box shadow.
+  - **Fading Older Suggestions**: Older suggestions gradually decrease in opacity to emphasize newer ones, while becoming fully opaque on hover for easy reading.
+  - **Improved Spacing**: Increased vertical spacing between suggestion items and enhanced internal padding for better readability and a less cluttered look.
+  - **Refined Timestamp & Badge**: Timestamp formatting improved; "Latest" badge styled for better contrast and visual appeal.
+  - **Removed Visual Clutter**: Unnecessary icons/bullets and item borders removed for a cleaner interface.
+
+### Fixed
+
+- **Popup Window Title**: Resolved issue where the popup window title would sometimes incorrectly display "about:blank" by ensuring the document title is set at multiple stages of the popup creation lifecycle.
+- **Popup Stability**: Addressed an issue where the popup window might close prematurely when new suggestions were added by memoizing the `onClose` handler in the parent component (`AIExaminerPage.tsx`) using `useCallback`.
+
+## [0.16.1] - 2025-06-02
+
+### Fixed
+
+- Resolved critical styling issues in the live suggestions popup window:
+  - Ensured consistent application of margins and padding for suggestion items by using `setAttribute('style', ...)` instead of relying solely on React's `style` prop for portaled components, fixing spacing and scrolling problems.
+  - Re-enabled stylesheet copying from the main application to the popup, allowing CSS variables and global styles to function correctly within the popup.
+  - Verified that theme-consistent styling (backgrounds, text colors, shadows, hover effects) applies correctly to all suggestion items and panel elements within the popup.
+- Removed diagnostic code (manual test divs and temporary style overrides) from `PopupWindow.tsx` and `LiveSuggestionsPanel.tsx`.
+
+### Changed
+
+- Refactored `LiveSuggestionsPanel.tsx` to use a helper component `SuggestionItem` and a `toStyleString` utility for more robust style application via `setAttribute`.
+- Adjusted padding within the live suggestions panel for better layout.
+
+## [0.16.2] - 2025-06-02
+
+### Fixed
+
+- **Popup Scrolling and Padding**: Resolved final issues with scrolling and top padding within the live suggestions popup window.
+  - Ensured the main popup container (`#popup-root` in `PopupWindow.tsx`) does not interfere with the inner panel's scrolling.
+  - Confirmed that `padding-top` on the scrollable suggestions list in `LiveSuggestionsPanel.tsx` is consistently applied, restoring the space above the first suggestion.
+  - Verified that applying critical layout styles (like item margins and container padding) via `setAttribute` or direct `style` prop (where reliable) ensures correct rendering and functionality in the portaled popup context.
+- Removed all diagnostic borders and console logs used during the troubleshooting process for popup styling and scrolling.
+
+## [0.16.3] - 2025-06-02
+
+### Fixed
+
+- **Popup Scrolling Re-enabled**: Resolved an issue where scrolling in the live suggestions popup window became non-functional after diagnostic code removal. Ensured that all necessary flexbox and overflow styles on parent and child containers are correctly maintained for reliable scrolling.
+- Cleaned up all diagnostic borders and console logs from `PopupWindow.tsx` and `LiveSuggestionsPanel.tsx` after confirming stable scrolling and layout.
+
+## [0.16.4] - 2025-06-02
+
+### Fixed
+
+- **Robust Popup Scrolling**: Permanently fixed the live suggestions popup window scrolling by forcefully applying essential CSS properties (`padding-top`, `overflow-y: auto`, `flex-grow`) to the scrollable container using `setAttribute`. This ensures reliable scrolling behavior, bypassing inconsistencies with React's `style` prop or Tailwind classes in the new window context.
+- Removed temporary diagnostic borders and logging after confirming the fix.
+
+## [0.17.1] - 2025-06-02
+
+### Changed
+
+- **Latest Suggestion Styling**: Updated the style of the latest suggestion item in the `LiveSuggestionsPanel` to use a solid `var(--tokyo-accent)` background color instead of a linear gradient, aligning with the theme's accent color for updates.
+
+### Fixed
+
+- **Icon Display**: Ensured only generic file icons are displayed in the `LiveSuggestionsPanel` by removing unused specific icon components and simplifying the icon selection logic. This resolves an issue where varied icons were not appearing due to missing `filename` data in suggestions.
+- Removed the `filename` property from the `Suggestion` interface as it was not being utilized.
+
+## [0.17.2] - 2025-06-02
+
+### Changed
+
+- **"Latest" Badge Styling**: Updated the "Latest" text badge in the `LiveSuggestionsPanel` to appear as an orange pill (`#F97316` background) with white text. This aligns its appearance with other similar status pills in the application (e.g., the original "UPDATED" pills).
+- **Latest Suggestion Item Background**: Reverted the background of the entire latest suggestion item to its previous purple gradient style, as the solid purple background was a misunderstanding.
