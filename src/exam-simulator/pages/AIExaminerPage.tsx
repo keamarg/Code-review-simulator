@@ -6,6 +6,12 @@ import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCust
 import { ExamWorkflow } from "../components/ai-examiner/ExamWorkflow";
 import { useGenAILiveContext } from "../../contexts/GenAILiveContext";
 import { GenAILiveProvider } from "../../contexts/GenAILiveContext";
+import {
+  useLiveSuggestionExtractor,
+  Suggestion,
+} from "../hooks/useLiveSuggestionExtractor";
+import { LiveSuggestionsPanel } from "../components/ui/LiveSuggestionsPanel";
+import { LoadingAnimation } from "../components/ui/LoadingAnimation";
 import cn from "classnames";
 // supabase might not be needed here anymore if ExamWorkflow handles all supabase interactions
 // import { supabase } from "../config/supabaseClient";
@@ -19,11 +25,14 @@ interface ExamPageContentProps {
   handleStartExamClicked: (isButtonOn: boolean) => void;
   onEndReview: () => void;
   onTimerExpired: () => void;
-  onManualStop: () => void;
+  triggerManualStop: boolean;
   onClientReady: (client: any) => void;
   forceStopAudio: boolean;
   forceStopVideo: boolean;
-  triggerManualStop: boolean;
+  onTranscriptChunk: (chunk: string) => void;
+  suggestions: Suggestion[];
+  isProcessing: boolean;
+  onLoadingStateChange: (isLoading: boolean) => void;
 }
 
 function ExamPageContent({
@@ -35,15 +44,20 @@ function ExamPageContent({
   handleStartExamClicked,
   onEndReview,
   onTimerExpired,
-  onManualStop,
+  triggerManualStop,
   onClientReady,
   forceStopAudio,
   forceStopVideo,
-  triggerManualStop,
+  onTranscriptChunk,
+  suggestions,
+  isProcessing,
+  onLoadingStateChange,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
   const hasNotifiedScreenShareRef = useRef(true);
   const [hasExamEverStarted, setHasExamEverStarted] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isTaskLoading, setIsTaskLoading] = useState(false);
 
   useEffect(() => {
     if (
@@ -81,19 +95,49 @@ function ExamPageContent({
     }
   }, [client, onClientReady]);
 
+  // Track connection state for loading animation
+  useEffect(() => {
+    if (examIntentStarted && !connected) {
+      setIsConnecting(true);
+    } else if (connected) {
+      setIsConnecting(false);
+    } else if (!examIntentStarted) {
+      setIsConnecting(false);
+    }
+  }, [examIntentStarted, connected]);
+
   return (
     <div className="streaming-console max-w-2xl mx-auto flex flex-col">
       <div className="pt-10 pr-10 pl-10 mb-10 flex justify-center flex-col">
         <h1 className="mb-8 font-bold text-2xl text-tokyo-fg-bright text-center">
-          AI Code Review Exam
+          AI Code Review
         </h1>
+
+        {/* Show loading animation when connecting */}
+        {isConnecting && (
+          <div className="mb-6">
+            <LoadingAnimation isLoading={true} />
+            <p className="text-center text-tokyo-fg-dim mt-2">
+              Connecting to AI reviewer...
+            </p>
+          </div>
+        )}
 
         <ExamWorkflow
           examId={id}
           examIntentStarted={examIntentStarted}
           onTimerExpired={onTimerExpired}
-          onManualStop={onManualStop}
-          triggerManualStop={triggerManualStop}
+          onManualStop={onEndReview}
+          onTranscriptChunk={onTranscriptChunk}
+          liveSuggestions={suggestions}
+          onLoadingStateChange={setIsTaskLoading}
+          videoRef={videoRef}
+          supportsVideo={true}
+          onVideoStreamChange={setVideoStream}
+          onButtonClicked={handleStartExamClicked}
+          hasExamStarted={hasExamEverStarted}
+          forceStopAudio={forceStopAudio}
+          forceStopVideo={forceStopVideo}
         />
 
         <video
@@ -113,15 +157,11 @@ function ExamPageContent({
         />
       </div>
 
-      <ControlTrayCustom
-        videoRef={videoRef}
-        supportsVideo={true}
-        onVideoStreamChange={setVideoStream}
-        onButtonClicked={handleStartExamClicked}
-        onEndReview={onEndReview}
-        hasExamStarted={hasExamEverStarted}
-        forceStopAudio={forceStopAudio}
-        forceStopVideo={forceStopVideo}
+      {/* Live Suggestions Panel */}
+      <LiveSuggestionsPanel
+        suggestions={suggestions}
+        isProcessing={isProcessing}
+        isVisible={examIntentStarted}
       />
     </div>
   );
@@ -149,8 +189,23 @@ export default function LivePage() {
   // Trigger for manual stop
   const [triggerManualStop, setTriggerManualStop] = useState(false);
 
+  // Add guard to prevent cascading state changes during cleanup
+  const isManualStopInProgress = useRef(false);
+
   // Store client reference for session termination
   const [genaiClient, setGenaiClient] = useState<any>(null);
+
+  // Track task loading state
+  const [isTaskLoading, setIsTaskLoading] = useState(false);
+
+  // Initialize live suggestion extractor
+  const {
+    suggestions,
+    persistedSuggestions,
+    extractSuggestions,
+    clearAllSuggestions,
+    isProcessing,
+  } = useLiveSuggestionExtractor();
 
   const navigate = useNavigate();
 
@@ -170,44 +225,39 @@ export default function LivePage() {
       setForceStopAudio(false);
       setForceStopVideo(false);
     }, 3000);
+  };
 
+  // Add a new handler for summary modal close
+  const handleSummaryModalClose = () => {
     navigate("/dashboard");
+  };
+
+  // Handle timer expiration - reset state and force stop audio/video
+  const handleTimerExpired = () => {
+    // Terminate the AI session completely if client is available
+    if (genaiClient) {
+      genaiClient.terminateSession();
+    }
+
+    // Force stop audio and video, end the exam
+    setForceStopAudio(true);
+    setForceStopVideo(true);
+    setExamIntentStarted(false);
+
+    // Clear all suggestions since review is complete
+    clearAllSuggestions();
+
+    // Reset force stop after a delay
+    setTimeout(() => {
+      setForceStopAudio(false);
+      setForceStopVideo(false);
+    }, 3000);
   };
 
   // Handle manual stop - show summary instead of immediate redirect
   const handleManualStop = () => {
-    // Trigger manual stop in ExamWorkflow
-    setTriggerManualStop(true);
-
-    // Reset trigger after brief delay
-    setTimeout(() => setTriggerManualStop(false), 100);
-  };
-
-  // Handle manual stop callback from ExamWorkflow (after summary is generated)
-  const handleManualStopCallback = () => {
-    setForceStopAudio(true); // Force stop audio recorder
-    setForceStopVideo(true); // Force stop screen sharing
-    setExamIntentStarted(false);
-
-    // Reset force stop after a longer delay to ensure everything stops
-    setTimeout(() => {
-      setForceStopAudio(false);
-      setForceStopVideo(false);
-    }, 3000);
-    // Note: Don't navigate here - let the summary modal handle navigation
-  };
-
-  // Handle timer expiration - reset state but don't redirect (let summary modal handle navigation)
-  const handleTimerExpired = () => {
-    setForceStopAudio(true); // Force stop audio recorder
-    setForceStopVideo(true); // Force stop screen sharing
-    setExamIntentStarted(false);
-
-    // Reset force stop after a longer delay to ensure everything stops
-    setTimeout(() => {
-      setForceStopAudio(false);
-      setForceStopVideo(false);
-    }, 3000);
+    console.log("🛑 Manual stop initiated");
+    handleEndReview();
   };
 
   const handleClientReady = useCallback((client: any) => {
@@ -285,7 +335,7 @@ export default function LivePage() {
   if (isLoadingKey) {
     return (
       <Layout>
-        <div>Loading API Key...</div>
+        <LoadingAnimation isLoading={true} />
       </Layout>
     );
   }
@@ -326,13 +376,16 @@ export default function LivePage() {
           setVideoStream={setVideoStream}
           examIntentStarted={examIntentStarted}
           handleStartExamClicked={handleStartExamClicked}
-          onEndReview={handleManualStop}
+          onEndReview={handleEndReview}
           onTimerExpired={handleTimerExpired}
-          onManualStop={handleManualStopCallback}
+          triggerManualStop={triggerManualStop}
           onClientReady={handleClientReady}
           forceStopAudio={forceStopAudio}
           forceStopVideo={forceStopVideo}
-          triggerManualStop={triggerManualStop}
+          onTranscriptChunk={extractSuggestions}
+          suggestions={suggestions}
+          isProcessing={isProcessing}
+          onLoadingStateChange={setIsTaskLoading}
         />
       </GenAILiveProvider>
     </Layout>

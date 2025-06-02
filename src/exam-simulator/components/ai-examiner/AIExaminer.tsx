@@ -1,18 +1,19 @@
 import React, { memo } from "react";
 import ReactMarkdown from "react-markdown";
+import { LoadingAnimation } from "../ui/LoadingAnimation";
 // LoadingAnimation might still be needed if ExamWorkflow delegates loading UI for the task itself
 // For now, assuming ExamWorkflow handles the "isLoadingPrompt" state and shows its own LoadingAnimation or this ghost loader.
 
 interface AIExaminerDisplayProps {
   studentTask: string; // Markdown content for the student's task
-  isLoading: boolean;  // True if the task content is currently loading
+  isLoading: boolean; // True if the task content is currently loading
 }
 
 /**
  * AIExaminer (Display Component)
  *
  * This component is responsible for rendering the student's task (as Markdown)
- * or a ghost loader if the task content is loading.
+ * or a loading animation if the task content is loading.
  * All logic related to fetching data, managing exam state, and interacting
  * with the LiveAPIContext has been moved to ExamWorkflow.tsx.
  */
@@ -21,29 +22,20 @@ function AIExaminerDisplayComponent({
   isLoading,
 }: AIExaminerDisplayProps) {
   if (isLoading) {
-    // Ghost loader (styles should ideally be centralized or passed via props if varying)
+    // Show animated loading with task generation message
     return (
       <div
-        className="student-task-ghost bg-neutral-15 p-6 rounded-md shadow-lg max-w-3xl mx-auto relative"
+        className="student-task-loading bg-neutral-15 p-6 rounded-md shadow-lg max-w-3xl mx-auto relative flex flex-col items-center justify-center"
         style={{
           maxHeight: "400px",
-          overflow: "hidden",
+          minHeight: "200px",
           borderColor: "var(--Neutral-30)",
         }}
       >
-        <div className="ghost-line-dark ghost-line-title-dark mb-4"></div>
-        <div className="ghost-line-dark w-3/4 mb-3"></div>
-        <div className="ghost-line-dark w-5/6 mb-3"></div>
-        <div className="ghost-line-dark w-4/5 mb-3"></div>
-        <div className="ghost-line-dark w-2/3 mb-3"></div>
-        <div className="ghost-line-dark w-5/6 mb-3"></div>
-        <div className="ghost-line-dark w-5/6 mb-3"></div>
-        <div className="ghost-line-dark w-4/5 mb-3"></div>
-        <div className="ghost-line-dark w-4/5 mb-3"></div>
-        <div className="ghost-line-dark w-3/4 mb-3"></div>
-        <div className="ghost-line-dark w-2/3 mb-3"></div>
-        <div className="ghost-line-dark w-5/6 mb-3"></div>
-        {/* Styles are now expected to be handled by ExamWorkflow or globally */}
+        <LoadingAnimation isLoading={true} />
+        <p className="text-center text-tokyo-fg-dim mt-4">
+          Generating code review task...
+        </p>
       </div>
     );
   }

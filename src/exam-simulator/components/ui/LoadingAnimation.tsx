@@ -60,7 +60,7 @@ export const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
       </div>
       <div className="mt-4">
         <div className="text-sm text-gray-500">
-          Forbereder dit code review indhold
+          Preparing code review content
         </div>
       </div>
     </div>

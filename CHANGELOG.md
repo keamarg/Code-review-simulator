@@ -5,6 +5,488 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2025-06-02
+
+### Fixed
+
+- **Task Content Loading Animation**: Replaced static ghost loader bars with dynamic `LoadingAnimation` component in task content area
+
+  - **Animated Loading**: Task content area now shows animated loading spinner and lightbulb icon while OpenAI generates the task
+  - **Better User Feedback**: "Generating code review task..." message provides clear status during task creation
+  - **Professional Appearance**: Consistent animated loading experience across the application
+  - **Responsive Layout**: Loading area maintains proper sizing and centering with flexbox layout
+
+- **CRITICAL: Timer Setup Bug**: Fixed timer not being initialized due to logic error in connection sequence
+
+  - **Root Cause**: `hasEverConnected` was being set to `true` BEFORE checking if timers needed setup
+  - **Timer Fix**: Stored initial connection state before it changes to ensure timers are properly set up
+  - **7-Second Farewell**: Timer interruption should now work correctly with proper timer initialization
+  - **Debug Logging**: Enhanced logging shows when timers are set up vs skipped for resumed sessions
+
+- **Hide Controls During Task Loading**: Timer, mute, and screen share controls now hidden while task content loads
+  - **Clean Loading State**: ControlTrayCustom component hidden until task generation completes
+  - **Loading State Propagation**: ExamWorkflow notifies parent components of loading state changes
+  - **Professional UX**: Users see loading animation without distracting control elements
+  - **Conditional Rendering**: Controls only appear when task is ready and user can actually start
+
+### Enhanced
+
+- **Aggressive Farewell Interruption System**: Completely redesigned 7-second farewell to forcefully interrupt AI speech
+  - **Rapid Message Sequence**: Sends "Stop." → "Time is up." → Farewell message in quick succession
+  - **No Complex Disconnection**: Simplified approach without risky disconnect/reconnect cycles
+  - **Multiple Interruption Attempts**: Three separate messages to overwhelm AI's current speech pattern
+  - **Enhanced Debug Logging**: Comprehensive logging to track interruption attempts and message delivery
+
+### Technical Details
+
+- **AIExaminerDisplay Component**: Replaced 12 static ghost loader divs with `LoadingAnimation` component and status message
+- **ExamWorkflow Logic Fix**: Fixed `hasEverConnected` state management for proper timer initialization
+- **State Propagation**: Added `onLoadingStateChange` callback to communicate loading state to parent components
+- **Conditional UI**: ControlTrayCustom component conditionally rendered based on task loading state
+- **Timer Debugging**: Enhanced console logging to troubleshoot timer setup and execution issues
+
+### Enhanced
+
+- **More Aggressive Suggestion Extraction**: Improved live suggestion system to capture more code review suggestions
+
+  - **Faster Processing**: Reduced processing interval from 10 seconds to 5 seconds for more frequent suggestion updates
+  - **Liberal Extraction**: Updated prompts to be more liberal in extracting any improvement suggestions
+  - **Better Pattern Recognition**: Enhanced OpenAI prompts to catch implied suggestions and best practices mentions
+  - **Increased Length**: Raised suggestion length limit from 25 to 30 words for more descriptive suggestions
+  - **Varied Suggestions**: More permissive duplicate detection allows valuable variations and elaborations
+
+- **Improved Connection State Management**: Enhanced connection tracking system for more reliable session control
+  - **Multiple Guards**: Connection attempts now check for cleanup, termination, and existing connections
+  - **Better Debug Info**: Connection state logging now includes termination status for easier troubleshooting
+  - **Clean Unmount**: Component unmount now properly sets termination guard to prevent ghost connections
+  - **Session Isolation**: Each session termination is now properly isolated from new session starts
+
+### Technical Details
+
+- **Transcript Processing**: Implemented smart word boundary detection with lowercase continuation logic
+- **Fragment Analysis**: Logic detects 3-character or shorter fragments as potential word continuations
+- **Punctuation Spacing**: Proper handling of punctuation boundaries and existing spaces
+- **Connection Guards**: Added termination guard checks in connection effect and session end handler
+- **State Coordination**: Enhanced cleanup sequence with proper flag management and timeouts
+- **Memory Management**: Improved cleanup of connection tracking and session state during termination
+
+## [0.14.9] - 2025-06-02
+
+### Fixed
+
+- **REVERTED COMPLEX CONNECTION MANAGEMENT**: User was absolutely right - went back to simple, working state by removing all the aggressive connection guards and cleanup logic that was breaking everything
+
+  - **Root Cause**: My "fixes" for the dual AI sessions created more problems than they solved
+  - **Simple is Better**: Removed all complex connection tracking (`isConnectingRef`, `activeConnectionRef`, `isTerminatingRef`, `isCleaningUpRef`)
+  - **Back to Basics**: Restored simple connection logic that just connects when needed and disconnects when done
+  - **Removed Transcript Fragmentation Fix**: Simplified transcript handling back to basic concatenation without "smart reconstruction"
+  - **Simplified Manual Stop**: Removed complex guard logic and made manual stop immediate and simple
+  - **Clean Code**: Eliminated hundreds of lines of complex state management that was causing race conditions
+
+- **Stop Button Performance**: Fixed 1.4-second delay when clicking stop button by making summary generation non-blocking
+
+  - **Root Cause**: Summary generation was blocking the UI thread for 1.4 seconds during the click handler
+  - **Non-Blocking Summary**: Summary now generates in background after UI has already responded
+  - **Immediate Feedback**: Modal appears instantly with loading animation while summary generates
+  - **Better UX**: Users get immediate visual feedback that stop was successful instead of waiting
+
+- **Live Feed Should Work Again**: By removing the aggressive connection guards that were preventing legitimate connections
+- **Stop Button Should Be Fast Again**: By removing the complex cleanup logic that was causing delays
+- **No More Word Fragmentation**: Simplified transcript buffering should handle text properly
+
+### Technical Changes
+
+- **ExamWorkflow.tsx**: Removed all connection guards and complex cleanup logic - back to simple connect/disconnect
+- **AIExaminerPage.tsx**: Simplified manual stop to just trigger the stop without complex state management
+- **useConversationTracker.ts**: Simplified transcript handling to basic text concatenation with 10-second buffering
+- **Clean Architecture**: Removed ~200 lines of complex state management and guards that were causing problems
+
+### User Feedback Incorporated
+
+- **"I think we have to go back it is all f... up now"** - User was 100% correct
+- **Sometimes simple solutions work better than complex ones**
+- **Reverted to known good state before attempting any "improvements"**
+
+## [0.14.8] - 2025-06-02
+
+### Fixed
+
+- **CRITICAL: Reverted Overly Aggressive Connection Guards**: Fixed issues caused by too-restrictive connection management from v0.14.6
+
+  - **Root Cause**: The dual AI session fix introduced overly aggressive connection guards that broke normal operation
+  - **Simplified Logic**: Removed complex connection tracking and termination guards that were preventing legitimate connections
+  - **Basic Protection**: Kept only essential duplicate connection prevention with simple `isConnectingRef` guard
+  - **Restored Functionality**: Live feed and session management now work as they did before the dual AI fix
+  - **Clean Sessions**: Maintained essential cleanup logic while removing blocking restrictions
+
+- **Simplified Manual Stop**: Restored original manual stop behavior for better reliability
+  - **Removed Force Stop**: Eliminated immediate force stop of audio/video that was causing conflicts
+  - **Standard Timing**: Restored 100ms delay for trigger reset instead of 50ms aggressive timing
+  - **Clean Flow**: Manual stop now follows standard cleanup path without aggressive interruption
+
+### Technical Details
+
+- **Connection Management**: Removed `activeConnectionRef`, `isTerminatingRef`, and complex guard logic
+- **Session Cleanup**: Simplified cleanup process to only prevent duplicate cleanup, not connections
+- **Manual Stop**: Restored to trigger-based approach without forced audio/video termination
+- **Debug Logging**: Cleaned up connection state debugging to remove references to removed guards
+
+## [0.14.7] - 2025-06-02
+
+### Fixed
+
+- **CRITICAL: Live Feed Transcript Fragmentation**: Fixed major issue where AI speech transcripts were fragmented with spaces between every character
+
+  - **Root Cause**: GenAI Live API sends word fragments like "Hel", "lo!", "I'", "m r" that need intelligent reconstruction
+  - **Smart Reconstruction**: Implemented intelligent word boundary detection to properly join fragments
+  - **Word Continuation Logic**: Detects when fragments are parts of the same word vs separate words
+  - **Punctuation Handling**: Proper spacing around punctuation marks and sentence boundaries
+  - **Impact**: Transcripts now read as "Hello! I'm ready to review your code" instead of "Hel lo! I' m r ead y t o r evi ew you r c ode"
+  - **Live Suggestions Fixed**: OpenAI suggestion extraction now works properly with readable transcript text
+  - **Better User Experience**: Code review summaries now contain meaningful, readable content
+
+- **Slow Session Termination**: Fixed issue where stopping code reviews took too long due to rapid reconnection attempts
+
+  - **Termination Guard**: Added `isTerminatingRef` to prevent reconnections during session termination
+  - **Connection Prevention**: Connection effect now checks termination guard before attempting to connect
+  - **Extended Guard Period**: Termination flag stays active for 2 seconds after cleanup to prevent immediate reconnections
+  - **Faster Stops**: Manual stop and timer expiration now complete cleanly without connection loops
+  - **Better Debug Logging**: Enhanced connection state debugging to show termination status
+
+- **Improved Stop Button Responsiveness**: Made manual stop more immediate and responsive
+  - **Immediate Force Stop**: Stop button now immediately forces audio and video to stop for better user feedback
+  - **Reduced Delays**: Shortened trigger reset from 100ms to 50ms for faster response
+  - **Parallel Cleanup**: Audio/video stopping happens in parallel with session termination for faster results
+  - **Better User Feedback**: Users see immediate stopping action rather than waiting for backend cleanup
+
+### Enhanced
+
+- **More Aggressive Suggestion Extraction**: Improved live suggestion system to capture more code review suggestions
+
+  - **Faster Processing**: Reduced processing interval from 10 seconds to 5 seconds for more frequent suggestion updates
+  - **Liberal Extraction**: Updated prompts to be more liberal in extracting any improvement suggestions
+  - **Better Pattern Recognition**: Enhanced OpenAI prompts to catch implied suggestions and best practices mentions
+  - **Increased Length**: Raised suggestion length limit from 25 to 30 words for more descriptive suggestions
+  - **Varied Suggestions**: More permissive duplicate detection allows valuable variations and elaborations
+
+- **Improved Connection State Management**: Enhanced connection tracking system for more reliable session control
+  - **Multiple Guards**: Connection attempts now check for cleanup, termination, and existing connections
+  - **Better Debug Info**: Connection state logging now includes termination status for easier troubleshooting
+  - **Clean Unmount**: Component unmount now properly sets termination guard to prevent ghost connections
+  - **Session Isolation**: Each session termination is now properly isolated from new session starts
+
+### Technical Details
+
+- **Transcript Processing**: Implemented smart word boundary detection with lowercase continuation logic
+- **Fragment Analysis**: Logic detects 3-character or shorter fragments as potential word continuations
+- **Punctuation Spacing**: Proper handling of punctuation boundaries and existing spaces
+- **Connection Guards**: Added termination guard checks in connection effect and session end handler
+- **State Coordination**: Enhanced cleanup sequence with proper flag management and timeouts
+- **Memory Management**: Improved cleanup of connection tracking and session state during termination
+
+## [0.14.6] - 2025-06-02
+
+### Fixed
+
+- **CRITICAL: Dual AI Sessions Bug**: Fixed major issue where two AI voices were talking simultaneously with one being uninterruptible
+
+  - **Root Cause**: Multiple concurrent connections were being established due to race conditions in connection logic
+  - **Connection Tracking**: Added `isConnectingRef` and `activeConnectionRef` to prevent concurrent connection attempts
+  - **Duplicate Prevention**: Connection effect now checks for existing connections before attempting new ones
+  - **Session Termination**: Enhanced session cleanup to properly terminate all connections and reset tracking flags
+  - **Automatic Reconnection Control**: Added comprehensive debugging to track and prevent unwanted automatic reconnections
+  - **Component Cleanup**: Enhanced unmount cleanup to ensure all sessions are properly terminated
+  - **State Synchronization**: Fixed race conditions where multiple useEffect dependencies could trigger simultaneous connections
+
+- **CRITICAL: Stop Button Crash**: Fixed UI shifting and crashes when pressing the stop review button
+  - **Race Condition Fix**: Added cleanup guard (`isCleaningUpRef`) to prevent multiple simultaneous cleanup processes
+  - **Atomic Cleanup**: Made cleanup process atomic with proper try/finally blocks to ensure completion
+  - **State Order**: Reordered cleanup sequence to generate summary before notifying parent components
+  - **Duplicate Prevention**: All cleanup effects now check if cleanup is already in progress before executing
+  - **Error Recovery**: Cleanup flag is always reset even if errors occur during cleanup process
+  - **UI Stability**: Eliminated competing state changes that caused UI shifting back and forth
+  - **Simplified Flow**: Removed cascading parent callbacks that were causing race conditions between components
+  - **Single Responsibility**: ExamWorkflow now handles its own state management without relying on parent callbacks
+  - **State Guard**: Added `isManualStopInProgress` guard in parent component to prevent duplicate stop requests
+
+### Enhanced
+
+- **Connection State Management**: Comprehensive connection tracking system to ensure single active session
+
+  - **Connection Guards**: Prevents multiple simultaneous connect/resume calls
+  - **State Tracking**: Real-time monitoring of connection states with detailed debug logging
+  - **Cleanup Coordination**: Proper cleanup of timers, connections, and tracking flags during session end
+  - **Debug Information**: Enhanced logging shows connection attempts, success/failure, and cleanup status
+  - **Race Condition Prevention**: Eliminated timing issues that could create overlapping AI sessions
+
+- **Robust Cleanup System**: Enhanced cleanup architecture to prevent state conflicts and ensure reliable session termination
+  - **Cleanup Guards**: Prevents multiple cleanup processes from running simultaneously
+  - **Atomic Operations**: Cleanup operations are now atomic with proper error handling
+  - **State Coordination**: Summary generation happens before parent state changes to prevent conflicts
+  - **Memory Safety**: All refs and timers properly cleaned up regardless of cleanup trigger source
+  - **Error Resilience**: Cleanup flag management ensures system recovery even if cleanup fails
+
+### Technical Details
+
+- **ExamWorkflow Component**: Added connection state tracking with `isConnectingRef` and `activeConnectionRef`
+- **Session End Handler**: Enhanced to immediately reset connection tracking and prevent new connections
+- **Component Unmount**: Comprehensive cleanup of timers, connections, and state tracking
+- **GenAI Live Client**: Added detailed debugging for WebSocket close events and automatic reconnection logic
+- **Connection Prevention**: Multiple guard clauses prevent duplicate connections during race conditions
+- **Memory Management**: Proper cleanup prevents memory leaks and ghost connections
+- **Cleanup Coordination**: Added `isCleaningUpRef` guard to coordinate cleanup across all triggers (manual stop, timer expiration, component unmount)
+
+- **Removed 60-Second Warning**: Eliminated the "time almost up" warning that interrupted reviews 1 minute before end
+
+  - **User Request**: Removed the 60-second timer warning as requested
+  - **Cleaner Experience**: Sessions now only have introduction and farewell
+  - **Less Interruption**: AI won't interrupt the review flow during sessions
+  - **Previous Timer Sequence**: Introduction (1s) → **Uninterrupted Review** → Farewell (7s before end) → Auto-end
+
+- **Enhanced Session Ending**: Replaced 30-second warning with graceful 7-second farewell message
+
+  - **Natural Goodbye**: AI now says "Unfortunately, we're out of time for this review. Thanks for the great session, and have a wonderful day!"
+  - **Perfect Timing**: 7-second message takes ~5 seconds to say, leaving 2 seconds for session termination
+  - **Interrupts Politely**: Farewell message will interrupt any ongoing AI speech to ensure it's heard
+  - **Better UX**: Sessions end on a positive, polite note instead of abrupt termination
+  - **Final Timer Sequence**: Introduction (1s) → **Uninterrupted Review** → Farewell (7s before end) → Auto-end
+
+- **Ultra-Simple Timer System**: Removed halfway message for completely uninterrupted review experience
+
+  - **No Interruptions**: AI will never interrupt the natural flow of the review with timer messages
+  - **Pure Focus**: Sessions are now completely focused on code review without time reminders
+  - **Clean Sessions**: Only introduction greeting and polite farewell, nothing else
+  - **Final Timer Sequence**: Introduction (1s) → **Uninterrupted Review** → Farewell (7s before end) → Auto-end
+
+- **Enhanced Loading Experience**: Added professional loading animations throughout the application
+
+  - **API Key Loading**: Beautiful animated loading screen while fetching API credentials
+  - **Connection Loading**: Loading animation with "Connecting to AI reviewer..." message when starting sessions
+  - **Repository Processing**: GitHub repository analysis now shows loading state with progress message
+  - **Consistent UX**: All loading states use the same animated icon system for professional feel
+  - **User Feedback**: Clear messaging so users know what's happening during wait times
+
+- **Improved Farewell Interruption**: Enhanced the 7-second goodbye message to properly interrupt ongoing AI speech
+  - **Natural Interruption**: Farewell now uses "I need to wrap up now. Unfortunately, we're out of time..." for smooth transition
+  - **Forced Interruption**: Direct client.send() bypasses queuing system to ensure message is heard
+  - **Better Timing**: More reliable interruption ensures users always hear the polite goodbye
+  - **Professional Ending**: Sessions end gracefully instead of abrupt cutoffs
+
+## [0.14.5] - 2025-06-02
+
+### Changed
+
+- **Removed Clear Button from Live Suggestions Panel**: Simplified live suggestions interface by removing the clear button during active reviews
+  - **Cleaner Interface**: Live suggestions panel now shows only essential elements (title, processing indicator, suggestion count)
+  - **Prevents Accidental Clearing**: Eliminates risk of users accidentally clearing suggestions mid-review
+  - **Persistent Throughout Session**: Suggestions now accumulate throughout the entire review session without user intervention
+  - **Simplified Component**: Removed `onClear` prop and related button functionality from LiveSuggestionsPanel
+  - **Streamlined Props**: Reduced component interface complexity by removing unnecessary clear functionality
+
+### Enhanced
+
+- **Focused Review Experience**: Live suggestions panel optimized for uninterrupted review sessions
+  - **Display-Only Interface**: Panel serves as read-only display of extracted suggestions during active reviews
+  - **Auto-Scroll Maintained**: Suggestions still automatically scroll to newest additions
+  - **Latest Highlighting**: Newest suggestions continue to be highlighted with accent background
+  - **Count Display**: Suggestion counter remains visible to show review progress
+  - **Processing Indicator**: Visual feedback when AI is analyzing transcript chunks
+
+### Technical Details
+
+- **Component Simplification**: Removed `onClear` callback from LiveSuggestionsPanelProps interface
+- **Prop Cleanup**: Eliminated `onClearSuggestions` from ExamPageContentProps and component usage
+- **Hook Optimization**: Removed unused `clearSuggestions` function from useLiveSuggestionExtractor destructuring
+- **UI Streamlining**: Simplified header layout by removing clear button container and related styling
+- **Persistent State**: Suggestions now only cleared when session truly ends via `clearAllSuggestions`
+
+## [0.14.4] - 2025-06-02
+
+### Fixed
+
+- **Timer Message Interruption Prevention**: Implemented intelligent queuing system to prevent timer messages from interrupting AI mid-sentence
+  - **Smart Queuing**: Timer messages now wait for AI to complete speaking before being delivered
+  - **Turn Complete Detection**: Uses GenAI Live client's `turncomplete` event to detect when AI finishes speaking
+  - **Message Queue**: Pending timer messages are queued and processed sequentially when AI is not speaking
+  - **Seamless Flow**: Half-time warnings and final warnings no longer cut off AI speech
+  - **Buffer Protection**: Added 500ms buffer to introduction timer to ensure system readiness
+
+### Enhanced
+
+- **Intelligent Timer Management**: Advanced timer system with speech-aware message delivery
+  - **Speaking State Tracking**: Monitors AI speaking status to determine optimal message timing
+  - **Automatic Processing**: Queued messages are automatically sent when AI turns complete
+  - **Debug Logging**: Comprehensive logging shows when messages are queued vs. sent immediately
+  - **Clean Cleanup**: Proper cleanup of event listeners and message queues when timers are disposed
+  - **Edge Case Handling**: Handles initial state and multiple queued messages gracefully
+
+### Technical Details
+
+- **Event Integration**: Leverages existing `turncomplete` event from GenAI Live client
+- **Queue Architecture**: `QueuedMessage` interface with timestamp tracking for message ordering
+- **State Management**: `isAISpeaking` flag prevents interruptions during active AI speech
+- **Memory Management**: Message queue cleared during cleanup to prevent memory leaks
+- **Event Cleanup**: Proper removal of `turncomplete` event listener on timer disposal
+- **Improved UX**: Natural conversation flow without jarring interruptions from timer prompts
+
+## [0.14.3] - 2025-06-02
+
+### Enhanced
+
+- **Anti-Hallucination Code Review System**: Comprehensive overhaul to prevent AI from discussing non-visible code or making assumptions
+  - **Visibility-Only Rule**: AI now ONLY discusses code that is actually visible on screen, preventing hallucination of code structure
+  - **Request-Before-Review**: AI must ask developers to show specific files or functions before providing suggestions about them
+  - **No Assumptions**: AI cannot make assumptions about code implementation based on assignment descriptions
+  - **Navigation Requests**: AI actively asks developers to navigate to relevant code sections: "Could you show me the [specific file/function]?"
+  - **Background Context Clarity**: Assignment context explicitly marked as background information only, not visible code assumptions
+  - **Explicit Confirmation**: AI must confirm it can see code before providing specific line number references
+
+### Changed
+
+- **Main Prompts Enhanced**: Updated both `standardExam` and `githubExam` prompts with "CRITICAL: ONLY DISCUSS CODE YOU CAN ACTUALLY SEE" guidance
+
+  - **Assignment Separation**: Clear distinction between assignment context (background) and visible code (reviewable)
+  - **Request Protocol**: Standardized language for requesting navigation: "Could you show me the [specific file/function] mentioned in your assignment?"
+  - **Screen Confirmation**: AI must confirm visibility of code before providing specific suggestions
+
+- **Exam Guidelines Overhaul**: Comprehensive update to prevent code assumption and encourage active navigation requests
+
+  - **Visibility Check**: "CRITICAL: ONLY REVIEW CODE THAT IS CURRENTLY VISIBLE ON SCREEN" as first guideline
+  - **Navigation Requests**: Specific instruction to ask for navigation before discussing assignment-mentioned features
+  - **Example Phrases**: Provided exact phrases for requesting code visibility: "I'd like to review [specific feature]. Could you show me that code?"
+
+- **Level-Specific Guidance Updated**: All developer levels (junior/intermediate/senior) now include visibility-first approach
+
+  - **Junior**: "Ask to see relevant files first" before providing suggestions
+  - **Intermediate**: "Ask to see specific implementations" before discussing design patterns
+  - **Senior**: "Ask to see architectural components" before providing architectural suggestions
+  - **Default**: "Ask to see the code first" before any suggestions
+
+- **GitHub Repository Reviews**: Updated to request specific file navigation instead of assuming repository structure
+  - **File Navigation**: "Could you show me the [filename] file?" before discussing multi-file suggestions
+  - **Component Requests**: "I'd like to see how [feature] is implemented. Could you open that file?"
+  - **Visible-Only Suggestions**: Only provide suggestions about files and line numbers currently visible on screen
+
+### Technical Details
+
+- **Prompt Architecture**: All prompt components now include visibility checks and navigation request protocols
+- **Context Handling**: Assignment descriptions marked as background context with explicit non-assumption warnings
+- **Anti-Hallucination**: Multiple layers of protection against discussing non-visible code across all prompt levels
+- **User Experience**: AI proactively guides developers to show relevant code sections for comprehensive reviews
+- **Quality Assurance**: Eliminates false or assumed code references, ensuring all suggestions are based on actual visible code
+
+## [0.14.2] - 2025-06-02
+
+### Fixed
+
+- **Missing Key Review Points in Summary**: Fixed issue where live suggestions weren't appearing in the final code review summary
+  - **Root Cause**: UI clear button was removing suggestions needed for summary generation
+  - **Dual Storage Solution**: Added separate `persistedSuggestions` state that preserves suggestions for summary generation
+  - **UI Independence**: Users can now clear the suggestions panel without affecting the final summary content
+  - **Complete Summary**: All extracted suggestions now appear in "Key Review Points" section regardless of UI interactions
+  - **Session Cleanup**: Persisted suggestions only cleared when review session truly ends
+
+### Enhanced
+
+- **Smart Suggestion Management**: Improved suggestion lifecycle management for better user experience
+  - **UI Suggestions**: `suggestions` state for real-time panel display with clear functionality
+  - **Persisted Suggestions**: `persistedSuggestions` state for reliable summary generation
+  - **Granular Clearing**: `clearSuggestions()` only clears UI, `clearAllSuggestions()` clears everything
+  - **Session Integrity**: Summary generation now always has access to all extracted suggestions from the entire session
+
+### Technical Details
+
+- **Dual State Architecture**: `useLiveSuggestionExtractor` now maintains both UI and persisted suggestion arrays
+- **Clear Button Behavior**: Only affects UI display, preserves suggestions for summary generation
+- **Session End Cleanup**: `clearAllSuggestions()` called only when review completely ends
+- **Summary Integration**: `persistedSuggestions` passed to summary generation instead of UI suggestions
+- **Improved UX**: Users can manage UI display independently of summary content integrity
+
+## [0.14.1] - 2025-06-02
+
+### Enhanced
+
+- **Comprehensive OpenAI API Logging**: Added detailed prompt logging for session-based suggestion extraction debugging
+
+  - **Request Logging**: All OpenAI API calls now log the full prompts being sent (system prompt, user prompt, JSON mode)
+  - **Response Preview**: OpenAI responses are logged with 200-character previews for quick verification
+  - **Session Context**: Session-based calls show full conversation history with message counts and role indicators
+  - **Error Tracking**: Enhanced error logging with status codes and detailed error messages
+  - **API Debugging**: Both `getCompletion` and `getSessionCompletion` functions now provide comprehensive debug information
+
+- **Precise Timestamp Logging**: Enhanced all logging with millisecond-precision timestamps for accurate debugging
+
+  - **Live Log Timecodes**: Logger component now shows `HH:MM:SS.mmm` format instead of `HH:MM` for precise timing
+  - **Live Suggestions Timestamps**: Live suggestions panel now displays precise timestamps with milliseconds for each suggestion
+  - **Suggestion Extraction Timestamps**: All suggestion processing steps now include precise timestamps
+  - **Conversation Tracker Timestamps**: Transcript processing and chunk saving now logged with exact timing
+  - **Session Lifecycle Tracking**: Initialization, processing, and cleanup events all timestamped for debugging
+  - **Performance Analysis**: Precise timing helps identify bottlenecks and API response times
+
+- **Session-Based Suggestion Debugging**: Comprehensive logging throughout the session-based extraction process
+  - **Initialization Tracking**: Session setup and OpenAI connection logging with timing
+  - **Processing Context**: Each transcript chunk processing logged with conversation history size
+  - **Memory Management**: Conversation history trimming events logged for memory optimization tracking
+  - **Suggestion Discovery**: New suggestion extraction logged with content preview and timing
+  - **Error Recovery**: All error states logged with precise timestamps for debugging
+
+### Technical Details
+
+- **formatTime Function**: Enhanced from simple `HH:MM` to full `HH:MM:SS.mmm` precision using `toLocaleTimeString` with milliseconds
+- **Live Suggestions Display**: Added `formatTimestamp` function to show precise timing when each suggestion was extracted
+- **Monospace Font**: Used `font-mono` class for timestamps in suggestions panel for better readability
+- **OpenAI Logging**: Added comprehensive logging to both API functions with color-coded console output (🔵 getCompletion, 🟢 getSessionCompletion)
+- **Conversation History**: Session messages logged with 150-character previews for each message in conversation
+- **Performance Tracking**: Timestamps help identify processing delays and API response timing patterns
+- **Debug Information**: Error states, success confirmations, and processing steps all logged with precise timing
+
+## [0.14.0] - 2025-06-02
+
+### Added
+
+- **Session-Based Live Suggestion Extraction**: Implemented advanced session-based processing for AI suggestion extraction with context awareness
+  - **Conversation Memory**: AI now maintains conversation history across transcript chunks to avoid duplicates and enable context-aware processing
+  - **Intelligent Duplicate Detection**: Advanced similarity checking (80% threshold) prevents near-duplicate suggestions while allowing valuable elaboration
+  - **Centralized Prompts**: All suggestion extraction prompts moved to `prompts.json` for better organization and maintainability
+  - **Session Initialization**: Proper session establishment with system and initial prompts for consistent AI behavior
+  - **Context-Aware Processing**: AI understands previous suggestions and can provide complementary or elaborative recommendations
+  - **Memory Management**: Conversation history automatically trimmed to last 10 exchanges to maintain performance
+  - **Enhanced Logging**: Comprehensive session tracking with initialization, processing, and cleanup status messages
+
+### Enhanced
+
+- **getSessionCompletion Function**: New OpenAI API wrapper for handling full conversation context
+
+  - **Multiple Message Support**: Handles arrays of messages for maintaining conversation history
+  - **Consistent API Interface**: Same authentication and error handling as existing getCompletion function
+  - **JSON Response Support**: Optional JSON response format for structured data extraction
+  - **Session Persistence**: Maintains conversation state across multiple API calls for intelligent processing
+
+- **Advanced Similarity Detection**: Sophisticated duplicate prevention using Levenshtein distance algorithm
+  - **Text Similarity Calculation**: Compares suggestion texts to prevent 80%+ similar duplicates
+  - **Intelligent Filtering**: Allows valuable elaboration while blocking exact or near-exact duplicates
+  - **Performance Optimization**: Efficient string comparison algorithms for real-time processing
+  - **Flexible Thresholds**: Configurable similarity thresholds for different use cases
+
+### Changed
+
+- **useLiveSuggestionExtractor Architecture**: Complete rewrite to use session-based processing instead of stateless chunk analysis
+  - **Conversation State Management**: Maintains conversation history with system, user, and assistant messages
+  - **Session Lifecycle**: Proper initialization, processing, and cleanup phases
+  - **Enhanced Error Handling**: Better error recovery and session state management
+  - **Improved Performance**: Reduced API calls through intelligent session management
+  - **Better User Experience**: More contextually relevant suggestions with reduced duplicates
+
+### Technical Details
+
+- **prompts.json Structure**: Added `suggestionExtraction` section with `systemPrompt`, `initialPrompt`, and `chunkPrompt`
+- **Message Interface**: New TypeScript interface for OpenAI conversation messages with role and content
+- **Session Management**: `isSessionInitialized` ref tracks session state, `conversationHistory` ref maintains message history
+- **History Trimming**: Automatic conversation history management (system + 20 recent messages) for optimal performance
+- **API Integration**: `getSessionCompletion` function handles full conversation context with OpenAI API
+- **Similarity Algorithm**: Levenshtein distance calculation for precise duplicate detection
+- **State Cleanup**: Comprehensive cleanup of session state, conversation history, and processed chunks
+
 ## [0.13.29] - 2025-06-02
 
 ### Enhanced
@@ -809,10 +1291,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Container Boundaries**: Both the modal container and content now stay within boundaries at all screen sizes
   - **Root Cause Resolution**: Fixed both the content generation and modal structure to prevent any overflow
 
-### Technical Details
-
-- **Transcript Processing**: Enhanced `
-
 ## [0.13.34] - 2025-06-02
 
 ### Fixed
@@ -839,11 +1317,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Interactive Feedback**: Buttons provide clear visual feedback with 200ms smooth transitions
   - **Consistent Styling**: All UI elements now properly integrate with the established design system
 
+## [0.13.35] - 2025-06-02
+
+### Fixed
+
+- **Duplicate Timer Setup**: Removed duplicate timer configuration that was causing double introduction messages and timer prompts
+  - **Root Cause**: Both `Altair.tsx` and `useExamTimers.ts` were setting up timers independently
+  - **Solution**: Removed timer setup from `Altair.tsx` since `useExamTimers.ts` handles this properly
+  - **Impact**: Eliminates double "Hi! I'm your AI code reviewer" messages and conflicting timer prompts
+  - **Cleaner User Experience**: Single, properly timed introduction and review flow
+
+### Changed
+
+- **Suggestion-Focused Prompts**: Updated all prompts to emphasize providing concrete suggestions rather than asking questions
+  - **Main Prompts**: Changed from "discuss your feedback" to "discuss your suggestions" throughout
+  - **System Instructions**: Updated from question-focused to suggestion-focused language
+  - **Review Flow**: Emphasizes "actionable code improvements with exact suggestions" instead of general advice
+  - **Level Guidance**: All levels now focus on providing specific improvement suggestions with line numbers
+  - **Timer Messages**: Updated introduction to mention "specific suggestions for improvement"
+  - **Better Code Reviews**: AI will now provide more concrete, actionable suggestions instead of theoretical discussions
+
 ### Technical Details
 
-- **Logic Simplification**: Removed complex `bufferEndsWithLetter` and `textStartsWithLetter` pattern matching
-- **Space Rule**: Only adds space if neither the buffer end nor new text start already contains a space
-- **React Best Practices**: Eliminated direct DOM manipulation in favor of React state management
-- **CSS Variables**: Used proper CSS custom properties instead of undefined Tailwind utility classes
-- **Hover Animations**: Implemented smooth scaling and color transitions for better user interaction
-- **Error Prevention**: Removed all potential null reference errors from DOM element access
+- **Files Modified**:
+  - `src/components/altair/Altair.tsx`: Removed duplicate timer setup (40+ lines removed)
+  - `src/prompts.json`: Updated all prompt sections to be suggestion-focused
+- **Prompt Changes**: Replaced question-oriented language with suggestion-oriented language across all prompt categories
+- **Timer Consolidation**: Single source of truth for timer management in `useExamTimers.ts`
+- **Improved AI Behavior**: More focused on providing specific, line-referenced code improvements
+
+## [0.13.36] - 2025-06-02
+
+### Added
+
+- **Live Suggestion Extraction System**: Real-time AI-powered suggestion tracking during code reviews
+  - **OpenAI Integration**: Uses existing OpenAI API to intelligently extract concrete suggestions from natural conversation
+  - **Smart Detection**: Automatically identifies actionable code improvements from transcript chunks without forcing trigger words
+  - **Live Panel Display**: Floating suggestions panel in top-right corner with Tokyo Night theme styling
+  - **10-Second Processing**: Leverages existing transcript buffering to process suggestions every 10 seconds
+  - **Duplicate Prevention**: Advanced filtering prevents duplicate suggestions from appearing multiple times
+  - **Line Number Integration**: Captures specific line references when AI mentions them in suggestions
+  - **Real-Time Updates**: Suggestions appear live as the AI reviewer speaks, building up throughout the session
+  - **Clean UI**: Non-intrusive panel with suggestion counter, processing indicator, and clear button
+  - **Professional Formatting**: Suggestions display with timestamps and proper bullet-point formatting
+
+### Fixed
+
+- **OpenAI API Parameter Mismatch**: Fixed 400 Bad Request error in suggestion extraction system
+  - **Root Cause**: `getCompletion` function expects 3 parameters (prompt, systemPrompt, doesReturnJSON) but was only receiving 1
+  - **Parameter Fix**: Updated suggestion extractor to provide proper system prompt and JSON flag parameters
+  - **API Compatibility**: Now correctly calls `getCompletion(extractionPrompt, systemPrompt, false)`
+  - **Error Resolution**: Eliminates "Failed to fetch completion: 400" errors during live suggestion processing
+
+### Enhanced
+
+- **Live Suggestion Integration in Summary**: Code review summaries now use actual extracted suggestions instead of keyword analysis
+  - **Key Review Points**: Summary now displays the actual live suggestions extracted during the review
+  - **Removed Unnecessary Metrics**: Eliminated confusing metrics like "transcript segments", "user interactions", "suggestion keywords", and "issue keywords"
+  - **Cleaner Session Activity**: Simplified to show only relevant information (transcript length and line number references)
+  - **Real Actionable Content**: Key Review Points section now shows the concrete suggestions from the OpenAI extraction system
+  - **Fallback Support**: Maintains fallback to excerpt analysis if no live suggestions are available
+  - **Better User Value**: Summary now contains the actual suggestions users saw during the review instead of statistical analysis
+
+### Technical Implementation
+
+- **New Hook**: `useLiveSuggestionExtractor` - handles OpenAI API calls and suggestion state management
+- **New Component**: `LiveSuggestionsPanel` - displays live suggestions with Tokyo Night theme
+- **Enhanced Tracker**: `useConversationTracker` now accepts optional callback for transcript chunk processing
+- **Integration Points**:
+  - `AIExaminerPage.tsx`: Main integration point with suggestion display
+  - `ExamWorkflow.tsx`: Updated to support transcript chunk callbacks
+- **OpenAI Prompt Engineering**: Sophisticated extraction prompt with quality criteria and format specifications
+- **State Management**: Efficient suggestion deduplication and processing state tracking
+
+### User Experience
+
+- **Natural Conversation**: AI speaks completely naturally without forced trigger words or artificial phrasing
+- **Contextual Awareness**: Only shows panel during active code reviews (`examIntentStarted = true`)
+- **Actionable Insights**: Focuses on concrete, implementable suggestions rather than general observations
+- **Visual Feedback**: Processing indicator shows when suggestions are being extracted
+- **Easy Management**: Clear button allows users to reset the suggestion list if needed
+
+## [0.14.6] - 2025-06-02
+
+### Fixed
+
+- **CRITICAL: Dual AI Sessions Bug**: Fixed major issue where two AI voices were talking simultaneously with one being uninterruptible
+
+  - **Root Cause**: Multiple concurrent connections were being established due to race conditions in connection logic
+  - **Connection Tracking**: Added `isConnectingRef` and `activeConnectionRef` to prevent concurrent connection attempts
+  - **Duplicate Prevention**: Connection effect now checks for existing connections before attempting new ones
+  - **Session Termination**: Enhanced session cleanup to properly terminate all connections and reset tracking flags
+  - **Automatic Reconnection Control**: Added comprehensive debugging to track and prevent unwanted automatic reconnections
+  - **Component Cleanup**: Enhanced unmount cleanup to ensure all sessions are properly terminated
+  - **State Synchronization**: Fixed race conditions where multiple useEffect dependencies could trigger simultaneous connections
+
+- **CRITICAL: Stop Button Crash**: Fixed UI shifting and crashes when pressing the stop review button
+  - **Race Condition Fix**: Added cleanup guard (`isCleaningUpRef`) to prevent multiple simultaneous cleanup processes
+  - **Atomic Cleanup**: Made cleanup process atomic with proper try/finally blocks to ensure completion
+  - **State Order**: Reordered cleanup sequence to generate summary before notifying parent components
+  - **Duplicate Prevention**: All cleanup effects now check if cleanup is already in progress before executing
+  - **Error Recovery**: Cleanup flag is always reset even if errors occur during cleanup process
+  - **UI Stability**: Eliminated competing state changes that caused UI shifting back and forth
+  - **Simplified Flow**: Removed cascading parent callbacks that were causing race conditions between components
+  - **Single Responsibility**: ExamWorkflow now handles its own state management without relying on parent callbacks
+  - **State Guard**: Added `isManualStopInProgress` guard in parent component to prevent duplicate stop requests
+
+### Enhanced
+
+- **Connection State Management**: Comprehensive connection tracking system to ensure single active session
+
+  - **Connection Guards**: Prevents multiple simultaneous connect/resume calls
+  - **State Tracking**: Real-time monitoring of connection states with detailed debug logging
+  - **Cleanup Coordination**: Proper cleanup of timers, connections, and tracking flags during session end
+  - **Debug Information**: Enhanced logging shows connection attempts, success/failure, and cleanup status
+  - **Race Condition Prevention**: Eliminated timing issues that could create overlapping AI sessions

@@ -13,6 +13,7 @@ import { CountdownTimer } from "../CountdownTimer"; // Import CountdownTimer
 import { getCurrentModel } from "../../../config/aiConfig"; // Import centralized config
 import { useConversationTracker } from "../../hooks/useConversationTracker"; // New hook for tracking conversation
 import { CodeReviewSummaryModal } from "../ui/CodeReviewSummaryModal"; // New modal component
+import ControlTrayCustom from "../control-tray-custom/ControlTrayCustom"; // Correct import for ControlTrayCustom
 
 const EXAM_DURATION_IN_MINUTES = 10; // default duration
 
@@ -20,9 +21,18 @@ interface ExamWorkflowProps {
   examId: string;
   examIntentStarted: boolean; // Controlled by AIExaminerPage via ControlTrayCustom
   onTimerExpired?: () => void; // New callback to notify parent when timer expires
-  onManualStop?: () => void; // New callback to notify parent when user manually stops
-  triggerManualStop?: boolean; // New prop to trigger manual stop
-  // onExamStarted is now internal to ExamWorkflow as CountdownTimer is moved here
+  onManualStop?: () => void; // New callback for manual stop
+  onTranscriptChunk?: (chunk: string) => void; // Callback for live suggestion extraction
+  liveSuggestions?: Array<{ text: string; timestamp: Date }>; // Live suggestions from the suggestion extractor
+  onLoadingStateChange?: (isLoading: boolean) => void; // New callback to notify parent of loading state
+  // Pass-through props for ControlTrayCustom
+  videoRef: React.RefObject<HTMLVideoElement>;
+  supportsVideo: boolean;
+  onVideoStreamChange?: (stream: MediaStream | null) => void;
+  onButtonClicked?: (isButtonOn: boolean) => void;
+  hasExamStarted?: boolean;
+  forceStopAudio?: boolean;
+  forceStopVideo?: boolean;
 }
 
 export function ExamWorkflow({
@@ -30,7 +40,16 @@ export function ExamWorkflow({
   examIntentStarted,
   onTimerExpired,
   onManualStop,
-  triggerManualStop,
+  onTranscriptChunk,
+  liveSuggestions,
+  onLoadingStateChange,
+  videoRef,
+  supportsVideo,
+  onVideoStreamChange,
+  onButtonClicked,
+  hasExamStarted,
+  forceStopAudio,
+  forceStopVideo,
 }: ExamWorkflowProps) {
   const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(
     null
@@ -55,7 +74,7 @@ export function ExamWorkflow({
 
   // Use conversation tracker hook
   const { getConversationSummary, clearConversation, getDebugInfo } =
-    useConversationTracker(client);
+    useConversationTracker(client, onTranscriptChunk);
 
   const examDurationInMinutes =
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
@@ -68,61 +87,69 @@ export function ExamWorkflow({
 
   // Unified handler for both timer expiration and manual stop
   const handleSessionEnd = useCallback(
-    async (reason: "timer" | "manual") => {
-      console.log(`Session ending: ${reason}`);
+    (reason: "timer" | "manual") => {
+      console.log(`🛑 Session ending: ${reason}`);
       setStopReason(reason);
 
       // Clean up any active timers first
       if (timerCleanupRef.current) {
+        console.log("🧹 Timer cleanup complete");
         timerCleanupRef.current();
         timerCleanupRef.current = null;
       }
 
       // Stop audio and disconnect immediately to stop voice
       if (connected && client) {
-        await disconnect();
+        console.log("🔌 Disconnecting client and terminating session");
+        disconnect(); // Do not await
         client.terminateSession();
       }
 
-      // Notify parent component to reset examIntentStarted state
+      // Reset exam state immediately for fast UI response
+      setExamStarted(false);
+
+      // Notify parent component immediately for timer expiration
       if (reason === "timer" && onTimerExpired) {
         onTimerExpired();
-      } else if (reason === "manual" && onManualStop) {
-        onManualStop();
       }
 
-      // Generate summary from conversation with exam details
-      try {
-        const examDetails = examSimulator
-          ? {
-              title: examSimulator.title,
-              description: examSimulator.description,
-              duration: examSimulator.duration ?? examDurationInMinutes,
-            }
-          : undefined;
+      // Show modal with loading state first, then generate summary asynchronously
+      setShowSummaryModal(true);
+      setReviewSummary("Generating review summary...");
 
-        const summary = await getConversationSummary(examDetails);
-        setReviewSummary(summary);
-        setShowSummaryModal(true);
-      } catch (error) {
-        console.error("Error generating summary:", error);
-        setReviewSummary("Error generating review summary. Please try again.");
-        setShowSummaryModal(true);
-      }
+      // Generate summary in background without blocking UI
+      setTimeout(async () => {
+        try {
+          const examDetails = examSimulator
+            ? {
+                title: examSimulator.title,
+                description: examSimulator.description,
+                duration: examSimulator.duration ?? examDurationInMinutes,
+              }
+            : undefined;
 
-      // Reset exam state
-      setExamStarted(false);
+          const summary = await getConversationSummary(
+            examDetails,
+            liveSuggestions
+          );
+          setReviewSummary(summary);
+        } catch (error) {
+          console.error("Error generating summary:", error);
+          setReviewSummary(
+            "Error generating review summary. Please try again."
+          );
+        }
+      }, 100); // Small delay to ensure UI updates first
     },
     [
       connected,
       client,
       disconnect,
       onTimerExpired,
-      onManualStop,
       getConversationSummary,
-      getDebugInfo,
       examSimulator,
       examDurationInMinutes,
+      liveSuggestions,
     ]
   );
 
@@ -132,26 +159,28 @@ export function ExamWorkflow({
   }, [handleSessionEnd]);
 
   // Handle manual stop - now calls unified handler
-  const handleManualStopInternal = useCallback(async () => {
-    await handleSessionEnd("manual");
+  const handleManualStopInternal = useCallback(() => {
+    handleSessionEnd("manual");
   }, [handleSessionEnd]);
 
-  // Listen for manual stop trigger from parent
-  useEffect(() => {
-    if (triggerManualStop && connected) {
-      handleManualStopInternal();
-    }
-  }, [triggerManualStop, connected, handleManualStopInternal]);
-
-  // Cleanup timers on component unmount or when session stops
+  // Cleanup timers on component unmount
   useEffect(() => {
     return () => {
+      console.log("🧹 ExamWorkflow component unmounting - cleaning up");
+
+      // Clean up timers
       if (timerCleanupRef.current) {
         timerCleanupRef.current();
         timerCleanupRef.current = null;
       }
+
+      // Terminate any active session
+      if (client) {
+        console.log("🛑 Terminating session on component unmount");
+        client.terminateSession();
+      }
     };
-  }, []);
+  }, [client]);
 
   // Fetch exam data from Supabase
   useEffect(() => {
@@ -284,6 +313,9 @@ export function ExamWorkflow({
       }
     } else if (!examIntentStarted && connected) {
       // Clean up timers when exam intent stops
+      console.log(
+        "🧹 Exam intent stopped - cleaning up timers and disconnecting"
+      );
       if (timerCleanupRef.current) {
         timerCleanupRef.current();
       }
@@ -308,35 +340,53 @@ export function ExamWorkflow({
       liveConfig?.systemInstruction?.parts?.[0]?.text &&
       !connected
     ) {
-      const connectionMethod = hasEverConnected ? resume : connect;
-      const connectionType = hasEverConnected ? "Resuming" : "Starting";
+      console.log("🔗 Starting code review session...");
 
-      console.log(`${connectionType} code review session...`);
+      const connectionMethod = hasEverConnected ? resume : connect;
+      const isInitialConnection = !hasEverConnected; // Store this before it changes
 
       connectionMethod(getCurrentModel(), liveConfig)
         .then(() => {
+          console.log(
+            "✅ Connection successful - live feed should now be active"
+          );
           setExamStarted(true);
-          setHasEverConnected(true);
 
           // Only set up timers on initial connection, not on resume
-          if (!hasEverConnected) {
+          if (isInitialConnection) {
             // Clean up any existing timers first
             if (timerCleanupRef.current) {
               timerCleanupRef.current();
             }
 
+            console.log("⏰ Setting up timers for new session");
             // Set up new timers and store cleanup function
             timerCleanupRef.current = examTimers({
               client,
               examDurationInMs: examDurationActiveExamMs,
               isInitialConnection: true,
             });
+          } else {
+            console.log("⏰ Skipping timer setup for resumed session");
           }
+
+          // Update hasEverConnected AFTER timer setup
+          setHasEverConnected(true);
         })
         .catch((error) => {
-          console.error(`Failed to start session:`, error);
+          console.error(`❌ Failed to start session:`, error);
           setExamError("Failed to connect to the exam server.");
         });
+    } else if (!examIntentStarted && connected) {
+      // Clean up when exam intent stops
+      console.log(
+        "🧹 Exam intent stopped - cleaning up timers and disconnecting"
+      );
+      if (timerCleanupRef.current) {
+        timerCleanupRef.current();
+      }
+      client.disconnect();
+      setExamStarted(false);
     }
   }, [
     liveConfig,
@@ -348,6 +398,13 @@ export function ExamWorkflow({
     examIntentStarted,
     hasEverConnected,
   ]);
+
+  // Notify parent of loading state changes
+  useEffect(() => {
+    if (onLoadingStateChange) {
+      onLoadingStateChange(isLoadingPrompt);
+    }
+  }, [isLoadingPrompt, onLoadingStateChange]);
 
   if (isLoadingExamData) {
     return <LoadingAnimation isLoading={true} />;
@@ -429,8 +486,25 @@ export function ExamWorkflow({
         onClose={() => {
           setShowSummaryModal(false);
           clearConversation(); // Clear the conversation history
+          if (stopReason === "manual" || stopReason === "timer") {
+            if (onManualStop) onManualStop();
+          }
         }}
       />
+
+      {/* ControlTrayCustom is rendered here, with direct handler */}
+      {!isLoadingPrompt && (
+        <ControlTrayCustom
+          onEndReview={handleManualStopInternal}
+          videoRef={videoRef}
+          supportsVideo={supportsVideo}
+          onVideoStreamChange={onVideoStreamChange}
+          onButtonClicked={onButtonClicked}
+          hasExamStarted={hasExamStarted}
+          forceStopAudio={forceStopAudio}
+          forceStopVideo={forceStopVideo}
+        />
+      )}
     </div>
   );
 }

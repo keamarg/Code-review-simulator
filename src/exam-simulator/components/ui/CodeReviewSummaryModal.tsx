@@ -66,13 +66,24 @@ export const CodeReviewSummaryModal: React.FC<CodeReviewSummaryModalProps> = ({
         {/* Content - flexible height with scroll */}
         <div className="p-4 overflow-y-auto min-w-0 flex-1">
           <div className="bg-tokyo-bg rounded-lg p-3 border border-tokyo-selection overflow-hidden min-w-0 w-full">
-            <div
-              className="text-tokyo-fg text-sm leading-relaxed font-mono break-all overflow-wrap-break-word max-w-full min-w-0 w-full whitespace-pre-line"
-              style={{ wordBreak: "break-all", overflowWrap: "break-word" }}
-            >
-              {summary ||
-                "No specific suggestions were recorded during this session."}
-            </div>
+            {summary === "Generating review summary..." ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="flex items-center space-x-3">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-tokyo-accent"></div>
+                  <span className="text-tokyo-fg">
+                    Generating review summary...
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="text-tokyo-fg text-sm leading-relaxed font-mono break-all overflow-wrap-break-word max-w-full min-w-0 w-full whitespace-pre-line"
+                style={{ wordBreak: "break-all", overflowWrap: "break-word" }}
+              >
+                {summary ||
+                  "No specific suggestions were recorded during this session."}
+              </div>
+            )}
           </div>
         </div>
 
@@ -85,14 +96,6 @@ export const CodeReviewSummaryModal: React.FC<CodeReviewSummaryModalProps> = ({
               backgroundColor: "var(--Neutral-20)",
               borderColor: "var(--tokyo-selection)",
               color: "var(--tokyo-fg-bright)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--Neutral-30)";
-              e.currentTarget.style.transform = "scale(1.02)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--Neutral-20)";
-              e.currentTarget.style.transform = "scale(1)";
             }}
           >
             <svg
@@ -115,18 +118,6 @@ export const CodeReviewSummaryModal: React.FC<CodeReviewSummaryModalProps> = ({
             className="px-6 py-2 rounded-md transition-all duration-200 flex items-center text-white"
             style={{
               backgroundColor: "var(--tokyo-accent)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor =
-                "var(--tokyo-accent-darker)";
-              e.currentTarget.style.transform = "scale(1.02)";
-              e.currentTarget.style.boxShadow =
-                "0 4px 12px rgba(122, 162, 247, 0.3)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--tokyo-accent)";
-              e.currentTarget.style.transform = "scale(1)";
-              e.currentTarget.style.boxShadow = "none";
             }}
           >
             <svg

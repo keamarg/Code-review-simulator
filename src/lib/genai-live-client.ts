@@ -251,22 +251,22 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   }
 
   protected async onclose(e: CloseEvent) {
-    console.log("CloseEvent");
+    console.log("🔌 WebSocket CloseEvent received");
 
     // Reset status to disconnected when connection closes
     this._status = "disconnected";
     this._session = null;
 
-    console.log("Code:", e.code);
-    console.log("Has session handle:", !!this.sessionResumptionHandle);
-    console.log("Has config:", !!this.config);
-    console.log("Has model:", !!this._model);
-    console.log(
-      "Reconnection attempts:",
-      this.reconnectionAttempts,
-      "/",
-      this.maxReconnectionAttempts
-    );
+    console.log("🔍 CloseEvent Debug:", {
+      code: e.code,
+      reason: e.reason,
+      hasSessionHandle: !!this.sessionResumptionHandle,
+      hasConfig: !!this.config,
+      hasModel: !!this._model,
+      reconnectionAttempts: this.reconnectionAttempts,
+      maxAttempts: this.maxReconnectionAttempts,
+      manualDisconnect: this.manualDisconnect,
+    });
 
     if (
       e.code === 1011 &&
@@ -281,7 +281,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       this.reconnectionAttempts++;
       this.log(
         "client.reconnect",
-        `Attempting automatic reconnection with session resumption (attempt ${this.reconnectionAttempts}/${this.maxReconnectionAttempts})`
+        `🔄 Attempting automatic reconnection with session resumption (attempt ${this.reconnectionAttempts}/${this.maxReconnectionAttempts})`
       );
 
       const resumptionConfig = {
@@ -292,14 +292,25 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       // Add a small delay to ensure WebSocket is fully closed before reconnecting
       setTimeout(async () => {
         try {
+          console.log("🔄 Executing automatic reconnection...");
           await this.connect(this._model!, resumptionConfig);
         } catch (e) {
-          console.error("Error reconnecting to GenAI Live:", e);
+          console.error("❌ Error during automatic reconnection:", e);
           this.log("client.reconnect.error", (e as Error).message);
         }
       }, 500); // 500ms delay
 
       return;
+    } else {
+      console.log("🚫 Automatic reconnection skipped:", {
+        wrongCode: e.code !== 1011,
+        noSessionHandle: !this.sessionResumptionHandle,
+        noConfig: !this.config,
+        noModel: !this._model,
+        maxAttemptsReached:
+          this.reconnectionAttempts >= this.maxReconnectionAttempts,
+        wasManualDisconnect: this.manualDisconnect,
+      });
     }
 
     this.log(

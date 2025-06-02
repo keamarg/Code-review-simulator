@@ -40,7 +40,16 @@ import {
   ToolResponseMessage,
 } from "../../multimodal-live-types";
 
-const formatTime = (d: Date) => d.toLocaleTimeString().slice(0, -3);
+const formatTime = (d: Date) => {
+  const time = d.toLocaleTimeString("en-US", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const milliseconds = d.getMilliseconds().toString().padStart(3, "0");
+  return `${time}.${milliseconds}`;
+};
 
 const LogEntry = ({
   log,
@@ -60,7 +69,7 @@ const LogEntry = ({
       {
         receive: log.type.includes("receive"),
         send: log.type.includes("send"),
-      },
+      }
     )}
   >
     <span className="timestamp">{formatTime(log.date)}</span>
@@ -165,7 +174,7 @@ const ToolCallCancellationLog = ({ message }: Message): JSX.Element => (
           <span className="inline-code" key={`cancel-${id}`}>
             "{id}"
           </span>
-        ),
+        )
       )}
     </span>
   </div>
@@ -181,7 +190,7 @@ const ToolResponseLog = ({ message }: Message): JSX.Element => (
             {JSON.stringify(fc.response, null, "  ")}
           </SyntaxHighlighter>
         </div>
-      ),
+      )
     )}
   </div>
 );
@@ -203,9 +212,8 @@ const ModelTurnLog = ({ message }: Message): JSX.Element => {
   );
 };
 
-const CustomPlainTextLog = (msg: string) => () => (
-  <PlainTextMessage message={msg} />
-);
+const CustomPlainTextLog = (msg: string) => () =>
+  <PlainTextMessage message={msg} />;
 
 export type LoggerFilterType = "conversations" | "tools" | "none";
 

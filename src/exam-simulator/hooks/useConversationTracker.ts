@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { GenAILiveClient } from "../../lib/genai-live-client";
 
 interface ConversationEntry {
@@ -11,7 +11,10 @@ interface ConversationEntry {
   };
 }
 
-export function useConversationTracker(client: GenAILiveClient | null) {
+export function useConversationTracker(
+  client: GenAILiveClient | null,
+  onTranscriptChunk?: (chunk: string) => void
+) {
   const entriesRef = useRef<ConversationEntry[]>([]);
   const sessionStartTime = useRef<Date | null>(null);
   const userInteractionCount = useRef<number>(0);
@@ -20,21 +23,42 @@ export function useConversationTracker(client: GenAILiveClient | null) {
   const transcriptBufferRef = useRef<string>("");
   const bufferTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const flushTranscriptBuffer = () => {
+  const flushTranscriptBuffer = useCallback(() => {
     if (transcriptBufferRef.current.trim()) {
+      const timestamp =
+        new Date().toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }) +
+        "." +
+        new Date().getMilliseconds().toString().padStart(3, "0");
+
       const content = transcriptBufferRef.current.trim();
-      entriesRef.current.push({
+      const preview =
+        content.substring(0, 100) + (content.length > 100 ? "..." : "");
+      console.log(
+        `${timestamp} 💾 Saving transcript chunk (${content.length} chars): ${preview}`
+      );
+
+      const entry: ConversationEntry = {
         timestamp: new Date(),
         type: "ai_transcript",
         content: content,
-      });
-      console.log(
-        "📝 Transcript chunk saved:",
-        content.substring(0, 100) + (content.length > 100 ? "..." : "")
-      );
+      };
+
+      entriesRef.current.push(entry);
+
+      // Call the callback with the transcript chunk for external processing
+      if (onTranscriptChunk) {
+        onTranscriptChunk(content);
+      }
+
+      // Reset buffer
       transcriptBufferRef.current = "";
     }
-  };
+  }, [onTranscriptChunk]);
 
   useEffect(() => {
     if (!client) return;
@@ -48,39 +72,22 @@ export function useConversationTracker(client: GenAILiveClient | null) {
       });
     };
 
-    // Optimized 10-second transcript buffering for efficient processing
-    const handleTranscript = (transcriptText: string) => {
-      // Clean the incoming transcript text
-      const cleanedText = transcriptText
-        .replace(/\s+/g, " ") // Replace multiple spaces with single space
-        .trim();
+    // Handle transcript reception with simple buffering
+    const handleTranscript = (text: string) => {
+      if (!text || typeof text !== "string") return;
 
-      if (!cleanedText) {
-        return; // Skip empty or whitespace-only fragments
-      }
+      // Simple concatenation - just add text to buffer
+      transcriptBufferRef.current += text;
 
-      // Simple spacing logic - add space unless already present
-      if (transcriptBufferRef.current) {
-        const bufferEndsWithSpace = transcriptBufferRef.current.endsWith(" ");
-        const textStartsWithSpace = cleanedText.startsWith(" ");
-
-        // Only add space if neither end already has one
-        const shouldAddSpace = !bufferEndsWithSpace && !textStartsWithSpace;
-
-        if (shouldAddSpace) {
-          transcriptBufferRef.current += " ";
-        }
-      }
-      transcriptBufferRef.current += cleanedText;
-
-      // Simple 10-second timer - restart timer on each new chunk
+      // Clear existing timeout
       if (bufferTimeoutRef.current) {
         clearTimeout(bufferTimeoutRef.current);
       }
 
+      // Set new timeout to flush buffer after 10 seconds
       bufferTimeoutRef.current = setTimeout(() => {
         flushTranscriptBuffer();
-      }, 10000); // Fixed 10-second interval
+      }, 10000);
     };
 
     // Track user interactions (audio input indicates user is speaking)
@@ -124,13 +131,16 @@ export function useConversationTracker(client: GenAILiveClient | null) {
       client.off("log", handleLog);
       client.off("audio", handleAudio);
     };
-  }, [client]);
+  }, [client, onTranscriptChunk]);
 
-  const generateSummaryWithOpenAI = async (examDetails?: {
-    title?: string;
-    description?: string;
-    duration?: number;
-  }): Promise<string> => {
+  const generateSummaryWithOpenAI = async (
+    examDetails?: {
+      title?: string;
+      description?: string;
+      duration?: number;
+    },
+    liveSuggestions?: Array<{ text: string; timestamp: Date }>
+  ): Promise<string> => {
     // Flush any remaining buffer content before generating summary
     if (transcriptBufferRef.current.trim()) {
       flushTranscriptBuffer();
@@ -194,7 +204,8 @@ export function useConversationTracker(client: GenAILiveClient | null) {
       transcriptEntries,
       sessionDuration,
       examDetails,
-      userInteractionCount.current
+      userInteractionCount.current,
+      liveSuggestions
     );
     return summary;
   };
@@ -218,12 +229,15 @@ export function useConversationTracker(client: GenAILiveClient | null) {
   };
 
   // Legacy method name for backward compatibility
-  const getConversationSummary = (examDetails?: {
-    title?: string;
-    description?: string;
-    duration?: number;
-  }) => {
-    return generateSummaryWithOpenAI(examDetails);
+  const getConversationSummary = (
+    examDetails?: {
+      title?: string;
+      description?: string;
+      duration?: number;
+    },
+    liveSuggestions?: Array<{ text: string; timestamp: Date }>
+  ) => {
+    return generateSummaryWithOpenAI(examDetails, liveSuggestions);
   };
 
   // Add debug method
@@ -271,7 +285,8 @@ function generateTranscriptBasedSummary(
   transcriptEntries: ConversationEntry[],
   sessionDuration: number,
   examDetails?: { title?: string; description?: string; duration?: number },
-  userInteractions?: number
+  userInteractions?: number,
+  liveSuggestions?: Array<{ text: string; timestamp: Date }>
 ): string {
   const sessionMinutes = Math.round(sessionDuration / 60);
   const plannedMinutes = examDetails?.duration || 0;
@@ -292,46 +307,41 @@ function generateTranscriptBasedSummary(
   summary += "\n\n";
 
   summary += "Session Activity:\n";
-  summary += `• AI provided ${transcriptEntries.length} transcript segments\n`;
-  summary += `• User interactions: ${userInteractions || 0}\n`;
   summary += `• Total transcript length: ${allTranscripts.length} characters\n`;
 
   // Basic transcript analysis
   const lineNumberRefs = (
     allTranscripts.match(/line\s+\d+|lines\s+\d+/gi) || []
   ).length;
-  const suggestionWords = (
-    allTranscripts.match(
-      /\b(suggest|recommend|should|could|improve|fix|change|update)\b/gi
-    ) || []
-  ).length;
-  const issueWords = (
-    allTranscripts.match(/\b(issue|problem|error|bug|concern|mistake)\b/gi) ||
-    []
-  ).length;
 
-  summary += `• Line number references: ${lineNumberRefs}\n`;
-  summary += `• Suggestion keywords: ${suggestionWords}\n`;
-  summary += `• Issue keywords: ${issueWords}\n\n`;
+  summary += `• Line number references: ${lineNumberRefs}\n\n`;
 
-  // Key excerpts from transcript
+  // Key Review Points from Live Suggestions
   summary += "Key Review Points:\n";
-  const sentences = allTranscripts
-    .split(/[.!?]+/)
-    .filter((s) => s.trim().length > 20);
-  const keyExcerpts = sentences
-    .filter((s) =>
-      /\b(line|suggest|recommend|should|issue|problem|improve)\b/i.test(s)
-    )
-    .slice(0, 5)
-    .map((s) => s.trim().replace(/^\s*[,\s]+/, ""));
 
-  if (keyExcerpts.length > 0) {
-    keyExcerpts.forEach((excerpt, i) => {
-      summary += `${i + 1}. ${excerpt}.\n`;
+  if (liveSuggestions && liveSuggestions.length > 0) {
+    liveSuggestions.forEach((suggestion, i) => {
+      summary += `${i + 1}. ${suggestion.text}\n`;
     });
   } else {
-    summary += "• Review content available in full transcript\n";
+    // Fallback to extracted excerpts if no live suggestions
+    const sentences = allTranscripts
+      .split(/[.!?]+/)
+      .filter((s) => s.trim().length > 20);
+    const keyExcerpts = sentences
+      .filter((s) =>
+        /\b(line|suggest|recommend|should|issue|problem|improve)\b/i.test(s)
+      )
+      .slice(0, 5)
+      .map((s) => s.trim().replace(/^\s*[,\s]+/, ""));
+
+    if (keyExcerpts.length > 0) {
+      keyExcerpts.forEach((excerpt, i) => {
+        summary += `${i + 1}. ${excerpt}.\n`;
+      });
+    } else {
+      summary += "• Review content available in full transcript\n";
+    }
   }
 
   summary += "\n";

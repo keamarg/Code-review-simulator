@@ -37,57 +37,17 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
   const examDurationInMs = examDurationInMinutes * 60 * 1000;
   const examDurationActiveExam = examDurationInMs - 60 * 1000;
-  const HalfWaySeconds = Math.floor(examDurationInMs / 2);
-  const halfExamRemainingMinutes = examDurationInMinutes / 2;
 
   useEffect(() => {
-    if (!connected) return; // only schedule if the client is connected
+    if (!connected) return;
 
     // Call onVoiceStart when connected and about to start the exam
     if (onVoiceStart) {
       onVoiceStart();
     }
 
-    const timerConfig = getTimerConfig();
-
-    const introTimer = setTimeout(() => {
-      client.send([{ text: prompts.timerMessages.introduction }]);
-    }, timerConfig.introductionDelay);
-
-    const halfExamTimer = setTimeout(() => {
-      // eslint-disable-next-line no-template-curly-in-string
-      const halfTimeMessage = prompts.timerMessages.halfTime.replace(
-        "${remainingMinutes}",
-        halfExamRemainingMinutes.toString()
-      );
-
-      client.send([
-        {
-          text: halfTimeMessage,
-        },
-      ]);
-    }, HalfWaySeconds);
-
-    const finalWarningTimer = setTimeout(() => {
-      client.send([
-        {
-          text: prompts.timerMessages.timeAlmostUp,
-        },
-      ]);
-    }, examDurationInMs - timerConfig.timeWarningBeforeEnd);
-
-    return () => {
-      clearTimeout(introTimer);
-      clearTimeout(halfExamTimer);
-      clearTimeout(finalWarningTimer);
-    };
-  }, [
-    client,
-    connected,
-    halfExamRemainingMinutes,
-    HalfWaySeconds,
-    examDurationInMs,
-  ]);
+    // Timer setup is now handled by useExamTimers.ts - no duplicate timers needed here
+  }, [connected, onVoiceStart]);
 
   const prompt = "";
 
