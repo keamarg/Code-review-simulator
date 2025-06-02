@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../config/supabaseClient";
 import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
 import { ExamSimulator } from "../../../types/ExamSimulator";
@@ -11,16 +11,27 @@ import { LoadingAnimation } from "../ui/LoadingAnimation"; // Check path
 import { AIExaminerDisplay } from "./AIExaminer"; // Import the refactored display component
 import { CountdownTimer } from "../CountdownTimer"; // Import CountdownTimer
 import { getCurrentModel } from "../../../config/aiConfig"; // Import centralized config
+import { useConversationTracker } from "../../hooks/useConversationTracker"; // New hook for tracking conversation
+import { CodeReviewSummaryModal } from "../ui/CodeReviewSummaryModal"; // New modal component
 
 const EXAM_DURATION_IN_MINUTES = 10; // default duration
 
 interface ExamWorkflowProps {
   examId: string;
   examIntentStarted: boolean; // Controlled by AIExaminerPage via ControlTrayCustom
+  onTimerExpired?: () => void; // New callback to notify parent when timer expires
+  onManualStop?: () => void; // New callback to notify parent when user manually stops
+  triggerManualStop?: boolean; // New prop to trigger manual stop
   // onExamStarted is now internal to ExamWorkflow as CountdownTimer is moved here
 }
 
-export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
+export function ExamWorkflow({
+  examId,
+  examIntentStarted,
+  onTimerExpired,
+  onManualStop,
+  triggerManualStop,
+}: ExamWorkflowProps) {
   const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(
     null
   );
@@ -35,11 +46,112 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
   const [liveConfig, setLiveConfig] = useState<any>(null); // Local config state
   const [hasEverConnected, setHasEverConnected] = useState<boolean>(false); // Track if we've connected before
 
-  const { client, connected, connect, resume } = useGenAILiveContext();
+  // New state for summary modal
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [reviewSummary, setReviewSummary] = useState<string>("");
+
+  const { client, connected, connect, resume, disconnect } =
+    useGenAILiveContext();
+
+  // Use conversation tracker hook
+  const { getConversationSummary, clearConversation, getDebugInfo } =
+    useConversationTracker(client);
 
   const examDurationInMinutes =
     examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
   const examDurationActiveExamMs = examDurationInMinutes * 60 * 1000;
+
+  const [stopReason, setStopReason] = useState<"timer" | "manual" | null>(null);
+
+  // Track timer cleanup function
+  const timerCleanupRef = useRef<(() => void) | null>(null);
+
+  // Unified handler for both timer expiration and manual stop
+  const handleSessionEnd = useCallback(
+    async (reason: "timer" | "manual") => {
+      console.log(`Session ending: ${reason}`);
+      setStopReason(reason);
+
+      // Clean up any active timers first
+      if (timerCleanupRef.current) {
+        timerCleanupRef.current();
+        timerCleanupRef.current = null;
+      }
+
+      // Stop audio and disconnect immediately to stop voice
+      if (connected && client) {
+        await disconnect();
+        client.terminateSession();
+      }
+
+      // Notify parent component to reset examIntentStarted state
+      if (reason === "timer" && onTimerExpired) {
+        onTimerExpired();
+      } else if (reason === "manual" && onManualStop) {
+        onManualStop();
+      }
+
+      // Generate summary from conversation with exam details
+      try {
+        const examDetails = examSimulator
+          ? {
+              title: examSimulator.title,
+              description: examSimulator.description,
+              duration: examSimulator.duration ?? examDurationInMinutes,
+            }
+          : undefined;
+
+        const summary = await getConversationSummary(examDetails);
+        setReviewSummary(summary);
+        setShowSummaryModal(true);
+      } catch (error) {
+        console.error("Error generating summary:", error);
+        setReviewSummary("Error generating review summary. Please try again.");
+        setShowSummaryModal(true);
+      }
+
+      // Reset exam state
+      setExamStarted(false);
+    },
+    [
+      connected,
+      client,
+      disconnect,
+      onTimerExpired,
+      onManualStop,
+      getConversationSummary,
+      getDebugInfo,
+      examSimulator,
+      examDurationInMinutes,
+    ]
+  );
+
+  // Handle timer expiration - now calls unified handler
+  const handleTimeUp = useCallback(async () => {
+    await handleSessionEnd("timer");
+  }, [handleSessionEnd]);
+
+  // Handle manual stop - now calls unified handler
+  const handleManualStopInternal = useCallback(async () => {
+    await handleSessionEnd("manual");
+  }, [handleSessionEnd]);
+
+  // Listen for manual stop trigger from parent
+  useEffect(() => {
+    if (triggerManualStop && connected) {
+      handleManualStopInternal();
+    }
+  }, [triggerManualStop, connected, handleManualStopInternal]);
+
+  // Cleanup timers on component unmount or when session stops
+  useEffect(() => {
+    return () => {
+      if (timerCleanupRef.current) {
+        timerCleanupRef.current();
+        timerCleanupRef.current = null;
+      }
+    };
+  }, []);
 
   // Fetch exam data from Supabase
   useEffect(() => {
@@ -154,40 +266,29 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
   // Effect for when exam intent starts (user clicks start button)
   useEffect(() => {
     if (examIntentStarted && examSimulator) {
-      console.log("🚀 Exam intent started!", {
-        examType: examSimulator.type,
-        repoUrl,
-        hasPrompt: !!prompt,
-      });
-
       if (examSimulator.type === "Github Repo") {
         if (repoUrl && !prompt) {
-          // Only prepare if repoUrl is set and prompt not yet ready
-          console.log("📦 Preparing GitHub repo content...");
           prepareExamContent(); // This will set the prompt
         } else if (prompt) {
-          // If prompt is ready, proceed to setConfig
-          console.log("⚙️ Creating live config with existing prompt...");
           const newConfig = createLiveConfig(prompt);
           setLiveConfig(newConfig);
         } else if (!repoUrl) {
-          console.warn("⚠️ No repository URL provided");
           setExamError("Please enter a GitHub repository URL before starting.");
         }
       } else {
         // Standard Exam
         if (prompt) {
-          // Ensure prompt is ready
           const newConfig = createLiveConfig(prompt);
           setLiveConfig(newConfig);
         }
       }
     } else if (!examIntentStarted && connected) {
-      // If exam intent is stopped (pause pressed) and client is connected, disconnect.
+      // Clean up timers when exam intent stops
+      if (timerCleanupRef.current) {
+        timerCleanupRef.current();
+      }
       client.disconnect();
-      setExamStarted(false); // Stop countdown timer display and reset exam started state
-      // Note: We keep prompt, studentTask, and liveConfig so that task information remains visible
-      // and the exam can be resumed without re-preparing content
+      setExamStarted(false);
     }
   }, [
     examIntentStarted,
@@ -202,31 +303,30 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
 
   // Effect to connect and start timers when config is set and intent is active
   useEffect(() => {
-    // Only connect if exam intent is started, config has a system instruction, and not already connected.
     if (
       examIntentStarted &&
       liveConfig?.systemInstruction?.parts?.[0]?.text &&
       !connected
     ) {
       const connectionMethod = hasEverConnected ? resume : connect;
-      const connectionType = hasEverConnected ? "Resuming" : "Connecting";
+      const connectionType = hasEverConnected ? "Resuming" : "Starting";
 
-      console.log(`🔍 ExamWorkflow ${connectionType}:`, {
-        hasEverConnected,
-        connectionMethod: hasEverConnected ? "resume" : "connect",
-        liveConfig: !!liveConfig,
-      });
-
-      console.log(`${connectionType} to GenAI Live...`);
+      console.log(`${connectionType} code review session...`);
 
       connectionMethod(getCurrentModel(), liveConfig)
         .then(() => {
-          setExamStarted(true); // Start countdown now that connection is established
-          setHasEverConnected(true); // Mark that we've connected at least once
+          setExamStarted(true);
+          setHasEverConnected(true);
 
           // Only set up timers on initial connection, not on resume
           if (!hasEverConnected) {
-            examTimers({
+            // Clean up any existing timers first
+            if (timerCleanupRef.current) {
+              timerCleanupRef.current();
+            }
+
+            // Set up new timers and store cleanup function
+            timerCleanupRef.current = examTimers({
               client,
               examDurationInMs: examDurationActiveExamMs,
               isInitialConnection: true,
@@ -234,10 +334,8 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
           }
         })
         .catch((error) => {
-          console.error(`Failed to ${connectionType.toLowerCase()}:`, error);
-          setExamError(
-            `Failed to ${connectionType.toLowerCase()} to the exam server.`
-          );
+          console.error(`Failed to start session:`, error);
+          setExamError("Failed to connect to the exam server.");
         });
     }
   }, [
@@ -273,7 +371,9 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
         autoStart={false} // Will be controlled by examStarted state
         startTrigger={examStarted}
         pauseTrigger={!examIntentStarted} // Pause when exam intent is not started
+        onTimeUp={handleTimeUp} // New callback for timer expiration
       />
+
       {examSimulator.type === "Github Repo" && (
         <div className="my-6">
           {" "}
@@ -321,10 +421,16 @@ export function ExamWorkflow({ examId, examIntentStarted }: ExamWorkflowProps) {
         examSimulator.type !== "Github Repo" && (
           <LoadingAnimation isLoading={true} />
         )}
-      {/* Ghost loader styles are now encapsulated within AIExaminerDisplay.
-          The style block below can be removed if it only contained those.
-          Keeping it if it contains other styles for ExamWorkflow.
-          For now, assuming it was for ghost lines and removing. */}
+
+      {/* Code Review Summary Modal */}
+      <CodeReviewSummaryModal
+        isOpen={showSummaryModal}
+        summary={reviewSummary}
+        onClose={() => {
+          setShowSummaryModal(false);
+          clearConversation(); // Clear the conversation history
+        }}
+      />
     </div>
   );
 }

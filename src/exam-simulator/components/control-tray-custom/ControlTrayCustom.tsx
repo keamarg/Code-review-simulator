@@ -33,6 +33,8 @@ export type ControlTrayProps = {
   onButtonClicked?: (isButtonOn: boolean) => void;
   onEndReview?: () => void;
   hasExamStarted?: boolean;
+  forceStopAudio?: boolean;
+  forceStopVideo?: boolean;
 };
 
 type MediaStreamButtonProps = {
@@ -81,6 +83,8 @@ function ControlTray({
   onEndReview,
   supportsVideo,
   hasExamStarted,
+  forceStopAudio,
+  forceStopVideo,
 }: ControlTrayProps) {
   const videoStreams = [useWebcam(), useScreenCapture()];
   const [activeVideoStream, setActiveVideoStream] =
@@ -100,6 +104,15 @@ function ControlTray({
       connectButtonRef.current.focus();
     }
   }, [connected]);
+
+  // Handle force stop video/screen sharing
+  useEffect(() => {
+    if (forceStopVideo && screenCapture.isStreaming) {
+      screenCapture.stop();
+      setActiveVideoStream(null);
+      onVideoStreamChange(null);
+    }
+  }, [forceStopVideo, screenCapture, onVideoStreamChange]);
 
   useEffect(() => {
     document.documentElement.style.setProperty(
@@ -121,22 +134,24 @@ function ControlTray({
     // Clean up existing listeners first
     audioRecorder.off("data", onData).off("volume", setInVolume);
 
-    if (connected && !muted && audioRecorder) {
-      // Add listeners and start recording
+    // Always stop first, then decide whether to start
+    audioRecorder.stop();
+
+    // Only start if connected, not muted, and not force stopped
+    if (connected && !muted && !forceStopAudio && audioRecorder) {
       audioRecorder.on("data", onData).on("volume", setInVolume);
       audioRecorder.start().catch((error) => {
         console.error("Failed to start audio recording:", error);
       });
-    } else {
-      // Stop recording when muted or disconnected
-      audioRecorder.stop();
     }
 
     return () => {
       // Clean up listeners on unmount or dependency change
       audioRecorder.off("data", onData).off("volume", setInVolume);
+      // Also stop recording on cleanup
+      audioRecorder.stop();
     };
-  }, [connected, client, muted, audioRecorder]);
+  }, [connected, client, muted, audioRecorder, forceStopAudio]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -207,14 +222,11 @@ function ControlTray({
       if (newButtonState) {
         // Starting - first ensure screen sharing is active
         if (!screenCapture.isStreaming) {
-          console.log("Starting screen sharing before AI connection...");
           try {
             const mediaStream = await screenCapture.start();
             setActiveVideoStream(mediaStream);
             onVideoStreamChange(mediaStream);
-            console.log("Screen sharing started successfully");
           } catch (screenShareError) {
-            console.error("Screen sharing failed:", screenShareError);
             // Revert button state if screen sharing fails
             setButtonIsOn(false);
 
@@ -233,10 +245,6 @@ function ControlTray({
           }
         }
 
-        // Only proceed with AI connection after screen sharing is confirmed
-        console.log(
-          "Screen sharing confirmed, proceeding with AI connection..."
-        );
         onButtonClicked(newButtonState);
       } else {
         // Pausing - disconnect from the API and stop screen sharing

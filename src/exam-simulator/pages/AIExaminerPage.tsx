@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import Layout from "../layout/Layout";
@@ -18,6 +18,12 @@ interface ExamPageContentProps {
   examIntentStarted: boolean;
   handleStartExamClicked: (isButtonOn: boolean) => void;
   onEndReview: () => void;
+  onTimerExpired: () => void;
+  onManualStop: () => void;
+  onClientReady: (client: any) => void;
+  forceStopAudio: boolean;
+  forceStopVideo: boolean;
+  triggerManualStop: boolean;
 }
 
 function ExamPageContent({
@@ -28,6 +34,12 @@ function ExamPageContent({
   examIntentStarted,
   handleStartExamClicked,
   onEndReview,
+  onTimerExpired,
+  onManualStop,
+  onClientReady,
+  forceStopAudio,
+  forceStopVideo,
+  triggerManualStop,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
   const hasNotifiedScreenShareRef = useRef(true);
@@ -40,7 +52,6 @@ function ExamPageContent({
       connected &&
       hasNotifiedScreenShareRef.current
     ) {
-      console.log("Attempting to send screen share notification...");
       try {
         client.send([
           {
@@ -48,7 +59,6 @@ function ExamPageContent({
           },
         ]);
         hasNotifiedScreenShareRef.current = false;
-        console.log("Screen share notification sent and ref set to false.");
       } catch (error) {
         console.error("Failed to send screen share notification:", error);
       }
@@ -58,15 +68,18 @@ function ExamPageContent({
   useEffect(() => {
     if (!examIntentStarted) {
       // Reset when exam intent stops, allowing notification for the next session
-      console.log(
-        "Exam intent stopped. Resetting screen share notification ref."
-      );
       hasNotifiedScreenShareRef.current = true;
     } else {
       // Mark that exam has been started at least once
       setHasExamEverStarted(true);
     }
   }, [examIntentStarted]);
+
+  useEffect(() => {
+    if (client) {
+      onClientReady(client);
+    }
+  }, [client, onClientReady]);
 
   return (
     <div className="streaming-console max-w-2xl mx-auto flex flex-col">
@@ -75,7 +88,13 @@ function ExamPageContent({
           AI Code Review Exam
         </h1>
 
-        <ExamWorkflow examId={id} examIntentStarted={examIntentStarted} />
+        <ExamWorkflow
+          examId={id}
+          examIntentStarted={examIntentStarted}
+          onTimerExpired={onTimerExpired}
+          onManualStop={onManualStop}
+          triggerManualStop={triggerManualStop}
+        />
 
         <video
           className={cn({
@@ -101,6 +120,8 @@ function ExamPageContent({
         onButtonClicked={handleStartExamClicked}
         onEndReview={onEndReview}
         hasExamStarted={hasExamEverStarted}
+        forceStopAudio={forceStopAudio}
+        forceStopVideo={forceStopVideo}
       />
     </div>
   );
@@ -119,13 +140,109 @@ export default function LivePage() {
   // examIntentStarted is controlled by the ControlTrayCustom button
   const [examIntentStarted, setExamIntentStarted] = useState(false);
 
+  // Force stop audio flag for timer expiration
+  const [forceStopAudio, setForceStopAudio] = useState(false);
+
+  // Force stop video/screen sharing flag for timer expiration
+  const [forceStopVideo, setForceStopVideo] = useState(false);
+
+  // Trigger for manual stop
+  const [triggerManualStop, setTriggerManualStop] = useState(false);
+
+  // Store client reference for session termination
+  const [genaiClient, setGenaiClient] = useState<any>(null);
+
   const navigate = useNavigate();
 
   const handleEndReview = () => {
-    // End the exam and redirect to dashboard
+    // Terminate the AI session completely if client is available
+    if (genaiClient) {
+      genaiClient.terminateSession();
+    }
+
+    // Force stop audio and video, end the exam
+    setForceStopAudio(true);
+    setForceStopVideo(true);
     setExamIntentStarted(false);
+
+    // Reset force stop after a longer delay to ensure everything stops
+    setTimeout(() => {
+      setForceStopAudio(false);
+      setForceStopVideo(false);
+    }, 3000);
+
     navigate("/dashboard");
   };
+
+  // Handle manual stop - show summary instead of immediate redirect
+  const handleManualStop = () => {
+    // Trigger manual stop in ExamWorkflow
+    setTriggerManualStop(true);
+
+    // Reset trigger after brief delay
+    setTimeout(() => setTriggerManualStop(false), 100);
+  };
+
+  // Handle manual stop callback from ExamWorkflow (after summary is generated)
+  const handleManualStopCallback = () => {
+    setForceStopAudio(true); // Force stop audio recorder
+    setForceStopVideo(true); // Force stop screen sharing
+    setExamIntentStarted(false);
+
+    // Reset force stop after a longer delay to ensure everything stops
+    setTimeout(() => {
+      setForceStopAudio(false);
+      setForceStopVideo(false);
+    }, 3000);
+    // Note: Don't navigate here - let the summary modal handle navigation
+  };
+
+  // Handle timer expiration - reset state but don't redirect (let summary modal handle navigation)
+  const handleTimerExpired = () => {
+    setForceStopAudio(true); // Force stop audio recorder
+    setForceStopVideo(true); // Force stop screen sharing
+    setExamIntentStarted(false);
+
+    // Reset force stop after a longer delay to ensure everything stops
+    setTimeout(() => {
+      setForceStopAudio(false);
+      setForceStopVideo(false);
+    }, 3000);
+  };
+
+  const handleClientReady = useCallback((client: any) => {
+    setGenaiClient(client);
+  }, []);
+
+  // Terminate session on page reload/close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (genaiClient) {
+        genaiClient.terminateSession();
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Also terminate on component unmount
+      if (genaiClient) {
+        genaiClient.terminateSession();
+      }
+    };
+  }, [genaiClient]);
+
+  // Stop video stream when forceStopVideo is triggered
+  useEffect(() => {
+    if (forceStopVideo && videoStream) {
+      // Stop all tracks in the video stream to end screen sharing
+      videoStream.getTracks().forEach((track) => {
+        track.stop();
+      });
+      setVideoStream(null);
+    }
+  }, [forceStopVideo, videoStream]);
 
   useEffect(() => {
     const apiKeyEndpoint =
@@ -209,7 +326,13 @@ export default function LivePage() {
           setVideoStream={setVideoStream}
           examIntentStarted={examIntentStarted}
           handleStartExamClicked={handleStartExamClicked}
-          onEndReview={handleEndReview}
+          onEndReview={handleManualStop}
+          onTimerExpired={handleTimerExpired}
+          onManualStop={handleManualStopCallback}
+          onClientReady={handleClientReady}
+          forceStopAudio={forceStopAudio}
+          forceStopVideo={forceStopVideo}
+          triggerManualStop={triggerManualStop}
         />
       </GenAILiveProvider>
     </Layout>

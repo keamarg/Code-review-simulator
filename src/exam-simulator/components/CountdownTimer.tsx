@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 interface CountdownTimerProps {
   totalMs: number;
   autoStart?: boolean;
   startTrigger?: boolean;
   pauseTrigger?: boolean;
+  onTimeUp?: () => void;
 }
 
 export const CountdownTimer: React.FC<CountdownTimerProps> = ({
@@ -12,9 +13,16 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   autoStart = false,
   startTrigger = false,
   pauseTrigger = false,
+  onTimeUp,
 }) => {
   const [timeLeft, setTimeLeft] = useState<number>(totalMs);
   const [running, setRunning] = useState<boolean>(autoStart);
+  const onTimeUpRef = useRef(onTimeUp);
+
+  // Update ref when onTimeUp changes
+  useEffect(() => {
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
 
   // Calculate percentage of time remaining for circle timer
   const timePercentage = Math.max(0, Math.min(100, (timeLeft / totalMs) * 100));
@@ -30,6 +38,14 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
     return "var(--tokyo-red)"; // red for low time
   };
 
+  // Handle timer expiration separately
+  useEffect(() => {
+    if (timeLeft <= 0 && onTimeUpRef.current) {
+      console.log("⏰ CountdownTimer - Time expired, calling onTimeUp");
+      onTimeUpRef.current();
+    }
+  }, [timeLeft]);
+
   useEffect(() => {
     if (!running || pauseTrigger) return;
 
@@ -38,6 +54,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
         const newTime = prev - 1000;
         if (newTime <= 0) {
           clearInterval(timer);
+          setRunning(false);
           return 0;
         }
         return newTime;

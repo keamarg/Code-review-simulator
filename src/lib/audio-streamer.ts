@@ -30,7 +30,7 @@ export class AudioStreamer {
   public source: AudioBufferSourceNode;
   private isStreamComplete: boolean = false;
   private checkInterval: number | null = null;
-  private initialBufferTime: number = 0.1; //0.1 // 100ms initial buffer
+  private initialBufferTime: number = 0.2; // Increased from 0.1 to 0.2 seconds for more stable playback
   private endOfQueueAudioSource: AudioBufferSourceNode | null = null;
 
   public onComplete = () => {};
@@ -45,7 +45,7 @@ export class AudioStreamer {
   async addWorklet<T extends (d: any) => void>(
     workletName: string,
     workletSrc: string,
-    handler: T,
+    handler: T
   ): Promise<this> {
     let workletsRecord = registeredWorklets.get(this.context);
     if (workletsRecord && workletsRecord[workletName]) {
@@ -88,7 +88,7 @@ export class AudioStreamer {
     }
 
     const newBuffer = new Float32Array(
-      this.processingBuffer.length + float32Array.length,
+      this.processingBuffer.length + float32Array.length
     );
     newBuffer.set(this.processingBuffer);
     newBuffer.set(float32Array, this.processingBuffer.length);
@@ -112,14 +112,14 @@ export class AudioStreamer {
     const audioBuffer = this.context.createBuffer(
       1,
       audioData.length,
-      this.sampleRate,
+      this.sampleRate
     );
     audioBuffer.getChannelData(0).set(audioData);
     return audioBuffer;
   }
 
   private scheduleNextBuffer() {
-    const SCHEDULE_AHEAD_TIME = 0.2;
+    const SCHEDULE_AHEAD_TIME = 0.5;
 
     while (
       this.audioQueue.length > 0 &&
@@ -200,7 +200,7 @@ export class AudioStreamer {
         (this.scheduledTime - this.context.currentTime) * 1000;
       setTimeout(
         () => this.scheduleNextBuffer(),
-        Math.max(0, nextCheckTime - 50),
+        Math.max(0, nextCheckTime - 50)
       );
     }
   }
@@ -219,7 +219,7 @@ export class AudioStreamer {
 
     this.gainNode.gain.linearRampToValueAtTime(
       0,
-      this.context.currentTime + 0.1,
+      this.context.currentTime + 0.1
     );
 
     setTimeout(() => {

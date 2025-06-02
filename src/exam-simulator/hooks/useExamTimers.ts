@@ -12,46 +12,49 @@ export default function examTimers({
   examDurationInMs,
   isInitialConnection = true,
 }: ExamTimersProps) {
-  if (!client) return;
+  if (!client) return () => {};
 
   if (!isInitialConnection) {
     return () => {};
   }
 
   const timerConfig = getTimerConfig();
+  const timerIds: NodeJS.Timeout[] = [];
 
+  // Introduction timer
   const introTimer = setTimeout(() => {
-    client.send([{ text: prompts.timerMessages.introduction }]);
+    if (client) {
+      client.send([{ text: prompts.timerMessages.introduction }]);
+    }
   }, timerConfig.introductionDelay);
+  timerIds.push(introTimer);
 
   const examDurationInMinutes = examDurationInMs / (60 * 1000);
   const halfExamDelay = examDurationInMs / 2;
   const halfExamRemainingMinutes = examDurationInMinutes / 2;
 
+  // Half-time reminder
   const halfExamTimer = setTimeout(() => {
-    const halfTimeMessage = prompts.timerMessages.halfTime.replace(
-      "${remainingMinutes}",
-      halfExamRemainingMinutes.toString()
-    );
-
-    client.send([
-      {
-        text: halfTimeMessage,
-      },
-    ]);
+    if (client) {
+      const halfTimeMessage = prompts.timerMessages.halfTime.replace(
+        "${remainingMinutes}",
+        halfExamRemainingMinutes.toString()
+      );
+      client.send([{ text: halfTimeMessage }]);
+    }
   }, halfExamDelay);
+  timerIds.push(halfExamTimer);
 
-  const finalWarningTimer = setTimeout(() => {
-    client.send([
-      {
-        text: prompts.timerMessages.timeAlmostUp,
-      },
-    ]);
+  // Single final warning at 1 minute before end (removed duplicate 30-second warning)
+  const timeAlmostUpTimer = setTimeout(() => {
+    if (client) {
+      client.send([{ text: prompts.timerMessages.timeAlmostUp }]);
+    }
   }, examDurationInMs - timerConfig.timeWarningBeforeEnd);
+  timerIds.push(timeAlmostUpTimer);
 
+  // Return cleanup function that clears all timers
   return () => {
-    clearTimeout(introTimer);
-    clearTimeout(halfExamTimer);
-    clearTimeout(finalWarningTimer);
+    timerIds.forEach((timerId) => clearTimeout(timerId));
   };
 }

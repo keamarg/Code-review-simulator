@@ -60,6 +60,8 @@ export interface LiveClientEventTypes {
   ) => void;
   // Emitted when the current turn is complete
   turncomplete: () => void;
+  // Emitted when output transcription is received
+  transcript: (transcription: string) => void;
 }
 
 /**
@@ -205,15 +207,37 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
     this.log(
       "client.disconnect",
-      `Session handle: ${this.sessionResumptionHandle || "none"}`
+      `Session handle: ${
+        this.sessionResumptionHandle || "none"
+      } - preserving for resumption`
     );
+
+    // Keep session resumption handle, config, and model for resumption
+    // Only terminateSession() should clear these
 
     this.session?.close();
     this._session = null;
     this._status = "disconnected";
 
-    this.log("client.close", `Disconnected`);
+    this.log("client.close", `Disconnected - session can be resumed`);
     return true;
+  }
+
+  // Add explicit method to terminate session completely
+  public terminateSession() {
+    console.log("🛑 Terminating session completely - no resumption possible");
+    this.manualDisconnect = true;
+    this.sessionResumptionHandle = undefined;
+    this.config = null;
+    this._model = null;
+    this.reconnectionAttempts = this.maxReconnectionAttempts; // Prevent any reconnection attempts
+
+    if (this.session) {
+      this.session.close();
+      this._session = null;
+    }
+    this._status = "disconnected";
+    this.log("client.terminate", "Session terminated completely");
   }
 
   protected onopen() {
@@ -306,15 +330,11 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       if ("newHandle" in message.sessionResumptionUpdate) {
         this.sessionResumptionHandle =
           message.sessionResumptionUpdate.newHandle;
-        console.log(
-          "🔍 Session Resumption Handle Received:",
-          this.sessionResumptionHandle
-        );
-        this.log(
-          "client.sessionResumption",
-          `New handle received: ${this.sessionResumptionHandle}`
-        );
+        // Removed console.log and this.log() to minimize interference with audio stream
+        // The session resumption handle is stored silently to prevent any potential
+        // timing conflicts with ongoing AI speech
       }
+      return; // Important: return here to prevent falling through to "unmatched message"
     }
 
     // this json also might be `contentUpdate { interrupted: true }`
@@ -331,10 +351,18 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         this.emit("turncomplete");
       }
 
-      /* if("outputTranscription" in serverContent) {
-        console.log("outputTranscription");
-        console.log(serverContent.outputTranscription);
-      } */
+      if ("outputTranscription" in serverContent) {
+        // Removed console.log to reduce noise - logging moved to conversation tracker when chunks are saved
+        if (serverContent.outputTranscription) {
+          // Extract text from transcription object
+          const transcriptText =
+            typeof serverContent.outputTranscription === "string"
+              ? serverContent.outputTranscription
+              : (serverContent.outputTranscription as any).text ||
+                JSON.stringify(serverContent.outputTranscription);
+          this.emit("transcript", transcriptText);
+        }
+      }
 
       if ("modelTurn" in serverContent) {
         let parts: Part[] = serverContent.modelTurn?.parts || [];

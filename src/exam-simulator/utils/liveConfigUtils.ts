@@ -57,7 +57,7 @@ export function createLiveConfig(
   // The main LiveConnectConfig object with session resumption enabled
   const liveConfig: LiveConnectConfig = {
     // Flattened config structure to avoid deprecation warning
-    responseModalities: [Modality.AUDIO],
+    responseModalities: [Modality.AUDIO], // Audio-only for stability
     speechConfig: {
       voiceConfig: {
         prebuiltVoiceConfig: {
@@ -68,16 +68,19 @@ export function createLiveConfig(
     systemInstruction: {
       parts: [{ text: promptText }],
     },
+    // Enable output audio transcription to capture AI speech as text
+    outputAudioTranscription: true, // Re-enabled since disabling didn't fix the cutoff issue
     // Enable session resumption based on centralized config
-    ...(AI_CONFIG.SESSION_RESUMPTION_ENABLED && { sessionResumption: {} }),
+    ...(AI_CONFIG.SESSION_RESUMPTION_ENABLED ? { sessionResumption: {} } : {}),
     // Configure Voice Activity Detection using centralized config values
+    // These settings prevent the AI from cutting itself off mid-sentence
     realtimeInputConfig: {
       automaticActivityDetection: {
-        disabled: false, // Keep VAD enabled with centralized settings
+        disabled: false, // Re-enable VAD with very conservative settings
         startOfSpeechSensitivity: startSensitivity,
-        endOfSpeechSensitivity: endSensitivity,
-        prefixPaddingMs: prefixPaddingMs, // From centralized config (or options override)
-        silenceDurationMs: silenceDurationMs, // From centralized config (or options override)
+        endOfSpeechSensitivity: endSensitivity, // Lower sensitivity prevents AI voice cutoffs
+        prefixPaddingMs: prefixPaddingMs, // Extra padding prevents false speech detection
+        silenceDurationMs: silenceDurationMs, // Longer duration prevents interrupting AI mid-sentence
       },
     },
     // tools can be added here if needed in the future
