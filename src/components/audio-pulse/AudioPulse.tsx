@@ -33,13 +33,14 @@ export default function AudioPulse({ active, volume, hover }: AudioPulseProps) {
   useEffect(() => {
     let timeout: number | null = null;
     const update = () => {
-      lines.current.forEach(
-        (line, i) =>
-        (line.style.height = `${Math.min(
-          24,
-          4 + volume * (i === 1 ? 400 : 60),
-        )}px`),
-      );
+      lines.current.forEach((line, i) => {
+        if (line) {
+          line.style.height = `${Math.min(
+            24,
+            4 + volume * (i === 1 ? 400 : 60)
+          )}px`;
+        }
+      });
       timeout = window.setTimeout(update, 100);
     };
 

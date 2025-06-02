@@ -80,11 +80,7 @@ function ExamPageContent({
   }, [videoStream, client, connected]);
 
   useEffect(() => {
-    if (!examIntentStarted) {
-      // Reset when exam intent stops, allowing notification for the next session
-      hasNotifiedScreenShareRef.current = true;
-    } else {
-      // Mark that exam has been started at least once
+    if (examIntentStarted) {
       setHasExamEverStarted(true);
     }
   }, [examIntentStarted]);
@@ -112,16 +108,6 @@ function ExamPageContent({
         <h1 className="mb-8 font-bold text-2xl text-tokyo-fg-bright text-center">
           AI Code Review
         </h1>
-
-        {/* Show loading animation when connecting */}
-        {isConnecting && (
-          <div className="mb-6">
-            <LoadingAnimation isLoading={true} />
-            <p className="text-center text-tokyo-fg-dim mt-2">
-              Connecting to AI reviewer...
-            </p>
-          </div>
-        )}
 
         <ExamWorkflow
           examId={id}

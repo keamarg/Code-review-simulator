@@ -41,59 +41,38 @@ function getLevelSpecificGuidance(level) {
 
 // Function to detect the project type and main code directory
 async function detectProjectStructure(owner, repoName) {
-  // Common source directories to check, ordered by priority
-  const potentialPaths = [
-    // Android
-    "app/src/main/java",
-    "app/src/main/kotlin",
-    // Java/Maven
-    "src/main/java",
-    "src/main/kotlin",
-    // JavaScript/Node.js
-    "src",
-    "lib",
-    // Python
-    "src",
-    "app",
-    // C#/.NET
-    "src",
-    // Go
-    "cmd",
-    "pkg",
-    "internal",
-    // PHP
-    "src",
-    "app",
-    // Ruby
-    "lib",
-    "app",
-    // React/Vue/Angular
-    "src/components",
-    "src/pages",
-    "components",
-    "pages",
-    // General fallback
-    ".",
-  ];
+  // Only check the root directory
+  // const candidatePaths = [
+  //   "app/src/main/java",
+  //   "app/src/main/kotlin",
+  //   "src/main/java",
+  //   "src/main/kotlin",
+  //   "src",
+  //   "lib",
+  //   "app",
+  //   "cmd",
+  //   "pkg",
+  //   "internal",
+  //   "components",
+  //   "pages",
+  // ];
 
-  for (const path of potentialPaths) {
-    try {
-      const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
-      const response = await fetch(apiUrl);
-      if (response.ok) {
-        const items = await response.json();
-        // Check if this directory contains code files
-        const hasCodeFiles = items.some(
-          (item) => item.type === "file" && isCodeFile(item.name)
-        );
-        if (hasCodeFiles || items.some((item) => item.type === "dir")) {
-          return path;
-        }
+  // Always check the root
+  try {
+    const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/contents/`;
+    const response = await fetch(apiUrl);
+    if (response.ok) {
+      const items = await response.json();
+      const hasCodeFiles = items.some(
+        (item) => item.type === "file" && isCodeFile(item.name)
+      );
+      if (hasCodeFiles || items.some((item) => item.type === "dir")) {
+        return ".";
       }
-    } catch (error) {
-      // Continue to next path if this one fails
-      continue;
     }
+  } catch (error) {
+    // If even the root fails, just return "." as a last resort
+    return ".";
   }
 
   // If no specific structure found, return root

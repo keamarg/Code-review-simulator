@@ -77,10 +77,8 @@ function getGithubPrompt(
   githubQuestions
 ) {
   // Use the githubExam template from prompts.json
-  // eslint-disable-next-line no-template-curly-in-string
   let prompt = prompts.mainPrompts.githubExam
     .replace("${examDurationActiveExam}", examDurationActiveExam)
-    // eslint-disable-next-line no-template-curly-in-string
     .replace(
       '${examSimulator?.title || "code review"}',
       examSimulator?.title || "code review"
@@ -88,13 +86,6 @@ function getGithubPrompt(
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
-
-  // Add screen sharing instruction from prompts.json
-  /*prompt += prompts.instructionComponents.screenSharingInstruction.replace(
-    /\\n/g,
-    "\n"
-  );
-  */
 
   // Get developer level guidance from prompts.json
   const levelGuidance = getLevelSpecificGuidance(
@@ -111,14 +102,19 @@ Additional context about the code being reviewed:
 ${
   examSimulator.description ||
   "This is a general code review focusing on the areas specified above."
-}`;
+}
+
+IMPORTANT: Here are the specific review questions generated for this repository. Please address each question one by one during the review, and make sure to reference them explicitly in your feedback:
+
+=== REVIEW QUESTIONS ===
+${githubQuestions}
+=======================
+`;
 
   // Add github-specific suffix from prompts.json
-  // eslint-disable-next-line no-template-curly-in-string
   const githubSpecificSuffix =
     prompts.instructionComponents.githubSpecificSuffix
       .replace("${githubQuestions}", githubQuestions)
-      // eslint-disable-next-line no-template-curly-in-string
       .replace("${level}", examSimulator.learning_goals || "intermediate");
 
   prompt += githubSpecificSuffix.replace(/\\n/g, "\n");

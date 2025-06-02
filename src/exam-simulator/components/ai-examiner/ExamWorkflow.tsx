@@ -68,6 +68,7 @@ export function ExamWorkflow({
   // New state for summary modal
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [reviewSummary, setReviewSummary] = useState<string>("");
+  const [githubQuestions, setGithubQuestions] = useState<string>("");
 
   const { client, connected, connect, resume, disconnect } =
     useGenAILiveContext();
@@ -224,7 +225,6 @@ export function ExamWorkflow({
       let finalPrompt = "";
       if (examSimulator.type === "Github Repo") {
         if (!repoUrl) {
-          // Maybe set an error state here to inform user to enter URL
           setIsLoadingPrompt(false);
           setExamError(
             "GitHub repository URL is required to start this exam type."
@@ -235,22 +235,20 @@ export function ExamWorkflow({
 
         console.log("🔍 Starting GitHub repo processing for:", repoUrl);
 
-        const githubQuestions = await getRepoQuestions(
+        const githubQuestionsResult = await getRepoQuestions(
           repoUrl,
           examSimulator.learning_goals
         );
+        setGithubQuestions(githubQuestionsResult);
 
-        console.log("✅ GitHub questions generated:", githubQuestions);
+        console.log("✅ GitHub questions generated:", githubQuestionsResult);
 
         finalPrompt = getPrompt.github(
           examSimulator,
           examDurationInMinutes,
-          githubQuestions
+          githubQuestionsResult
         );
 
-        console.log("✅ Final prompt created for GitHub repo");
-
-        // For GitHub, student task might be different or not applicable before starting
         setStudentTask(
           "Review the provided GitHub repository based on the learning goals."
         );
@@ -406,16 +404,25 @@ export function ExamWorkflow({
     }
   }, [isLoadingPrompt, onLoadingStateChange]);
 
-  if (isLoadingExamData) {
-    return <LoadingAnimation isLoading={true} />;
+  if (
+    !examSimulator ||
+    isLoadingExamData ||
+    (examSimulator.type === "Github Repo" && isLoadingPrompt)
+  ) {
+    return (
+      <div className="my-6">
+        <LoadingAnimation isLoading={true} />
+        <p className="text-center text-tokyo-fg-dim mt-2">
+          {examSimulator?.type === "Github Repo"
+            ? "Processing GitHub repository... This may take a moment."
+            : "Preparing code review content"}
+        </p>
+      </div>
+    );
   }
 
   if (examError) {
     return <div className="text-red-500">Error: {examError}</div>;
-  }
-
-  if (!examSimulator) {
-    return <div>Exam not found or finished loading.</div>;
   }
 
   return (
@@ -433,7 +440,6 @@ export function ExamWorkflow({
 
       {examSimulator.type === "Github Repo" && (
         <div className="my-6">
-          {" "}
           {/* Added margin for spacing */}
           <label htmlFor="github-repo-url" className="block mb-2 text-tokyo-fg">
             GitHub Repository URL:
@@ -447,14 +453,6 @@ export function ExamWorkflow({
             className="border p-2 rounded w-full bg-tokyo-base border-tokyo-selection text-tokyo-fg"
             disabled={examIntentStarted || isLoadingPrompt}
           />
-          {examIntentStarted && isLoadingPrompt && repoUrl && (
-            <div className="mt-4">
-              <LoadingAnimation isLoading={true} />
-              <p className="text-center text-tokyo-fg-dim mt-2">
-                Processing GitHub repository... This may take a moment.
-              </p>
-            </div>
-          )}
           {examIntentStarted && !repoUrl && (
             <div className="mt-2 text-tokyo-orange">
               Please enter a GitHub repository URL above.
@@ -471,18 +469,14 @@ export function ExamWorkflow({
         />
       )}
 
-      {/* General loading indicator for when examIntentStarted but prompt isn't ready yet (mostly for standard) */}
-      {/* For GitHub, specific loading is shown near the input field */}
-      {examIntentStarted &&
-        isLoadingPrompt &&
-        examSimulator.type !== "Github Repo" && (
-          <LoadingAnimation isLoading={true} />
-        )}
-
       {/* Code Review Summary Modal */}
       <CodeReviewSummaryModal
         isOpen={showSummaryModal}
-        summary={reviewSummary}
+        summary={
+          examSimulator?.type === "Github Repo" && githubQuestions
+            ? `=== REVIEW FOCUS AREAS ===\n${githubQuestions}\n========================\n\n${reviewSummary}`
+            : reviewSummary
+        }
         onClose={() => {
           setShowSummaryModal(false);
           clearConversation(); // Clear the conversation history
