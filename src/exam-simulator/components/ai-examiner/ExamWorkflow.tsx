@@ -70,6 +70,9 @@ export function ExamWorkflow({
   const [reviewSummary, setReviewSummary] = useState<string>("");
   const [githubQuestions, setGithubQuestions] = useState<string>("");
 
+  // Connection guard to prevent duplicate connections
+  const isConnectingRef = useRef<boolean>(false);
+
   const { client, connected, connect, resume, disconnect } =
     useGenAILiveContext();
 
@@ -174,6 +177,9 @@ export function ExamWorkflow({
         timerCleanupRef.current();
         timerCleanupRef.current = null;
       }
+
+      // Reset connection guard
+      isConnectingRef.current = false;
 
       // Terminate any active session
       if (client) {
@@ -311,9 +317,6 @@ export function ExamWorkflow({
       }
     } else if (!examIntentStarted && connected) {
       // Clean up timers when exam intent stops
-      console.log(
-        "🧹 Exam intent stopped - cleaning up timers and disconnecting"
-      );
       if (timerCleanupRef.current) {
         timerCleanupRef.current();
       }
@@ -325,10 +328,9 @@ export function ExamWorkflow({
     examSimulator,
     repoUrl,
     prompt,
-    setLiveConfig,
-    prepareExamContent,
     connected,
     client,
+    prepareExamContent,
   ]);
 
   // Effect to connect and start timers when config is set and intent is active
@@ -336,12 +338,17 @@ export function ExamWorkflow({
     if (
       examIntentStarted &&
       liveConfig?.systemInstruction?.parts?.[0]?.text &&
-      !connected
+      !connected &&
+      !isConnectingRef.current
     ) {
-      console.log("🔗 Starting code review session...");
+      isConnectingRef.current = true;
 
-      const connectionMethod = hasEverConnected ? resume : connect;
-      const isInitialConnection = !hasEverConnected; // Store this before it changes
+      // Only use resume if we have a valid session handle and have connected before
+      const shouldResume = hasEverConnected && client?.canResume();
+      const connectionMethod = shouldResume ? resume : connect;
+      const isInitialConnection = !hasEverConnected;
+
+      console.log(`🔗 Starting ${shouldResume ? "resume" : "new"} session...`);
 
       connectionMethod(getCurrentModel(), liveConfig)
         .then(() => {
@@ -370,31 +377,34 @@ export function ExamWorkflow({
 
           // Update hasEverConnected AFTER timer setup
           setHasEverConnected(true);
+          isConnectingRef.current = false;
         })
         .catch((error) => {
           console.error(`❌ Failed to start session:`, error);
           setExamError("Failed to connect to the exam server.");
+          isConnectingRef.current = false;
+
+          // Reset hasEverConnected on connection failure to force fresh start
+          setHasEverConnected(false);
         });
     } else if (!examIntentStarted && connected) {
       // Clean up when exam intent stops
-      console.log(
-        "🧹 Exam intent stopped - cleaning up timers and disconnecting"
-      );
       if (timerCleanupRef.current) {
         timerCleanupRef.current();
       }
       client.disconnect();
       setExamStarted(false);
+      isConnectingRef.current = false;
     }
   }, [
-    liveConfig,
+    examIntentStarted,
+    liveConfig?.systemInstruction?.parts?.[0]?.text,
+    connected,
+    hasEverConnected,
     connect,
     resume,
     client,
     examDurationActiveExamMs,
-    connected,
-    examIntentStarted,
-    hasEverConnected,
   ]);
 
   // Notify parent of loading state changes

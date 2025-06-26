@@ -72,11 +72,12 @@ export function useConversationTracker(
       });
     };
 
-    // Handle transcript reception with simple buffering
+    // Handle transcript reception with simple buffering (like summary screen)
     const handleTranscript = (text: string) => {
       if (!text || typeof text !== "string") return;
 
-      // Simple concatenation - just add text to buffer
+      // Simple concatenation - Gemini Live API already provides perfect transcription
+      // No need to reconstruct word boundaries since the API handles this flawlessly
       transcriptBufferRef.current += text;
 
       // Clear existing timeout
@@ -162,34 +163,11 @@ export function useConversationTracker(
       (e) => e.type === "ai_transcript"
     );
 
-    // Clean up and join transcripts with enhanced cleaning
+    // Clean up and join transcripts with simple concatenation (like summary screen)
     const cleanTranscripts = transcriptEntries
       .map((e) => e.content)
       .filter((text): text is string => Boolean(text))
-      .map((text) => {
-        // Enhanced cleaning for fragmented text
-        return text
-          .replace(/\s+/g, " ") // Replace multiple spaces with single space
-          .replace(/\s+([.!?,:;])/g, "$1") // Remove space before punctuation
-          .replace(/([.!?])\s*([a-z])/g, "$1 $2") // Ensure space after sentence endings
-          .replace(/([a-z])\s+([A-Z])/g, "$1. $2") // Add periods between sentences if missing
-          .replace(/\s*,\s*/g, ", ") // Fix comma spacing
-          .replace(/\s*;\s*/g, "; ") // Fix semicolon spacing
-          .replace(/\s*:\s*/g, ": ") // Fix colon spacing
-          .replace(/\.\s*\./g, ".") // Remove duplicate periods
-          .replace(
-            /([a-z])\s+([a-z])\s+([a-z])\s+([a-z])/g,
-            (match, ...groups) => {
-              // Try to fix fragmented words like "l o o k i n g" -> "looking"
-              const chars = groups.slice(0, 4);
-              if (chars.every((char) => char.length === 1)) {
-                return chars.join("");
-              }
-              return match;
-            }
-          )
-          .trim();
-      })
+      .map((text) => text.trim())
       .filter((text) => text.length > 0); // Remove empty strings after cleaning
 
     const allTranscripts = cleanTranscripts.join(" ");

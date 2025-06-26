@@ -107,6 +107,11 @@ function ExamPageContent({
     }
   }, [examIntentStarted, connected]);
 
+  // Monitor examIntentStarted state changes for debugging
+  useEffect(() => {
+    // Removed excessive logging to prevent button blinking
+  }, [examIntentStarted, videoStream, forceStopAudio, forceStopVideo]);
+
   return (
     <div className="streaming-console max-w-2xl mx-auto flex flex-col">
       <div className="pt-10 pr-10 pl-10 mb-10 flex justify-center flex-col">

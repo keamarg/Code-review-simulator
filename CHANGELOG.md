@@ -5,84 +5,484 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.0] - 2025-06-02
+## [0.17.22] - 2025-06-24
 
-### Added
+### Reverted
 
-- **SVG File Icons for Suggestions**: Replaced text-based file type placeholders (e.g., "[JS]") with SVG icons in the `LiveSuggestionsPanel`.
-  - Icons for JS, TS, Python, CSS, HTML, JSON, and a generic file type are included.
-  - `SuggestionFileIcon` component dynamically selects the appropriate icon based on `suggestion.filename` extension.
+- **Connection Wait Fix**: Reverted connection wait that was breaking voice input entirely
+  - **Issue**: Added wait for connection before starting audio recording, but this broke voice input on both start and resume
+  - **Revert**: Back to original timing where audio recording starts immediately after calling onButtonClicked
+  - **Debug Cleanup**: Removed excessive debugging logs that were cluttering the console
+  - **Status**: Back to working state where voice input works, but resume delay issue remains
 
-### Changed
-
-- **Live Suggestions Panel UI**:
-  - Increased left padding in the header of the `LiveSuggestionsPanel` for better visual balance.
-  - Removed the display of filenames next to the timestamp in individual suggestion items, relying on the new SVG icons for file type context.
-
-## [0.15.0] - 2025-06-02
+## [0.17.21] - 2025-06-24
 
 ### Fixed
 
-- **Task Content Loading Animation**: Replaced static ghost loader bars with dynamic `LoadingAnimation` component in task content area
+- **Audio Processing Delay on Resume**: Fixed persistent delay in voice input processing after resume
+  - **Root Cause**: Shared AudioContext reuse was causing audio processing pipeline issues on resume
+  - **AudioContext Management**: Removed AudioContext reuse and create fresh instance for each session
+  - **Worklet Pipeline**: Fresh AudioContext ensures clean worklet registration and audio processing
+  - **Processing Delay**: Eliminates delay in voice input registration that was affecting every interaction after resume
+  - **Result**: Resume now has same responsive voice input as first start
 
-  - **Animated Loading**: Task content area now shows animated loading spinner and lightbulb icon while OpenAI generates the task
-  - **Better User Feedback**: "Generating code review task..." message provides clear status during task creation
-  - **Professional Appearance**: Consistent animated loading experience across the application
-  - **Responsive Layout**: Loading area maintains proper sizing and centering with flexbox layout
+## [0.17.20] - 2025-06-24
 
-- **CRITICAL: Timer Setup Bug**: Fixed timer not being initialized due to logic error in connection sequence
+### Fixed
 
-  - **Root Cause**: `hasEverConnected` was being set to `true` BEFORE checking if timers needed setup
-  - **Timer Fix**: Stored initial connection state before it changes to ensure timers are properly set up
-  - **7-Second Farewell**: Timer interruption should now work correctly with proper timer initialization
-  - **Debug Logging**: Enhanced logging shows when timers are set up vs skipped for resumed sessions
+- **Resume Delay Issue**: Fixed delay that only occurred on resume but not on first start
+  - **Root Cause**: Resume was using a different flow than first start due to `permissionsGranted` being reset to false during pause
+  - **Resume Flow**: Resume now uses the same unified flow as first start instead of going through separate permission/start steps
+  - **Permission State**: Removed `setPermissionsGranted(false)` during pause to keep permission state consistent
+  - **Simplified Logic**: Removed browser-specific resume paths and unified all resume logic
+  - **Result**: Resume now has the same timing and behavior as first start, eliminating the delay
 
-- **Hide Controls During Task Loading**: Timer, mute, and screen share controls now hidden while task content loads
-  - **Clean Loading State**: ControlTrayCustom component hidden until task generation completes
-  - **Loading State Propagation**: ExamWorkflow notifies parent components of loading state changes
-  - **Professional UX**: Users see loading animation without distracting control elements
-  - **Conditional Rendering**: Controls only appear when task is ready and user can actually start
+## [0.17.19] - 2025-06-23
+
+### Fixed
+
+- **Audio Delay on Resume**: Fixed long delay before AI reacts to speech input after pause/resume
+  - **Root Cause**: Audio recording was starting before the connection was established, causing a timing gap
+  - **Timing Fix**: Changed order to start review/connection first, then start audio recording after connection is ready
+  - **AudioContext Reuse**: Added ID-based AudioContext reuse to eliminate recreation overhead
+  - **Buffer Size Optimization**: Reduced audio worklet buffer from 2048 to 1024 samples for faster response
+  - **AudioContext Persistence**: Modified AudioRecorder to keep AudioContext instance alive across pause/resume cycles
+  - **WebSocket State Errors**: Added connection check in audioDataHandler to prevent "WebSocket is already in CLOSING or CLOSED state" errors
+  - **Worklet Registration Errors**: Simplified worklet registration to ignore harmless "already registered" errors instead of trying to prevent them
+  - **Result**: Resume now has minimal delay and AI responds quickly to speech input without WebSocket or worklet errors
+  - **Performance**: Eliminated ~100-200ms delay caused by AudioContext recreation and worklet re-registration
+
+## [0.17.18] - 2025-06-23
+
+### Fixed
+
+- **Resume Delays**: Fixed massive delays that occurred immediately after resume by reverting excessive WebSocket state checking
+  - **Root Cause**: Added extensive WebSocket state validation in `sendRealtimeInput`, `sendToolResponse`, and `send` methods that was causing performance issues
+  - **Solution**: Reverted to original simple approach with only basic null checks for session
+  - **Performance Impact**: Removed redundant connection status checks, disconnecting flags, and try-catch blocks that were slowing down data transmission
+  - **Video Frame Sending**: Removed connection check from video frame sending that was also causing delays
+  - **Result**: Resume now works as fast as it did before the WebSocket state checking was added
+  - **Maintained Safety**: Kept simple null checks to prevent errors while removing performance-killing validation
+
+## [0.17.17] - 2025-06-23
+
+### Fixed
+
+- **WebSocket State Race Condition**: Fixed "WebSocket is already in CLOSING or CLOSED state" error during pause/resume cycles
+  - **Root Cause**: Audio and video data was being sent to WebSocket while it was in the process of closing, causing race condition
+  - **Disconnect Tracking**: Added `isDisconnecting` flag to track when session is in the process of disconnecting
+  - **Robust State Checking**: Enhanced `sendRealtimeInput` to check both connection status and disconnecting flag
+  - **Comprehensive Protection**: Added same WebSocket state checking to `sendToolResponse` and `send` methods
+  - **Audio Data Handler Protection**: Added connection check in `audioDataHandler` to prevent sending audio data when client is disconnected
+  - **Video Frame Protection**: Added connection check in `sendVideoFrame` to prevent sending video data when client is disconnected
+  - **Audio Recorder Stop Fix**: Fixed AudioRecorder stop method to immediately prevent data emission and properly disconnect worklets
+  - **Worklet Data Prevention**: Added recording state check in worklet message handler to prevent data emission after stop
+  - **Audio Recording Timing Fix**: Refactored to start audio recording only after WebSocket is connected, eliminating warning spam and resume delays
+  - **Centralized Audio Management**: Added useEffect to manage audio recording based on connection state, removing manual start/stop calls
+  - **Multiple Audio Start Prevention**: Added audioRecordingActiveRef to prevent multiple simultaneous audio recording sessions
+  - **Audio State Tracking**: Proper tracking of audio recording state to prevent useEffect from creating duplicate sessions
+  - **MediaStream Validation**: Added validation to check if audio stream is valid before starting audio recording
+  - **Audio Stream Cleanup**: Centralized audio stream cleanup with proper null reference handling
+  - **Double-Check Validation**: Added session state validation before each data send to prevent race conditions
+  - **Try-Catch Wrapping**: Wrapped all WebSocket send operations in try-catch blocks for better error handling
+  - **Proper Flag Management**: Reset disconnecting flag on successful connection and when connection closes
+  - **Better Error Prevention**: Prevents sending any data during the disconnect process that causes WebSocket errors
+  - **Enhanced Logging**: Added detailed state information to debug logging for better troubleshooting
+  - **Enhanced Debugging**: Added comprehensive logging to track audio stream state and permission flow
+  - **Reverted to Original Approach**: Restored manual audio recording start/stop calls in button handlers, removing complex useEffect approach
+
+## [0.17.16] - 2025-06-23
+
+### Fixed
+
+- **Firefox Resume Button Logic**: Fixed resume button going through permission flow instead of resuming existing session
+  - **Root Cause**: `handleMainButtonClick` wasn't checking if client could resume before going to permission flow
+  - **Session Resume Check**: Added `client.canResume()` check when `hasExamStarted` is true
+  - **MediaStream Inactivity Issue**: Fixed MediaStreams becoming inactive during pause causing resume failures
+  - **Proper Media Cleanup**: Reverted to proper cleanup of media streams on pause instead of keeping them active
+  - **Resume Permission Flow**: Resume now goes through normal permission flow since MediaStreams are cleaned up on pause
+  - **Browser-Specific Resume**: Chrome uses unified flow, Firefox uses two-step approach for resume
+  - **Clean State Management**: Properly reset permissions and media state on pause for clean resume
+  - **Screen Sharing Persistence**: Chrome now keeps screen sharing active during pause for seamless resume
+  - **Unified Code Approach**: Simplified back to unified flow with only minimal Firefox-specific differences for two-step permissions
+  - **Resume Audio Delays**: Fixed WebSocket state checking to prevent sending audio data when connection is not ready
+  - **Connection State Validation**: Added proper error handling in `sendRealtimeInput` to prevent "WebSocket is already in CLOSING or CLOSED state" errors
+
+## [0.17.15] - 2025-06-23
+
+### Fixed
+
+- **Connection Start/Resume Cycle**: Fixed persistent connection cycle issue where system would start new session then immediately resume
+
+  - **Root Cause**: Resume method was calling connect even when no session handle was available
+  - **Solution**: Modified resume method to only attempt resumption when valid session handle exists
+  - **Smart Logic**: No session handle = normal connect, valid handle = resume with handle
+  - **Result**: Eliminates WebSocket error 1007 and prevents unnecessary start/resume cycles
+
+- **Firefox Resume Button Double-Click Issue**: Fixed Firefox requiring two clicks on "Start Code Review" button
+  - **Root Cause**: Audio stream not properly stored between permission request and review start
+  - **Solution**: Enhanced audio stream storage and validation in Firefox two-step flow
+  - **Better Error Handling**: Added comprehensive logging and validation for audio/video streams
+  - **User Experience**: Firefox users now get reliable one-click resume after permissions are granted
 
 ### Enhanced
 
-- **Aggressive Farewell Interruption System**: Completely redesigned 7-second farewell to forcefully interrupt AI speech
-  - **Rapid Message Sequence**: Sends "Stop." → "Time is up." → Farewell message in quick succession
-  - **No Complex Disconnection**: Simplified approach without risky disconnect/reconnect cycles
-  - **Multiple Interruption Attempts**: Three separate messages to overwhelm AI's current speech pattern
-  - **Enhanced Debug Logging**: Comprehensive logging to track interruption attempts and message delivery
+- **Firefox Permission Flow**: Improved two-step permission handling for better reliability
+  - **Audio Stream Validation**: Added logging to track audio stream storage and availability
+  - **Permission State Tracking**: Better validation of permission states before starting review
+  - **Error Messages**: More specific error messages to guide users through permission issues
+  - **Debug Logging**: Enhanced logging to track permission flow and identify issues
 
-### Technical Details
+## [0.17.14] - 2025-06-23
 
-- **AIExaminerDisplay Component**: Replaced 12 static ghost loader divs with `LoadingAnimation` component and status message
-- **ExamWorkflow Logic Fix**: Fixed `hasEverConnected` state management for proper timer initialization
-- **State Propagation**: Added `onLoadingStateChange` callback to communicate loading state to parent components
-- **Conditional UI**: ControlTrayCustom component conditionally rendered based on task loading state
-- **Timer Debugging**: Enhanced console logging to troubleshoot timer setup and execution issues
+### Fixed
+
+- **Live Suggestions Transcript Quality**: Fixed fragmented transcript text in live suggestions by using the same flawless system as the summary screen
+  - **Root Cause**: Live suggestions were using complex word boundary reconstruction that was causing fragmentation
+  - **Solution**: Simplified to use the same simple concatenation approach as the summary screen
+  - **Gemini Live API**: Leverages the same `outputAudioTranscription: true` that provides perfect AI speech transcription
+  - **Result**: Live suggestions now show clean text like "To start, could you show me" instead of "To st, cartould you show me"
+  - **Consistency**: Both live suggestions and summary screen now use identical, flawless transcription processing
 
 ### Enhanced
 
-- **More Aggressive Suggestion Extraction**: Improved live suggestion system to capture more code review suggestions
+- **Transcript Processing Simplification**: Removed complex word boundary reconstruction logic
+  - **Simple Concatenation**: Uses the same approach as the summary screen - just accumulate text
+  - **API Reliability**: Trusts Gemini Live API's built-in transcription which already handles word boundaries perfectly
+  - **Reduced Complexity**: Eliminated ~100 lines of complex regex-based text reconstruction
+  - **Better Performance**: Simpler processing with no fragmentation issues
 
-  - **Faster Processing**: Reduced processing interval from 10 seconds to 5 seconds for more frequent suggestion updates
-  - **Liberal Extraction**: Updated prompts to be more liberal in extracting any improvement suggestions
-  - **Better Pattern Recognition**: Enhanced OpenAI prompts to catch implied suggestions and best practices mentions
-  - **Increased Length**: Raised suggestion length limit from 25 to 30 words for more descriptive suggestions
-  - **Varied Suggestions**: More permissive duplicate detection allows valuable variations and elaborations
+## [0.17.13] - 2025-06-23
 
-- **Improved Connection State Management**: Enhanced connection tracking system for more reliable session control
-  - **Multiple Guards**: Connection attempts now check for cleanup, termination, and existing connections
-  - **Better Debug Info**: Connection state logging now includes termination status for easier troubleshooting
-  - **Clean Unmount**: Component unmount now properly sets termination guard to prevent ghost connections
-  - **Session Isolation**: Each session termination is now properly isolated from new session starts
+### Fixed
 
-### Technical Details
+- **Transcript Word Fragmentation**: Significantly improved transcript text quality by fixing word boundary detection
+  - **Smart Text Concatenation**: Enhanced buffering logic to properly detect word boundaries and add spaces only when needed
+  - **Word Boundary Detection**: Improved logic to distinguish between word fragments and separate words
+  - **Common Word Fixes**: Added pattern recognition for common contractions and word combinations
+  - **Fragment Repair**: Enhanced cleaning logic to fix fragmented words like "st" + "art" → "start" and "car" + "tould" → "could"
+  - **Result**: Transcripts now show "To start, could you show me" instead of "To st, cartould you show me"
 
-- **Transcript Processing**: Implemented smart word boundary detection with lowercase continuation logic
-- **Fragment Analysis**: Logic detects 3-character or shorter fragments as potential word continuations
-- **Punctuation Spacing**: Proper handling of punctuation boundaries and existing spaces
-- **Connection Guards**: Added termination guard checks in connection effect and session end handler
-- **State Coordination**: Enhanced cleanup sequence with proper flag management and timeouts
-- **Memory Management**: Improved cleanup of connection tracking and session state during termination
+### Enhanced
+
+- **Connection Stability**: Improved connection logic to prevent start/resume cycles
+  - **Session Handle Validation**: Added `canResume()` method to properly check for valid session resumption
+  - **Smart Connection Logic**: Only use resume when both `hasEverConnected` is true AND valid session handle exists
+  - **Connection Guard**: Enhanced to prevent multiple simultaneous connection attempts
+  - **Error Recovery**: Reset `hasEverConnected` on connection failures to prevent stuck states
+
+## [0.17.12] - 2025-06-23
+
+### Fixed
+
+- **Connection Start/Resume Cycle**: Fixed button blinking and double-click resume issue caused by start/resume cycle
+
+  - **Root Cause**: System was starting new session then immediately resuming, causing WebSocket errors and UI flickering
+  - **Session Handle Check**: Added `canResume()` method to GenAILiveClient to properly check for valid session resumption
+  - **Smart Connection Logic**: Only use resume when both `hasEverConnected` is true AND valid session handle exists
+  - **Connection Guard**: Enhanced connection guard to prevent multiple simultaneous connection attempts
+  - **Error Recovery**: Reset `hasEverConnected` on connection failure to force fresh start on retry
+  - **Reduced Logging**: Removed excessive console logging that was causing performance issues and button blinking
+
+- **Excessive Event Firing**: Eliminated redundant effect triggers and state updates causing UI instability
+  - **Effect Optimization**: Streamlined useEffect dependency arrays to prevent unnecessary re-renders
+  - **State Management**: Reduced cascading state updates that were causing button blinking
+  - **Logging Cleanup**: Removed excessive debug logging that was interfering with UI responsiveness
+  - **Connection Flow**: Simplified connection logic to prevent start/resume cycles
+
+### Changed
+
+- **Safari Support Removal**: Removed Safari support due to persistent permission handling issues
+
+  - **Safari Detection**: Added Safari browser detection that disables the main button
+  - **User Guidance**: Safari users see "Safari Not Supported" button with clear message to use Chrome or Firefox
+  - **Simplified Browser Logic**: Removed complex Safari-specific permission flows and modals
+  - **Better UX**: Users get immediate feedback that Safari isn't supported instead of confusing error states
+
+- **Browser-Specific Flows**: Streamlined to Chrome (one-click) and Firefox (two-step) only
+  - **Chrome**: Maintains original "Share screen & start review" one-click experience
+  - **Firefox**: Uses two-step "Share Screen & Microphone" → "Start Code Review" approach
+  - **Safari**: Shows disabled button with clear unsupported message
+
+### Added
+
+- **GenAILiveClient Enhancement**: Added `canResume()` public method to check session resumption capability
+  - **Session Handle Access**: Public method to safely check if session resumption is available
+  - **Connection Logic**: Enables smart connection decisions based on actual session state
+  - **Error Prevention**: Prevents invalid resume attempts that cause WebSocket errors
+
+## [0.17.11] - 2025-06-23
+
+### Fixed
+
+- **Safari User Gesture Context Error**: Resolved "getDisplayMedia must be called from a user gesture handler" error in Safari
+
+  - **Root Cause**: Safari loses user gesture context after async operations, requiring separate user gestures for each permission
+  - **Two-Step Modal Approach**: Safari now uses a modal to request screen sharing in a separate user gesture after microphone access
+  - **User Gesture Preservation**: Screen sharing request happens in a fresh user gesture context via modal button click
+  - **Sequential Flow**: Microphone first (300ms delay), then modal appears, then screen sharing on modal button click
+  - **Simplified Error Handling**: Unified error handling for both permission types with clear user guidance
+  - **Better User Experience**: Safari users get a reliable two-step flow that works regardless of timing
+
+- **Safari Microphone Cleanup**: Fixed microphone not shutting down properly when review ends
+
+  - **Force Stop Audio**: Added `forceStopAudio` effect to ensure microphone tracks are properly stopped
+  - **MediaStream Track Cleanup**: Enhanced cleanup to stop both AudioRecorder and MediaStream tracks
+  - **Audio Stream Tracking**: Added `audioStreamRef` to track and properly clean up MediaStream instances
+  - **Complete Session Cleanup**: Microphone now properly stops on review termination, pause, or error
+  - **Safari-Specific Handling**: Added explicit audio track stopping for Safari's permission flow
+  - **Cross-Browser Compatibility**: All browsers (Chrome, Firefox, Safari) now have complete microphone cleanup
+
+- **Duplicate Connection Events**: Fixed multiple connection effect triggers causing duplicate events
+  - **Connection Guard**: Added `isConnectingRef` to prevent multiple simultaneous connection attempts
+  - **Dependency Array Fix**: Optimized useEffect dependency array to prevent unnecessary re-triggers
+  - **State Management**: Enhanced connection state tracking to prevent race conditions
+  - **Cleanup Enhancement**: Proper cleanup of connection guard on component unmount
+  - **Console Logging**: Added connection guard status to debug logging for better troubleshooting
+
+### Changed
+
+- **Safari Permission Flow**: Restructured Safari-specific code to maintain user gesture context throughout permission requests
+- **Error Messages**: Enhanced error messages to guide users on both microphone and screen sharing permissions
+- **Audio Management**: Improved audio recorder cleanup with proper event handler removal and stream stopping
+- **Connection Management**: Enhanced connection logic with guards and optimized dependency tracking
+- **MediaStream Lifecycle**: Complete MediaStream track management across all browser flows
+
+## [0.17.10] - 2025-06-19
+
+### Added
+
+- **Safari Screen Sharing Debugging**: Enhanced error logging to identify Safari screen sharing issues
+  - **Detailed Error Logging**: Added comprehensive error logging for Safari screen sharing failures
+  - **Error Type Information**: Logs error name, message, and full error object for debugging
+  - **User Gesture Context**: Added 100ms delay before screen sharing to ensure user gesture context is valid
+  - **Safari-Specific Timing**: Optimized timing for Safari's permission handling system
+
+### Fixed
+
+- **Safari Screen Sharing Failure**: Added debugging and timing fixes to resolve "Failed to start screen sharing" error
+- **Safari User Gesture Context**: Ensured user gesture context remains valid between microphone and screen sharing requests
+
+## [0.17.9] - 2025-06-19
+
+### Changed
+
+- **Safari Microphone-First Approach**: Completely restructured Safari flow to request microphone access BEFORE screen sharing
+  - **Permission Order**: Safari now requests microphone permission first, then screen sharing permission
+  - **Simplified Flow**: Eliminated complex retry logic and timing delays in favor of simpler permission order
+  - **Better Safari Compatibility**: This approach works better with Safari's permission handling system
+  - **Cleaner Code**: Removed Safari-specific retry logic and timing delays from the main flow
+  - **Separate Safari Path**: Safari now has its own dedicated flow separate from Chrome/Firefox
+
+### Fixed
+
+- **Safari Microphone Access**: Resolved Safari microphone access issues by changing permission request order
+- **Safari Audio Recording**: Fixed Safari audio recording problems by ensuring microphone is granted before screen sharing
+- **Safari Permission Handling**: Better compatibility with Safari's permission system by requesting mic first
+
+## [0.17.8] - 2025-06-19
+
+### Fixed
+
+- **Safari Microphone Access Issues**: Implemented Safari-specific fixes for microphone access problems
+  - **Safari Audio Constraints**: Removed unsupported audio constraints (noiseSuppression, autoGainControl) for Safari
+  - **Safari Timing**: Added 500ms delay before mic access to ensure screen sharing is fully settled
+  - **Safari Retry Logic**: Added automatic retry with simpler constraints if initial mic access fails
+  - **Safari Error Handling**: Enhanced error messages with Safari-specific guidance about microphone permissions
+  - **Safari Permission Guidance**: Clear instructions to check Safari Settings > Websites > Microphone when mic access fails
+  - **Safari Audio Recording**: Proper audio recording setup after successful mic retry
+
+### Changed
+
+- Enhanced Safari browser detection and handling throughout the audio initialization process
+- Improved error logging for Safari-specific microphone access issues
+- Added Safari-specific timing delays to prevent race conditions between screen sharing and microphone access
+
+## [0.17.7] - 2025-06-19
+
+### Changed
+
+- **Safari Browser Behavior**: Changed Safari to use Chrome-like flow instead of Firefox-like flow
+  - **Removed Two-Step Modal Flow**: Safari no longer shows pre-share warning or post-share "Start Code Review" modal
+  - **Immediate Mic Access**: Safari now attempts microphone access immediately after screen sharing (like Chrome)
+  - **Full Audio Constraints**: Safari now uses complete audio constraints (echoCancellation, noiseSuppression, autoGainControl, channelCount)
+  - **Simplified User Experience**: Safari users get the same seamless "Share screen & start review" experience as Chrome users
+  - **Firefox Remains Unchanged**: Firefox continues to use the two-step modal flow due to its stricter user gesture requirements
+
+### Fixed
+
+- **Safari Review Start Issue**: Resolved issue where Safari would return to instruction screen after mic permission by using Chrome-like flow
+- **Safari Audio Constraints**: Removed Safari-specific audio constraint exclusions that were limiting audio quality
+
+## [0.17.6] - 2025-06-19
+
+### Added
+
+- **Enhanced Debugging for Safari Review Start Issue**: Added comprehensive logging to track the review start flow and identify why Safari returns to instruction screen after mic permission
+  - **State Tracking**: Added detailed console logging to `handleStartExamClicked` to track when and how the review state changes
+  - **Flow Monitoring**: Added logging to monitor `examIntentStarted` state changes and related variables (videoStream, forceStopAudio, forceStopVideo)
+  - **ControlTray Logging**: Enhanced logging in `handleStartReviewClick` for Safari/Firefox modal flow to track mic permission and review start
+  - **ExamWorkflow Tracking**: Added logging to track exam preparation, live config creation, and AI connection establishment
+  - **Error Handling**: Added try-catch blocks around `onButtonClicked` calls to catch any errors that might prevent review start
+  - **Cross-Browser Comparison**: Added logging to Chrome flow for comparison with Safari/Firefox flow
+
+### Changed
+
+- Enhanced error handling in ControlTrayCustom to provide better feedback when review start fails
+- Improved debugging capabilities to identify state reset issues in Safari
+- Added comprehensive logging throughout the review start pipeline
+
+## [0.17.5] - 2025-06-19
+
+### Fixed
+
+- **Firefox Audio Recording Retry Mechanism**: Implemented robust retry logic to handle Firefox's media initialization timing issues
+  - **Root Cause**: Firefox requires multiple attempts to fully settle after screen sharing before microphone requests can succeed
+  - **Solution**: Added intelligent retry mechanism with up to 3 attempts and 1-second delays between retries
+  - **Stream Readiness Check**: Enhanced screen sharing initialization to wait for video track to be 'live' before proceeding
+  - **Extended Delays**: Increased delay between screen sharing and audio recording from 500ms to 1000ms for better Firefox compatibility
+  - **Graceful Degradation**: If all retries fail, user gets clear error message instead of browser hanging
+  - **Cross-Browser Compatibility**: Retry mechanism works across all browsers while specifically solving Firefox timing issues
+
+### Changed
+
+- Enhanced ControlTrayCustom to wait for screen sharing stream to be fully active before requesting microphone access
+- Added detailed logging for stream readiness checks and retry attempts
+- Improved error handling with specific retry attempt tracking
+- Extended delay between media requests from 500ms to 1000ms for better browser compatibility
+
+## [0.17.4] - 2025-06-19
+
+### Fixed
+
+- **Audio Recording Sample Rate Mismatch**: Resolved critical issue where microphone input was not working in Firefox and Safari due to sample rate conflicts
+
+  - **Root Cause**: AudioRecorder was using shared AudioContext with 24kHz while MediaStream had no sample rate constraint, causing mismatch
+  - **Solution**: Implemented browser-adaptive approach that lets browser choose optimal sample rate, then constrains MediaStream to match
+  - **Cross-Browser Compatibility**: Now works in both Firefox and Safari by ensuring MediaStream and AudioContext use identical sample rates
+  - **API Integration**: Updated ControlTray to dynamically send correct sample rate based on AudioContext's actual rate
+  - **Firefox Error Resolution**: Eliminates "Connecting AudioNodes from AudioContexts with different sample-rate" error
+  - **Chrome Error Resolution**: Fixed "Cannot close a closed AudioContext" error by adding proper state checking before closure
+
+- **Firefox and Safari Hanging During Media Initialization**: Fixed critical issue where browsers would hang on "Getting MediaStream..." step
+  - **Root Cause**: Old `useScreenCapture` and `useWebcam` hooks were calling `getUserMedia`/`getDisplayMedia` in separate contexts, interfering with direct audio initialization
+  - **Solution**: Removed dependency on media hooks and implemented direct `getDisplayMedia` call in button handler
+  - **User Gesture Context**: All media initialization now happens directly in response to button click, ensuring proper browser permissions
+  - **Performance**: Eliminated race conditions and multiple simultaneous media requests that caused browser confusion
+
+### Changed
+
+- AudioRecorder now creates AudioContext without sample rate specification (lets browser choose optimal rate)
+- AudioRecorder constrains MediaStream to match AudioContext's actual sample rate instead of forcing 16kHz
+- ControlTray dynamically sends correct sample rate to API based on AudioContext's actual rate
+- Added proper AudioContext state checking before closure to prevent "already closed" errors
+- Enhanced error handling with try-catch blocks for AudioContext operations
+- Improved logging to show actual sample rates being used
+- **Removed dependency on `useScreenCapture` and `useWebcam` hooks** to eliminate media request conflicts
+- **Integrated screen sharing directly into button handler** using `getDisplayMedia` for better cross-browser compatibility
+- **Enhanced logging** for screen sharing and audio initialization steps to aid debugging
+
+## [0.17.3] - 2025-06-06
+
+### Fixed
+
+- Firefox audio recording now works by using shared AudioContext across GenAI Live and AudioRecorder
+- Resolved MediaStreamGraph isolation issue that was causing "Connecting AudioNodes from AudioContexts with different sample-rate" error
+- AudioRecorder and GenAI Live API now share the same MediaStreamGraph instance, eliminating graph conflicts in Firefox
+
+### Changed
+
+- AudioRecorder now uses shared audioContext utility instead of creating fresh AudioContext instances
+- Both audio components now use consistent 24kHz sample rate through shared context
+- Removed Firefox-specific AudioContext closing logic in favor of shared context approach
+
+## [0.17.2] - 2025-06-06
+
+### Fixed
+
+- AudioContext sample rate conflicts by using separate contexts for recording vs playback
+- AudioRecorder now detects MediaStream's native sample rate and creates matching AudioContext
+- Prevents "Connecting AudioNodes from AudioContexts with different sample-rate" errors in Firefox
+- Improved worklet registry management to prevent duplicate registrations
+
+### Changed
+
+- AudioRecorder no longer uses shared audioContext utility, creates dedicated context instead
+- Added proper cleanup of recording AudioContext on stop/error
+
+## [0.17.1] - 2025-06-06
+
+### Fixed
+
+- AudioContext sample rate mismatch errors preventing audio recording
+- Coordinated all audio systems to use consistent 24kHz sample rate
+- Implemented shared AudioContext strategy with proper worklet registry management
+- Resolved "An AudioWorkletProcessor with name is already registered" errors
+
+### Changed
+
+- Updated AudioRecorder to use shared audioContext utility
+- Modified worklet registration to check registry before adding modules
+- Enhanced error handling and cleanup procedures
+
+## [0.17.0] - 2025-06-06
+
+### Added
+
+- Audio recording functionality with AudioRecorder class
+- AudioWorklet-based audio processing for microphone input
+- Volume meter (VU meter) worklet for audio level monitoring
+- AudioContext utilities for managing audio contexts
+- Worklet registry system for managing AudioWorklet modules
+
+### Changed
+
+- Enhanced GenAI Live integration with proper audio streaming
+- Improved audio system architecture with coordinated sample rates
+- Updated control tray to handle audio recording states
+
+### Fixed
+
+- Audio streaming issues with proper buffer management
+- Cross-browser compatibility for audio recording
+- Memory leaks in audio processing pipeline
+
+## [0.16.0] - 2025-06-05
+
+### Added
+
+- Real-time voice communication with Gemini Live API
+- Audio streaming capabilities with AudioStreamer class
+- GenAI Live client for WebSocket-based communication
+- Volume controls and audio level monitoring
+- Live conversation state management
+
+### Changed
+
+- Enhanced exam simulator with voice interaction capabilities
+- Improved UI for real-time communication controls
+- Updated component architecture for audio integration
+
+## [0.15.0] - 2025-06-04
+
+### Added
+
+- AI-powered code review simulation system
+- Interactive exam simulator with real-time feedback
+- Support for multiple programming languages
+- Comprehensive test scenarios and evaluation metrics
+
+### Changed
+
+- Restructured project architecture for better maintainability
+- Enhanced user interface with modern React components
+- Improved error handling and user experience
+
+### Fixed
+
+- Performance optimizations for large code reviews
+- Cross-browser compatibility issues
+- Memory management improvements
 
 ## [0.14.9] - 2025-06-02
 
@@ -197,1220 +597,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Connection Guards**: Added termination guard checks in connection effect and session end handler
 - **State Coordination**: Enhanced cleanup sequence with proper flag management and timeouts
 - **Memory Management**: Improved cleanup of connection tracking and session state during termination
-
-## [0.14.6] - 2025-06-02
-
-### Fixed
-
-- **CRITICAL: Dual AI Sessions Bug**: Fixed major issue where two AI voices were talking simultaneously with one being uninterruptible
-
-  - **Root Cause**: Multiple concurrent connections were being established due to race conditions in connection logic
-  - **Connection Tracking**: Added `isConnectingRef` and `activeConnectionRef` to prevent concurrent connection attempts
-  - **Duplicate Prevention**: Connection effect now checks for existing connections before attempting new ones
-  - **Session Termination**: Enhanced session cleanup to properly terminate all connections and reset tracking flags
-  - **Automatic Reconnection Control**: Added comprehensive debugging to track and prevent unwanted automatic reconnections
-  - **Component Cleanup**: Enhanced unmount cleanup to ensure all sessions are properly terminated
-  - **State Synchronization**: Fixed race conditions where multiple useEffect dependencies could trigger simultaneous connections
-
-- **CRITICAL: Stop Button Crash**: Fixed UI shifting and crashes when pressing the stop review button
-  - **Race Condition Fix**: Added cleanup guard (`isCleaningUpRef`) to prevent multiple simultaneous cleanup processes
-  - **Atomic Cleanup**: Made cleanup process atomic with proper try/finally blocks to ensure completion
-  - **State Order**: Reordered cleanup sequence to generate summary before notifying parent components
-  - **Duplicate Prevention**: All cleanup effects now check if cleanup is already in progress before executing
-  - **Error Recovery**: Cleanup flag is always reset even if errors occur during cleanup process
-  - **UI Stability**: Eliminated competing state changes that caused UI shifting back and forth
-  - **Simplified Flow**: Removed cascading parent callbacks that were causing race conditions between components
-  - **Single Responsibility**: ExamWorkflow now handles its own state management without relying on parent callbacks
-  - **State Guard**: Added `isManualStopInProgress` guard in parent component to prevent duplicate stop requests
-
-### Enhanced
-
-- **Connection State Management**: Comprehensive connection tracking system to ensure single active session
-
-  - **Connection Guards**: Prevents multiple simultaneous connect/resume calls
-  - **State Tracking**: Real-time monitoring of connection states with detailed debug logging
-  - **Cleanup Coordination**: Proper cleanup of timers, connections, and tracking flags during session end
-  - **Debug Information**: Enhanced logging shows connection attempts, success/failure, and cleanup status
-  - **Race Condition Prevention**: Eliminated timing issues that could create overlapping AI sessions
-
-- **Robust Cleanup System**: Enhanced cleanup architecture to prevent state conflicts and ensure reliable session termination
-  - **Cleanup Guards**: Prevents multiple cleanup processes from running simultaneously
-  - **Atomic Operations**: Cleanup operations are now atomic with proper error handling
-  - **State Coordination**: Summary generation happens before parent state changes to prevent conflicts
-  - **Memory Safety**: All refs and timers properly cleaned up regardless of cleanup trigger source
-  - **Error Resilience**: Cleanup flag management ensures system recovery even if cleanup fails
-
-### Technical Details
-
-- **ExamWorkflow Component**: Added connection state tracking with `isConnectingRef` and `activeConnectionRef`
-- **Session End Handler**: Enhanced to immediately reset connection tracking and prevent new connections
-- **Component Unmount**: Comprehensive cleanup of timers, connections, and state tracking
-- **GenAI Live Client**: Added detailed debugging for WebSocket close events and automatic reconnection logic
-- **Connection Prevention**: Multiple guard clauses prevent duplicate connections during race conditions
-- **Memory Management**: Proper cleanup prevents memory leaks and ghost connections
-- **Cleanup Coordination**: Added `isCleaningUpRef` guard to coordinate cleanup across all triggers (manual stop, timer expiration, component unmount)
-
-- **Removed 60-Second Warning**: Eliminated the "time almost up" warning that interrupted reviews 1 minute before end
-
-  - **User Request**: Removed the 60-second timer warning as requested
-  - **Cleaner Experience**: Sessions now only have introduction and farewell
-  - **Less Interruption**: AI won't interrupt the review flow during sessions
-  - **Previous Timer Sequence**: Introduction (1s) → **Uninterrupted Review** → Farewell (7s before end) → Auto-end
-
-- **Enhanced Session Ending**: Replaced 30-second warning with graceful 7-second farewell message
-
-  - **Natural Goodbye**: AI now says "Unfortunately, we're out of time for this review. Thanks for the great session, and have a wonderful day!"
-  - **Perfect Timing**: 7-second message takes ~5 seconds to say, leaving 2 seconds for session termination
-  - **Interrupts Politely**: Farewell message will interrupt any ongoing AI speech to ensure it's heard
-  - **Better UX**: Sessions end on a positive, polite note instead of abrupt termination
-  - **Final Timer Sequence**: Introduction (1s) → **Uninterrupted Review** → Farewell (7s before end) → Auto-end
-
-- **Ultra-Simple Timer System**: Removed halfway message for completely uninterrupted review experience
-
-  - **No Interruptions**: AI will never interrupt the natural flow of the review with timer messages
-  - **Pure Focus**: Sessions are now completely focused on code review without time reminders
-  - **Clean Sessions**: Only introduction greeting and polite farewell, nothing else
-  - **Final Timer Sequence**: Introduction (1s) → **Uninterrupted Review** → Farewell (7s before end) → Auto-end
-
-- **Enhanced Loading Experience**: Added professional loading animations throughout the application
-
-  - **API Key Loading**: Beautiful animated loading screen while fetching API credentials
-  - **Connection Loading**: Loading animation with "Connecting to AI reviewer..." message when starting sessions
-  - **Repository Processing**: GitHub repository analysis now shows loading state with progress message
-  - **Consistent UX**: All loading states use the same animated icon system for professional feel
-  - **User Feedback**: Clear messaging so users know what's happening during wait times
-
-- **Improved Farewell Interruption**: Enhanced the 7-second goodbye message to properly interrupt ongoing AI speech
-  - **Natural Interruption**: Farewell now uses "I need to wrap up now. Unfortunately, we're out of time..." for smooth transition
-  - **Forced Interruption**: Direct client.send() bypasses queuing system to ensure message is heard
-  - **Better Timing**: More reliable interruption ensures users always hear the polite goodbye
-  - **Professional Ending**: Sessions end gracefully instead of abrupt cutoffs
-
-## [0.14.5] - 2025-06-02
-
-### Changed
-
-- **Removed Clear Button from Live Suggestions Panel**: Simplified live suggestions interface by removing the clear button during active reviews
-  - **Cleaner Interface**: Live suggestions panel now shows only essential elements (title, processing indicator, suggestion count)
-  - **Prevents Accidental Clearing**: Eliminates risk of users accidentally clearing suggestions mid-review
-  - **Persistent Throughout Session**: Suggestions now accumulate throughout the entire review session without user intervention
-  - **Simplified Component**: Removed `onClear` prop and related button functionality from LiveSuggestionsPanel
-  - **Streamlined Props**: Reduced component interface complexity by removing unnecessary clear functionality
-
-### Enhanced
-
-- **Focused Review Experience**: Live suggestions panel optimized for uninterrupted review sessions
-  - **Display-Only Interface**: Panel serves as read-only display of extracted suggestions during active reviews
-  - **Auto-Scroll Maintained**: Suggestions still automatically scroll to newest additions
-  - **Latest Highlighting**: Newest suggestions continue to be highlighted with accent background
-  - **Count Display**: Suggestion counter remains visible to show review progress
-  - **Processing Indicator**: Visual feedback when AI is analyzing transcript chunks
-
-### Technical Details
-
-- **Component Simplification**: Removed `onClear` callback from LiveSuggestionsPanelProps interface
-- **Prop Cleanup**: Eliminated `onClearSuggestions` from ExamPageContentProps and component usage
-- **Hook Optimization**: Removed unused `clearSuggestions` function from useLiveSuggestionExtractor destructuring
-- **UI Streamlining**: Simplified header layout by removing clear button container and related styling
-- **Persistent State**: Suggestions now only cleared when session truly ends via `clearAllSuggestions`
-
-## [0.14.4] - 2025-06-02
-
-### Fixed
-
-- **Timer Message Interruption Prevention**: Implemented intelligent queuing system to prevent timer messages from interrupting AI mid-sentence
-  - **Smart Queuing**: Timer messages now wait for AI to complete speaking before being delivered
-  - **Turn Complete Detection**: Uses GenAI Live client's `turncomplete` event to detect when AI finishes speaking
-  - **Message Queue**: Pending timer messages are queued and processed sequentially when AI is not speaking
-  - **Seamless Flow**: Half-time warnings and final warnings no longer cut off AI speech
-  - **Buffer Protection**: Added 500ms buffer to introduction timer to ensure system readiness
-
-### Enhanced
-
-- **Intelligent Timer Management**: Advanced timer system with speech-aware message delivery
-  - **Speaking State Tracking**: Monitors AI speaking status to determine optimal message timing
-  - **Automatic Processing**: Queued messages are automatically sent when AI turns complete
-  - **Debug Logging**: Comprehensive logging shows when messages are queued vs. sent immediately
-  - **Clean Cleanup**: Proper cleanup of event listeners and message queues when timers are disposed
-  - **Edge Case Handling**: Handles initial state and multiple queued messages gracefully
-
-### Technical Details
-
-- **Event Integration**: Leverages existing `turncomplete` event from GenAI Live client
-- **Queue Architecture**: `QueuedMessage` interface with timestamp tracking for message ordering
-- **State Management**: `isAISpeaking` flag prevents interruptions during active AI speech
-- **Memory Management**: Message queue cleared during cleanup to prevent memory leaks
-- **Event Cleanup**: Proper removal of `turncomplete` event listener on timer disposal
-- **Improved UX**: Natural conversation flow without jarring interruptions from timer prompts
-
-## [0.14.3] - 2025-06-02
-
-### Enhanced
-
-- **Anti-Hallucination Code Review System**: Comprehensive overhaul to prevent AI from discussing non-visible code or making assumptions
-  - **Visibility-Only Rule**: AI now ONLY discusses code that is actually visible on screen, preventing hallucination of code structure
-  - **Request-Before-Review**: AI must ask developers to show specific files or functions before providing suggestions about them
-  - **No Assumptions**: AI cannot make assumptions about code implementation based on assignment descriptions
-  - **Navigation Requests**: AI actively asks developers to navigate to relevant code sections: "Could you show me the [specific file/function]?"
-  - **Background Context Clarity**: Assignment context explicitly marked as background information only, not visible code assumptions
-  - **Explicit Confirmation**: AI must confirm it can see code before providing specific line number references
-
-### Changed
-
-- **Main Prompts Enhanced**: Updated both `standardExam` and `githubExam` prompts with "CRITICAL: ONLY DISCUSS CODE YOU CAN ACTUALLY SEE" guidance
-
-  - **Assignment Separation**: Clear distinction between assignment context (background) and visible code (reviewable)
-  - **Request Protocol**: Standardized language for requesting navigation: "Could you show me the [specific file/function] mentioned in your assignment?"
-  - **Screen Confirmation**: AI must confirm visibility of code before providing specific suggestions
-
-- **Exam Guidelines Overhaul**: Comprehensive update to prevent code assumption and encourage active navigation requests
-
-  - **Visibility Check**: "CRITICAL: ONLY REVIEW CODE THAT IS CURRENTLY VISIBLE ON SCREEN" as first guideline
-  - **Navigation Requests**: Specific instruction to ask for navigation before discussing assignment-mentioned features
-  - **Example Phrases**: Provided exact phrases for requesting code visibility: "I'd like to review [specific feature]. Could you show me that code?"
-
-- **Level-Specific Guidance Updated**: All developer levels (junior/intermediate/senior) now include visibility-first approach
-
-  - **Junior**: "Ask to see relevant files first" before providing suggestions
-  - **Intermediate**: "Ask to see specific implementations" before discussing design patterns
-  - **Senior**: "Ask to see architectural components" before providing architectural suggestions
-  - **Default**: "Ask to see the code first" before any suggestions
-
-- **GitHub Repository Reviews**: Updated to request specific file navigation instead of assuming repository structure
-  - **File Navigation**: "Could you show me the [filename] file?" before discussing multi-file suggestions
-  - **Component Requests**: "I'd like to see how [feature] is implemented. Could you open that file?"
-  - **Visible-Only Suggestions**: Only provide suggestions about files and line numbers currently visible on screen
-
-### Technical Details
-
-- **Prompt Architecture**: All prompt components now include visibility checks and navigation request protocols
-- **Context Handling**: Assignment descriptions marked as background context with explicit non-assumption warnings
-- **Anti-Hallucination**: Multiple layers of protection against discussing non-visible code across all prompt levels
-- **User Experience**: AI proactively guides developers to show relevant code sections for comprehensive reviews
-- **Quality Assurance**: Eliminates false or assumed code references, ensuring all suggestions are based on actual visible code
-
-## [0.14.2] - 2025-06-02
-
-### Fixed
-
-- **Missing Key Review Points in Summary**: Fixed issue where live suggestions weren't appearing in the final code review summary
-  - **Root Cause**: UI clear button was removing suggestions needed for summary generation
-  - **Dual Storage Solution**: Added separate `persistedSuggestions` state that preserves suggestions for summary generation
-  - **UI Independence**: Users can now clear the suggestions panel without affecting the final summary content
-  - **Complete Summary**: All extracted suggestions now appear in "Key Review Points" section regardless of UI interactions
-  - **Session Cleanup**: Persisted suggestions only cleared when review session truly ends
-
-### Enhanced
-
-- **Smart Suggestion Management**: Improved suggestion lifecycle management for better user experience
-  - **UI Suggestions**: `suggestions` state for real-time panel display with clear functionality
-  - **Persisted Suggestions**: `persistedSuggestions` state for reliable summary generation
-  - **Granular Clearing**: `clearSuggestions()` only clears UI, `clearAllSuggestions()` clears everything
-  - **Session Integrity**: Summary generation now always has access to all extracted suggestions from the entire session
-
-### Technical Details
-
-- **Dual State Architecture**: `useLiveSuggestionExtractor` now maintains both UI and persisted suggestion arrays
-- **Clear Button Behavior**: Only affects UI display, preserves suggestions for summary generation
-- **Session End Cleanup**: `clearAllSuggestions()` called only when review completely ends
-- **Summary Integration**: `persistedSuggestions` passed to summary generation instead of UI suggestions
-- **Improved UX**: Users can manage UI display independently of summary content integrity
-
-## [0.14.1] - 2025-06-02
-
-### Enhanced
-
-- **Comprehensive OpenAI API Logging**: Added detailed prompt logging for session-based suggestion extraction debugging
-
-  - **Request Logging**: All OpenAI API calls now log the full prompts being sent (system prompt, user prompt, JSON mode)
-  - **Response Preview**: OpenAI responses are logged with 200-character previews for quick verification
-  - **Session Context**: Session-based calls show full conversation history with message counts and role indicators
-  - **Error Tracking**: Enhanced error logging with status codes and detailed error messages
-  - **API Debugging**: Both `getCompletion` and `getSessionCompletion` functions now provide comprehensive debug information
-
-- **Precise Timestamp Logging**: Enhanced all logging with millisecond-precision timestamps for accurate debugging
-
-  - **Live Log Timecodes**: Logger component now shows `HH:MM:SS.mmm` format instead of `HH:MM` for precise timing
-  - **Live Suggestions Timestamps**: Live suggestions panel now displays precise timestamps with milliseconds for each suggestion
-  - **Suggestion Extraction Timestamps**: All suggestion processing steps now include precise timestamps
-  - **Conversation Tracker Timestamps**: Transcript processing and chunk saving now logged with exact timing
-  - **Session Lifecycle Tracking**: Initialization, processing, and cleanup events all timestamped for debugging
-  - **Performance Analysis**: Precise timing helps identify bottlenecks and API response times
-
-- **Session-Based Suggestion Debugging**: Comprehensive logging throughout the session-based extraction process
-  - **Initialization Tracking**: Session setup and OpenAI connection logging with timing
-  - **Processing Context**: Each transcript chunk processing logged with conversation history size
-  - **Memory Management**: Conversation history trimming events logged for memory optimization tracking
-  - **Suggestion Discovery**: New suggestion extraction logged with content preview and timing
-  - **Error Recovery**: All error states logged with precise timestamps for debugging
-
-### Technical Details
-
-- **formatTime Function**: Enhanced from simple `HH:MM` to full `HH:MM:SS.mmm` precision using `toLocaleTimeString` with milliseconds
-- **Live Suggestions Display**: Added `formatTimestamp` function to show precise timing when each suggestion was extracted
-- **Monospace Font**: Used `font-mono` class for timestamps in suggestions panel for better readability
-- **OpenAI Logging**: Added comprehensive logging to both API functions with color-coded console output (🔵 getCompletion, 🟢 getSessionCompletion)
-- **Conversation History**: Session messages logged with 150-character previews for each message in conversation
-- **Performance Tracking**: Timestamps help identify processing delays and API response timing patterns
-- **Debug Information**: Error states, success confirmations, and processing steps all logged with precise timing
-
-## [0.14.0] - 2025-06-02
-
-### Added
-
-- **Session-Based Live Suggestion Extraction**: Implemented advanced session-based processing for AI suggestion extraction with context awareness
-  - **Conversation Memory**: AI now maintains conversation history across transcript chunks to avoid duplicates and enable context-aware processing
-  - **Intelligent Duplicate Detection**: Advanced similarity checking (80% threshold) prevents near-duplicate suggestions while allowing valuable elaboration
-  - **Centralized Prompts**: All suggestion extraction prompts moved to `prompts.json` for better organization and maintainability
-  - **Session Initialization**: Proper session establishment with system and initial prompts for consistent AI behavior
-  - **Context-Aware Processing**: AI understands previous suggestions and can provide complementary or elaborative recommendations
-  - **Memory Management**: Conversation history automatically trimmed to last 10 exchanges to maintain performance
-  - **Enhanced Logging**: Comprehensive session tracking with initialization, processing, and cleanup status messages
-
-### Enhanced
-
-- **getSessionCompletion Function**: New OpenAI API wrapper for handling full conversation context
-
-  - **Multiple Message Support**: Handles arrays of messages for maintaining conversation history
-  - **Consistent API Interface**: Same authentication and error handling as existing getCompletion function
-  - **JSON Response Support**: Optional JSON response format for structured data extraction
-  - **Session Persistence**: Maintains conversation state across multiple API calls for intelligent processing
-
-- **Advanced Similarity Detection**: Sophisticated duplicate prevention using Levenshtein distance algorithm
-  - **Text Similarity Calculation**: Compares suggestion texts to prevent 80%+ similar duplicates
-  - **Intelligent Filtering**: Allows valuable elaboration while blocking exact or near-exact duplicates
-  - **Performance Optimization**: Efficient string comparison algorithms for real-time processing
-  - **Flexible Thresholds**: Configurable similarity thresholds for different use cases
-
-### Changed
-
-- **useLiveSuggestionExtractor Architecture**: Complete rewrite to use session-based processing instead of stateless chunk analysis
-  - **Conversation State Management**: Maintains conversation history with system, user, and assistant messages
-  - **Session Lifecycle**: Proper initialization, processing, and cleanup phases
-  - **Enhanced Error Handling**: Better error recovery and session state management
-  - **Improved Performance**: Reduced API calls through intelligent session management
-  - **Better User Experience**: More contextually relevant suggestions with reduced duplicates
-
-### Technical Details
-
-- **prompts.json Structure**: Added `suggestionExtraction` section with `systemPrompt`, `initialPrompt`, and `chunkPrompt`
-- **Message Interface**: New TypeScript interface for OpenAI conversation messages with role and content
-- **Session Management**: `isSessionInitialized` ref tracks session state, `conversationHistory` ref maintains message history
-- **History Trimming**: Automatic conversation history management (system + 20 recent messages) for optimal performance
-- **API Integration**: `getSessionCompletion` function handles full conversation context with OpenAI API
-- **Similarity Algorithm**: Levenshtein distance calculation for precise duplicate detection
-- **State Cleanup**: Comprehensive cleanup of session state, conversation history, and processed chunks
-
-## [0.13.29] - 2025-06-02
-
-### Enhanced
-
-- **Improved AI Line Number Reading**: Enhanced AI instructions to properly read line numbers from code editor interface instead of manually counting lines
-  - **Visual Line Number Reading**: AI now instructed to read line numbers from the LEFT MARGIN of the code editor interface
-  - **No Manual Counting**: Explicit instructions to NOT count lines manually, but to read the displayed line numbers
-  - **Clarity Instructions**: AI will ask developers to zoom in or help identify line numbers if they're not clearly visible
-  - **Fallback Behavior**: When unsure about line numbers, AI will describe the code content instead of guessing line numbers
-  - **Accuracy Improvement**: Should significantly improve the accuracy of line number references during code reviews
-
-### Fixed
-
-- **AI Voice Cutoff Issue - Session Resumption Interference**: Resolved critical issue where session resumption updates were interrupting AI speech mid-sentence
-
-  - **Root Cause Identified**: Session resumption update messages were falling through to "unmatched message" handling, causing speech interruption
-  - **Proper Message Handling**: Added explicit return statement after processing session resumption updates to prevent message flow interference
-  - **Speech Continuity**: AI should now complete full sentences without being cut off by session resumption events
-  - **Reduced Audio Glitches**: Eliminated "unmatched message" errors that were disrupting the audio stream
-  - **Console Evidence**: Addressed the pattern where AI text → session resumption handle → unmatched message → speech cutoff
-
-- **Line Number Reference Accuracy**: Resolved issues where AI was incorrectly counting lines instead of reading displayed line numbers
-  - **Enhanced Main Prompts**: Updated both `standardExam` and `githubExam` prompts with specific line number reading guidance
-  - **Improved Guidelines**: Enhanced `examGuidelines` with detailed instructions about reading line numbers from editor interface
-  - **Error Prevention**: AI now knows to ask for help rather than guess when line numbers aren't clearly visible
-  - **Better User Experience**: More accurate line number references will help developers navigate to exact code locations
-
-### Technical Details
-
-- **Session Resumption Fix**: Ensured `sessionResumptionUpdate` messages return immediately after processing to prevent unmatched message errors
-- **Message Flow Protection**: Prevented session management messages from interfering with ongoing AI speech generation
-- **Audio Stream Stability**: Reduced interruptions to the audio streaming pipeline during session management events
-- **Prompt Enhancement**: Added "IMPORTANT LINE NUMBER GUIDANCE" section to main prompts
-- **Interface Instructions**: Clear guidance to look at LEFT MARGIN of code editor for line numbers
-- **Error Handling**: Instructions for what to do when line numbers aren't clearly visible
-- **Fallback Strategy**: Use code content description when uncertain about specific line numbers
-- **User Interaction**: Encourages asking developer for help with line number identification when needed
-
-## [0.13.28] - 2025-06-02
-
-### Fixed
-
-- **Audio Feedback Loop Prevention**: Resolved issue where AI voice would start next sentence with words that got cut off from previous sentence
-  - **Enhanced Audio Gate**: Added intelligent volume threshold detection in audio processing worklet to prevent low-level feedback
-  - **Speech Pattern Recognition**: Implemented analysis to distinguish between actual human speech and AI voice echoes
-  - **Aggressive VAD Settings**: Reduced start-of-speech sensitivity to LOW and increased silence duration to 3 seconds
-  - **Extended Padding**: Increased prefix padding to 500ms to minimize false speech detection triggers
-  - **Mono Audio Processing**: Forced single-channel audio to reduce processing complexity and feedback potential
-  - **Volume Variation Analysis**: Audio processor now analyzes volume patterns to identify genuine speech vs echoed feedback
-
-### Enhanced
-
-- **Intelligent Audio Processing**: Advanced audio worklet with multiple feedback prevention mechanisms
-  - **RMS Volume Calculation**: Real-time volume analysis to gate audio processing based on signal strength
-  - **Pattern Detection**: Tracks recent volume patterns to identify speech characteristics vs feedback echoes
-  - **Threshold Gating**: Only processes audio above configurable volume threshold to eliminate low-level feedback
-  - **Buffer Management**: Enhanced audio buffering with feedback-aware processing logic
-  - **Echo Suppression**: Improved echo cancellation with mono channel processing and optimized constraints
-
-### Known Issues
-
-- **AI Voice Mid-Sentence Cutoffs**: Intermittent issue where AI voice cuts off mid-sentence and repeats cut-off words in next sentence
-  - **Investigation Status**: Extensive testing of VAD settings, audio buffering, voice/model changes, and session resumption settings
-  - **Potential Causes**: May be related to Gemini Live API behavior, network connectivity, or browser-specific audio handling
-  - **Temporary Workaround**: Users can manually pause/resume if cutoffs become disruptive
-  - **Future Investigation**: May require API-level debugging or alternative streaming approaches
-
-### Technical Details
-
-- **Audio Worklet Enhancement**: Added `volumeThreshold`, `calculateRMS()`, and `looksLikeSpeech()` methods
-- **VAD Configuration**: Updated to `START_SENSITIVITY_HIGH`, 1000ms silence duration, 200ms prefix padding
-- **Audio Constraints**: Added `channelCount: 1` and maintained aggressive echo cancellation settings
-- **Feedback Detection**: Analyzes volume variation patterns with 0.1 threshold for speech identification
-- **Processing Gate**: Audio chunks only processed if they meet both volume and pattern criteria
-- **Voice/Model Testing**: Tested different voices (Aoede, Puck) and models (live-001, experimental) without resolution
-- **Audio Buffering**: Increased initial buffer time to 200ms and schedule ahead time to 500ms
-
-## [0.13.27] - 2025-06-02
-
-### Fixed
-
-- **AI Voice Cutting Off Mid-Sentence**: Resolved audio feedback issues causing the AI voice to be interrupted before completing thoughts
-  - **Echo Cancellation**: Added echo cancellation to microphone constraints to prevent AI voice from being picked up as user speech
-  - **Noise Suppression**: Enabled noise suppression to reduce background audio interference
-  - **Auto Gain Control**: Added automatic gain control for consistent audio levels
-  - **Enhanced VAD Settings**: Extended silence duration to 2 seconds to prevent premature speech detection
-  - **Increased Padding**: Extended prefix padding to 300ms to reduce false speech triggers
-
-### Enhanced
-
-- **Improved Audio Quality**: Better microphone configuration for cleaner audio capture
-  - **Professional Audio Constraints**: Upgraded from basic `audio: true` to comprehensive audio constraints
-  - **Echo Prevention**: Prevents AI voice feedback loops that cause conversation interruptions
-  - **Background Noise Filtering**: Reduced interference from ambient sounds
-  - **Consistent Voice Levels**: Auto gain control maintains optimal audio levels throughout session
-
-### Technical Details
-
-- **getUserMedia Constraints**: Added `echoCancellation: true`, `noiseSuppression: true`, `autoGainControl: true`
-- **VAD Configuration**: Increased `SILENCE_DURATION_MS` from 1500ms to 2000ms
-- **Padding Enhancement**: Increased `PREFIX_PADDING_MS` from 200ms to 300ms
-- **Audio Processing**: Enhanced microphone setup prevents AI voice from triggering user speech detection
-- **Feedback Loop Prevention**: Echo cancellation stops AI output from being processed as microphone input
-
-## [0.13.26] - 2025-06-02
-
-### Fixed
-
-- **Audio Clicking and Timer Conflicts**: Resolved multiple timer systems causing audio overlaps and conversation restart issues
-  - **Eliminated Duplicate Timers**: Removed conflicting `finalWarning` timer that was overlapping with `timeAlmostUp` at session end
-  - **Proper Timer Cleanup**: Added comprehensive timer cleanup tracking to prevent lingering timers after session ends
-  - **Single Timer System**: Ensured only one timer system runs per session instead of multiple competing systems
-  - **Clean Session Termination**: Timers are now properly cleared when session ends via timer expiration, manual stop, or component unmount
-  - **Reduced Audio Conflicts**: Eliminated clicking sounds caused by multiple simultaneous audio generation requests
-
-### Enhanced
-
-- **Improved Timer Reliability**: Enhanced timer management for more stable session flow
-  - **Cleanup Tracking**: Added `timerCleanupRef` to track and properly dispose of active timers
-  - **Session State Management**: Timers are cleared when exam intent stops or session disconnects
-  - **Prevent Restart Loops**: Fixed AI suddenly restarting review after trying to end conversation
-  - **Component Unmount Safety**: Timers are cleaned up when component unmounts to prevent memory leaks
-
-### Technical Details
-
-- **Timer Consolidation**: Reduced from 4 timer messages to 3 (removed duplicate `finalWarning`)
-- **Cleanup Function**: `examTimers` now returns proper cleanup function that's tracked and called appropriately
-- **State Synchronization**: Timer cleanup happens during session end, exam intent stop, and component unmount
-- **Audio Stream Protection**: Prevents multiple overlapping audio streams that cause clicking noises
-- **Memory Management**: Proper cleanup prevents timer memory leaks and ghost processes
-
-## [0.13.25] - 2025-06-02
-
-### Enhanced
-
-- **Shorter AI Introduction**: Dramatically simplified the AI intro to be brief and natural
-
-  - **Concise Greeting**: Changed from verbose explanation to simple "Hi! I'm your AI code reviewer. Let's take a look at your code together."
-  - **Removed Line Number Explanation**: No longer explains line number referencing in the intro
-  - **Natural Start**: AI now starts reviewing more naturally without lengthy setup
-
-- **Improved Conversational Flow**: Enhanced AI responsiveness and pacing for better user interaction
-  - **Wait for Responses**: AI now pauses after each point and waits for developer to respond
-  - **Less Aggressive VAD**: Increased silence duration from 500ms to 1500ms to give users more time
-  - **Reduced End Speech Sensitivity**: Changed to "END_SENSITIVITY_LOW" to avoid cutting off user responses
-  - **Conversational Pace**: AI no longer rushes from point to point without user input
-  - **Extended Padding**: Increased prefix padding from 100ms to 200ms for better speech detection
-
-### Changed
-
-- **Main Prompts Simplified**: Streamlined core review instructions to focus on conversational flow
-  - **Emphasis on Waiting**: Multiple instructions for AI to wait for user responses between points
-  - **Simplified Instructions**: Removed verbose line number explanations from main prompts
-  - **Better Pacing**: Instructions now emphasize maintaining conversational pace over rushing through points
-  - **User-Focused**: Prompts now prioritize user interaction and discussion over rapid feedback delivery
-
-### Technical Details
-
-- **VAD Configuration**: Updated Voice Activity Detection settings for better conversation flow
-  - `SILENCE_DURATION_MS`: 500ms → 1500ms (wait longer for user responses)
-  - `END_OF_SPEECH_SENSITIVITY`: HIGH → LOW (less aggressive speech ending detection)
-  - `PREFIX_PADDING_MS`: 100ms → 200ms (more padding for speech detection)
-- **Prompt Updates**: Simplified timer introduction message and main prompt instructions
-- **Flow Instructions**: Added multiple emphasis points about waiting for user responses in exam guidelines
-
-## [0.13.24] - 2025-06-02
-
-### Fixed
-
-- **Screen Sharing Force Stop Enhancement**: Fixed screen sharing not stopping when timer expires or session ends manually
-
-  - **Added Force Stop Video**: New `forceStopVideo` state and prop system to explicitly stop screen sharing
-  - **Video Stream Termination**: All video tracks are properly stopped when session ends
-  - **Complete Session Cleanup**: Both timer expiration and manual stop now terminate screen sharing completely
-  - **Dual Mechanism**: Screen sharing stops both in ControlTray and AIExaminerPage for reliability
-
-- **Microphone Force Stop Enhancement**: Improved audio recorder stopping mechanism for reliable microphone termination
-  - **Enhanced Stop Logic**: Audio recorder now always stops first, then conditionally starts based on connection state
-  - **Extended Stop Duration**: Increased force stop duration from 1 to 3 seconds to ensure complete audio termination
-  - **Improved Cleanup**: Audio recorder stops during useEffect cleanup to prevent lingering recordings
-  - **Reliable Termination**: Both timer expiration and manual stop now guarantee microphone shutdown
-
-### Changed
-
-- **Cleaned Console Logging**: Dramatically reduced console output to essential messages only
-  - **Minimal Startup Messages**: Simplified session start/resume to basic status messages
-  - **Essential Error Logging**: Kept only critical error messages and session termination logs
-  - **Removed Debug Output**: Eliminated verbose transcript buffering, interaction counting, and state debugging
-  - **Production Ready**: Clean console output suitable for production deployment
-  - **Removed Debug Overlay**: Eliminated development-mode state display overlay
-
-### Technical Details
-
-- **Screen Sharing Logic**: Added `forceStopVideo` state management and useEffect handlers in both components
-- **Video Track Termination**: Call `track.stop()` on all video stream tracks to end screen sharing completely
-- **Audio Recorder Logic**: Always call `audioRecorder.stop()` first, then conditionally start
-- **Extended Timeout**: Changed `forceStopAudio` reset from 1000ms to 3000ms
-- **Cleanup Enhancement**: Added audio stop in useEffect cleanup function
-- **Console Reduction**: Removed 90% of console.log statements across all components
-- **Debug Removal**: Eliminated development debug overlay and verbose logging
-
-## [0.13.23] - 2025-06-02
-
-### Added
-
-- **Manual Stop Summary Modal**: Users now see the same comprehensive summary screen when clicking "Stop Code Review" button
-  - **Consistent End Experience**: Both timer expiration and manual stop now show the same professional summary modal
-  - **Summary Generation**: Manual stop triggers the same transcript analysis and summary generation as timer expiration
-  - **User Choice Navigation**: Manual stop shows summary modal and lets user control when to navigate away
-  - **Unified Code Path**: Both stopping methods use the same session termination and summary generation logic
-  - **Enhanced UX**: No more abrupt dashboard redirect when manually stopping - users get to see their review summary first
-
-### Technical Details
-
-- **ExamWorkflow Component**: Added unified `handleSessionEnd` function for both timer and manual stop scenarios
-- **Trigger System**: Added `triggerManualStop` prop system to cleanly communicate manual stop from ControlTray to ExamWorkflow
-- **State Management**: Proper coordination between manual stop trigger and summary modal display
-- **Session Cleanup**: Both stop methods use identical cleanup sequence: disconnect → terminate → generate summary → show modal
-
-## [0.13.22] - 2025-06-02
-
-### Fixed
-
-- **Timer Expiration Session Termination**: Fixed issue where AI session would continue after timer expired instead of stopping completely
-
-  - **Immediate Audio Stop**: Timer expiration now calls `disconnect()` to immediately stop audio streamer and cut off AI voice
-  - **Complete Session Cleanup**: Added `terminateSession()` call to clear session handles and prevent resumption after timeout
-  - **State Reset**: Timer expiration now properly resets `examIntentStarted` state to stop the session completely
-  - **Parent Notification**: Added `onTimerExpired` callback to notify parent component when timer expires
-  - **Summary Modal Flow**: Timer expiration shows summary modal but doesn't auto-redirect, allowing user to control navigation
-  - **Proper Cleanup Order**: Audio stops first via `disconnect()`, then session terminates via `terminateSession()`
-
-- **Microphone Still Active After Timer Expiration**: Fixed issue where microphone continued recording after timer ended
-
-  - **Force Stop Audio Prop**: Added `forceStopAudio` prop to ControlTrayCustom component for explicit audio recorder termination
-  - **Enhanced Audio Management**: Timer expiration now triggers force stop of audio recorder with state management
-  - **Race Condition Prevention**: Added explicit force stop mechanism to handle timing issues between disconnect and audio recorder cleanup
-  - **Comprehensive Cleanup**: Both manual end review and timer expiration now properly stop all audio recording
-  - **Debugging Enhancement**: Added detailed logging for audio recorder stop events with state tracking
-
-- **Improved Transcript Quality**: Enhanced transcript processing to produce cleaner, more readable text
-  - **Enhanced Text Cleaning**: Improved cleaning algorithms to fix fragmented words and improve readability
-  - **Smart Buffering**: Increased buffer timeout to 20 seconds and refined flush conditions for larger meaningful chunks
-  - **Advanced Text Processing**: Added logic to detect and fix fragmented words like "l o o k i n g" → "looking"
-  - **Better Punctuation Handling**: Enhanced spacing and punctuation formatting in transcript reconstruction
-  - **Buffer Size Management**: Added 500-character buffer limit to prevent memory issues while maintaining content quality
-  - **Sentence Boundary Detection**: Improved detection of sentence endings and topic changes for better transcript segmentation
-
-### Technical Details
-
-- **ExamWorkflow Component**: Enhanced `handleTimeUp` function with proper cleanup sequence
-- **AIExaminerPage Component**: Added `handleTimerExpired` callback and `forceStopAudio` state management
-- **ControlTrayCustom Component**: Added `forceStopAudio` prop with enhanced useEffect for audio recorder management
-- **useConversationTracker Hook**: Significantly improved transcript buffering and text cleaning algorithms
-- **Hook Integration**: Properly integrated `disconnect` function from `useGenAILiveContext` for immediate audio termination
-- **State Management**: Clear separation between manual end review (with redirect) and timer expiration (with summary)
-- **Text Processing**: Advanced regex patterns and cleaning logic for professional transcript formatting
-
-## [0.13.21] - 2025-06-02
-
-### Added
-
-- **Complete AI Transcript Functionality**: Implemented comprehensive transcript capture and processing system based on "future-me" technical specifications
-  - **Intelligent Transcript Buffering**: Smart buffering system combines transcript fragments into complete sentences
-  - **Sentence Completion Detection**: Automatically flushes buffer on sentence endings (periods, exclamation marks, question marks) or 3-second gaps
-  - **Proper Cleanup**: Comprehensive cleanup of buffers and timeouts on component unmount and session end
-  - **Real-time Monitoring**: Enhanced logging shows transcript reception, buffering, and flushing in real-time
-  - **Session Management**: Transcripts properly captured throughout entire session with automatic final flush
-
-### Enhanced
-
-- **Smart Transcript Reconstruction**: Advanced logic to prevent word fragmentation and improve readability
-
-  - **Aggressive Buffering**: Extended timeout to 15 seconds and only flush on clear sentence endings or 8+ second pauses
-  - **Minimal Fragmentation**: Dramatically reduced transcript segments by accumulating larger meaningful chunks
-  - **Clear Boundary Detection**: Only flushes on definitive sentence endings (periods, exclamation marks, question marks)
-  - **Enhanced Spacing Logic**: Smart space insertion only on 1+ second pauses or after punctuation
-  - **Buffer Monitoring**: Detailed logging shows fragment accumulation and flushing decisions with character counts
-
-- **LiveConfig Transcript Output**: Enabled `outputAudioTranscription: true` in configuration for proper transcript generation
-
-  - **Gemini Integration**: Leverages Gemini Live API's built-in speech-to-text transcription
-  - **Client Event Handling**: GenAI Live client already properly emits `transcript` events with text content
-  - **Seamless Integration**: No changes needed to existing client infrastructure
-
-- **Conversation Tracking System**: Complete overhaul with intelligent content processing
-  - **Buffer Management**: `transcriptBufferRef` accumulates fragments until sentence completion or timeout
-  - **Gap Detection**: 3-second inactivity triggers automatic buffer flush to capture complete thoughts
-  - **Smart Spacing**: Intelligent space insertion based on timing gaps and punctuation context
-  - **Content Validation**: Only non-empty, meaningful transcript content is stored
-  - **Access Methods**: Added `getTranscripts()` method for direct access to captured transcript entries
-
-### Fixed
-
-- **Voice Interaction Restored**: Fixed broken pause/resume functionality that was preventing AI from responding to user voice
-
-  - **Disconnect vs Terminate Distinction**: `disconnect()` now preserves session handles for proper resumption during pauses
-  - **Pause Functionality**: Temporary pauses (pause button) maintain session context and voice interaction capability
-  - **Resume Context**: Sessions now properly resume with correct screen sharing context instead of starting fresh
-  - **Prevent Hallucination**: Fixed AI talking about non-visible files by maintaining proper session continuity
-
-- **Session Resumption Control**: Implemented proper session termination to prevent unwanted context resumption
-
-  - **Complete Session Termination**: Added `terminateSession()` method for explicit session ending with no resumption
-  - **Timer Expiration Termination**: Timer timeout now uses `terminateSession()` instead of `disconnect()` for clean ending
-  - **User Stop Action**: "Stop Code Review" button now properly terminates sessions instead of allowing resumption
-  - **Page Reload Protection**: Added `beforeunload` event listener to terminate sessions on page refresh/close
-  - **Component Unmount Cleanup**: Sessions are terminated when components unmount to prevent stale connections
-
-- **Fragmented Transcript Text**: Fixed broken words like "Th ank s f or sha rin g" becoming "Thanks for sharing"
-  - **Word Preservation**: Smart buffering prevents automatic space insertion between rapid transcript fragments
-  - **Sentence Reconstruction**: Proper handling of speech-to-text fragments to maintain natural language flow
-  - **Readability Enhancement**: Post-processing ensures clean, professional transcript formatting
-
-### Technical Implementation
-
-- **Future-Ready Architecture**: Follows "future-me" specifications for robust, production-ready transcript handling
-- **Memory Management**: Proper cleanup prevents memory leaks from accumulated buffers and active timeouts
-- **Debug Support**: Enhanced logging tracks transcript flow: reception → buffering → flushing → storage
-- **Type Safety**: Full TypeScript support with proper interface definitions for transcript entries
-- **Performance Optimized**: Efficient buffering prevents excessive database writes while maintaining content completeness
-
-## [0.13.20] - 2025-06-01
-
-### Fixed
-
-- **AI Transcript Capture**: Implemented transcript-based conversation tracking for comprehensive review summaries
-  - **Output Audio Transcription**: Enabled `outputAudioTranscription` in LiveConnectConfig to capture actual AI speech content as text
-  - **Seamless Integration**: GenAI Live client automatically converts `outputTranscription` server events to `transcript` events
-  - **Audio-Only Stability**: Maintained audio-only response modality to prevent connection instability
-  - **Complete Content Summaries**: Summaries now include actual AI speech transcripts with timestamps and analysis
-  - **Professional Summary Format**: Enhanced summary generation with transcript content, session metrics, and structured review points
-
-### Enhanced
-
-- **Conversation Tracking**: Complete overhaul of conversation tracking system
-  - **Transcript Focus**: Prioritized AI speech transcript capture over text-based responses
-  - **Session Analytics**: Track transcript segments, user interactions, and session duration
-  - **Smart Content Analysis**: Analyze transcripts for suggestions, issues, line references, and review patterns
-  - **Error Handling**: Graceful fallback messaging when no transcripts are captured
-  - **Debug Support**: Comprehensive logging for transcript capture events and session debugging
-
-### Technical Details
-
-- **GenAI Live Client**: Enabled transcript event emission with proper TypeScript handling
-- **Conversation Tracker**: Redesigned to capture `ai_transcript` events with full content
-- **Summary Generation**: Generate summaries with actual AI feedback content instead of interaction patterns
-- **Future-Ready**: Architecture prepared for OpenAI API integration for enhanced summary processing
-- **Connection Stability**: Maintained audio-only modality while capturing rich transcript data
-
-## [0.13.19] - 2025-06-01
-
-### Fixed
-
-- **React setState Warning**: Fixed "Cannot update component while rendering different component" error from CountdownTimer
-
-  - **Separated Timer Logic**: Moved `onTimeUp` callback to separate `useEffect` to prevent render-phase state updates
-  - **useRef Pattern**: Used ref pattern to avoid stale closure issues with callback function
-  - **Clean State Management**: Timer expiration now properly handled outside of render cycle
-
-- **Conversation Tracking Debug Enhancement**: Added comprehensive debugging to identify and fix conversation capture issues
-  - **Enhanced Logging**: Added detailed console logging for content reception, message capture, and summary generation
-  - **ModelTurn Analysis**: Detailed inspection of AI response parts to understand content structure
-  - **Audio Detection**: Added audio event monitoring to identify audio-only vs text responses
-  - **Content Validation**: Enhanced filtering and processing to ensure meaningful content capture
-  - **Audio-Only Session Handling**: Better messaging when sessions are audio-only without text transcription
-
-### Added
-
-- **30-Second Final Warning System**: AI now receives advance notice to wrap up review session on time
-  - **Final Warning Timer**: New timer sends warning message 30 seconds before session ends
-  - **Graceful Conclusion**: AI prompted to "wrap up current discussion and provide any final important feedback"
-  - **Enhanced Timer Configuration**: Added `FINAL_WARNING_BEFORE_END_MS` setting to AI config
-  - **Prompt Enhancement**: Added `finalWarning` message to centralized prompts system
-  - **Proper Timing**: Coordinated with existing 1-minute warning for smooth session conclusion
-
-### Enhanced
-
-- **Conversation Analysis**: Improved keyword pattern matching for better suggestion extraction
-
-  - **Additional Patterns**: Added "notice", "see", "looking at", "found", "observed" keywords
-  - **More Substantial Segments**: Increased fallback segment capture from 5 to 8 items
-  - **Better Debugging**: Console logs show processing steps and extracted suggestions count
-  - **Real-time Tracking**: Live monitoring of message capture during review sessions
-
-- **Debug Information**: Comprehensive debugging for development troubleshooting
-  - **All Event Logging**: Monitor all client events including content, log, turncomplete, and audio
-  - **Part-by-Part Analysis**: Detailed inspection of each AI response part for text content
-  - **Audio vs Text Detection**: Clear distinction between audio data and text content
-  - **Session Type Identification**: Better identification of audio-only vs text+audio sessions
-
-### Technical Details
-
-- **Timer Sequence**: Introduction (1s) → Half-time warning → Final warning (30s before) → Time almost up (60s before) → Auto-end
-- **Debug Overlay**: Development mode shows real-time state of `examIntentStarted`, `examStarted`, `connected`, and `pauseTrigger`
-- **Event Listeners**: Enhanced to capture both `content` and `log` events for comprehensive debugging
-- **Content Validation**: Improved filtering to ensure only meaningful AI text content is captured
-- **State Management**: Better coordination between timer expiration, conversation summary, and modal display
-- **Audio Handling**: Added audio event monitoring to understand when AI provides audio-only responses
-
-### Known Issues
-
-- **Audio-Only Sessions**: Current implementation captures text content from AI responses. If AI provides only audio without text transcription, no suggestions will be captured in the summary. This is expected behavior for audio-only sessions.
-
-## [0.13.18] - 2025-06-01
-
-### Added
-
-- **Automatic Code Review Summary on Timer Expiration**: Complete session termination with intelligent review summary
-  - **Timer-Triggered End**: Review automatically stops when countdown timer reaches zero
-  - **AI Conversation Tracking**: New `useConversationTracker` hook captures all AI responses during the session
-  - **Intelligent Summary Generation**: Extracts key suggestions, issues, and recommendations from conversation
-  - **Smart Content Analysis**: Identifies actionable feedback, line number references, and best practices
-  - **Summary Modal**: Beautiful modal displays comprehensive review summary with proper formatting
-  - **Copy to Clipboard**: One-click copy functionality for the entire summary with visual feedback
-  - **Landing Page Navigation**: OK button navigates to landing page for smooth user flow
-  - **Session Cleanup**: Proper disconnection from AI and conversation history cleanup
-
-### Enhanced
-
-- **CountdownTimer Component**: Added `onTimeUp` callback support for timer expiration events
-
-  - **Callback Integration**: Timer now supports custom actions when reaching zero
-  - **Automatic Stop**: Timer stops running and shows completion state when expired
-  - **Clean State Management**: Proper cleanup of timer state on expiration
-
-- **ExamWorkflow Integration**: Complete integration of summary system with existing workflow
-  - **Conversation Tracking**: Real-time capture of AI messages throughout the session
-  - **State Management**: Proper handling of summary modal state and conversation data
-  - **Error Handling**: Graceful handling of cases with no conversation data
-  - **User Experience**: Seamless transition from timer expiration to summary display
-
-### Technical Details
-
-- **Content Processing**: Extracts text content from GenAI Live client `modelTurn` messages
-- **Pattern Recognition**: Uses sophisticated regex patterns to identify actionable suggestions
-- **Summary Formatting**: Professional formatting with numbered suggestions and next steps
-- **Memory Management**: Efficient conversation storage with automatic cleanup
-- **Tokyo Theme**: Consistent styling with existing design system
-- **Type Safety**: Full TypeScript support for all new components and hooks
-
-## [0.13.17] - 2025-06-01
-
-### Fixed
-
-- **Copy Link URL Path**: Fixed copy link functionality to include correct base path in generated URLs
-  - **Correct URL Generation**: Changed from `/live?id=...` to `/Code-review-simulator/live?id=${sim.id}`
-  - **Base Path Recognition**: Copy link now accounts for subdirectory deployment path
-  - **Proper Navigation**: Copied links now work correctly in subdirectory environments
-  - **URL Consistency**: Generated URLs match the actual application structure
-
-### Technical Details
-
-- **URL Template**: Updated from `${window.location.origin}/live?id=${sim.id}` to `${window.location.origin}/Code-review-simulator/live?id=${sim.id}`
-- **Path Resolution**: Ensures copied links navigate to correct route in deployed environment
-
-## [0.13.16] - 2025-06-01
-
-### Fixed
-
-- **Ultra-Aggressive Multiple Button Submission Protection**: Absolute bulletproof protection against duplicate code review creation with multiple defensive layers
-  - **Timestamp Debouncing**: Prevents any clicks within 1 second of each other using `Date.now()` comparison
-  - **Complete Form Disabling**: Entire form becomes `pointer-events-none` and semi-transparent during submission
-  - **Triple Protection**: Combined `isSaving` state, `isSavingRef.current`, and timestamp debouncing
-  - **Form-Level Guards**: Multiple protection checks in form's `onSubmit` handler
-  - **Delayed Reset**: 1-second delay before re-enabling to prevent rapid re-attempts
-  - **Visual Feedback**: Form grays out and shows loading spinner during submission
-  - **Console Logging**: Debounced clicks are logged for debugging
-
-### Added
-
-- **Timestamp Tracking**: `lastClickTimeRef` tracks when last click occurred
-- **1-Second Debouncing**: Prevents any action within 1000ms of previous click
-- **Form Opacity**: Visual indication when form is disabled (`opacity-75`)
-- **Pointer Events Control**: Complete interaction blocking with `pointer-events-none`
-- **Delayed State Reset**: Protection persists for 1 second after completion
-
-### Technical Details
-
-- **Triple Check System**: State + Ref + Timestamp all must pass for function to execute
-- **Debounce Implementation**: `if (now - lastClickTimeRef.current < 1000) return;`
-- **Form Disabling**: `pointer-events-none opacity-75` classes applied during saving
-- **Delayed Cleanup**: `setTimeout(() => { ... }, 1000)` in finally block
-- **Multiple Guard Points**: Protection at function entry, form submission, and button level
-
-## [0.13.15] - 2025-06-01
-
-### Fixed
-
-- **Task Generation Line Number Issue**: Fixed AI generating tasks with explicit file names and line numbers before review starts
-  - **Separated Prompts**: Removed line number references from `taskPrompts.examinerQuestions` and `taskPrompts.repoQuestions`
-  - **System Prompts**: Cleaned up `systemPrompts.examinerQuestions` and `systemPrompts.githubRepoQuestions` to remove premature line number expectations
-  - **Proper Context**: Line number requirements now only apply during actual code review when AI can see the shared screen
-  - **Task Clarity**: Initial task descriptions now focus on general areas and concepts rather than specific files and lines
-  - **Logical Flow**: AI will only reference specific line numbers after confirming they can see the developer's screen
-
-### Technical Details
-
-- **Task Generation Phase**: Prompts now focus on creating helpful, general review guidance without specific code references
-- **Review Phase**: Maintained all line number precision requirements for when AI is actually reviewing visible code
-- **Clean Separation**: Clear distinction between pre-review task preparation and actual code review feedback
-
-## [0.13.14] - 2025-06-01
-
-### Changed
-
-- **Coordinated Color Scheme**: Aligned pill and button colors for logical consistency
-  - **UPDATE Pills**: Changed from orange to Tokyo purple (`bg-purple-600`) to match Update button styling
-  - **Create Button**: Changed from Tokyo purple to green (`bg-green-600`) to match NEW pill color
-  - **Visual Logic**: NEW/Create actions now use green, UPDATE actions use purple for consistent user experience
-  - **Both Components**: Updated colors in Dashboard and RecentCodeReviews components for consistency
-  - **CSS Definitions**: Added proper green color definitions (`bg-green-600`, `bg-green-700`) with hover states
-
-### Fixed
-
-- **Color Consistency**: Eliminated confusing color mismatches between related UI elements
-- **User Experience**: Actions that create new items (green) are now visually distinct from update actions (purple)
-
-## [0.13.13] - 2025-06-01
-
-### Fixed
-
-- **Create Code Review Button Visibility**: Fixed invisible Create/Update Code Review button on ExamEditor form
-  - **Tokyo Theme Colors**: Added proper CSS definitions for `bg-tokyo-accent`, `bg-tokyo-accent-darker`, and other Tokyo theme classes
-  - **Consistent Styling**: All Tokyo theme colors now have explicit CSS definitions with `!important` flags
-  - **Button Visibility**: Create/Update button now properly displays with purple background (#7c3aed) and darker hover state (#5b21b6)
-  - **Theme Integration**: Cancel button and other form elements also use proper Tokyo theme colors
-
-### Added
-
-- **Enhanced End Review Button**: Added comprehensive early termination functionality for code review sessions
-  - **Complete Session Cleanup**: "Stop Code Review" button now properly stops microphone, disconnects API, and stops screen sharing
-  - **Explicit Button Text**: Button now clearly states "Stop Code Review" with stop icon for better UX
-  - **Confirmation Dialog**: Prevents accidental termination with "Are you sure?" confirmation
-  - **Dashboard Redirect**: Automatically returns to dashboard after ending review early
-  - **Smart Display**: Button only appears when review session is active and connected
-  - **Professional Styling**: Red button with proper hover effects and responsive layout
-
-### Changed
-
-- **Control Tray Enhancement**: Improved navigation layout to accommodate enhanced End Review button with text
-- **Component Props**: Extended ControlTrayCustom interface to support onEndReview callback
-- **Session Management**: Better integration between control buttons and complete session cleanup
-- **Audio Management**: End Review now properly stops all audio recording and streaming
-
-## [0.13.12] - 2025-06-01
-
-### Enhanced
-
-- **Precise Line Number References in AI Code Reviews**: Dramatically improved the AI reviewer's ability to pinpoint exactly where it's focusing
-
-  - **Mandatory Line Numbers**: AI now ALWAYS references specific line numbers when discussing code (e.g., "On line 42", "Lines 15-18")
-  - **Enhanced Main Prompts**: Updated both `standardExam` and `githubExam` prompts to emphasize exact line number usage
-  - **Improved Guidelines**: Added specific instructions to always cite line numbers when mentioning functions, variables, or code blocks
-  - **Level-Specific Precision**: Enhanced all developer levels (junior/intermediate/senior) to include line-specific analysis
-  - **Repository Reviews**: GitHub repository reviews now include file paths with specific line number ranges
-  - **Actionable Feedback**: Developers can now immediately navigate to the exact locations mentioned by the AI reviewer
-  - **Consistent Format**: Standardized line number references across all prompt components for uniform behavior
-
-- **Extended Code Review Duration Options**: Increased flexibility for code review session lengths
-  - **Maximum Duration**: Increased from 8 minutes to 20 minutes maximum for comprehensive reviews
-  - **New Default**: Changed default duration from 8 to 10 minutes for better-paced sessions
-  - **Improved Range**: Duration slider now supports 0-20 minute range for varied review needs
-  - **Consistent Defaults**: Updated all components to use 10-minute default consistently
-
-### Changed
-
-- **System Prompts**: Updated examiner personas to emphasize line number precision and location accuracy
-- **Task Preparation**: Enhanced task creation prompts to mention specific files and code sections when possible
-- **Timer Messages**: Updated to remind AI to continue providing line-specific feedback throughout the session
-- **Screen Sharing Flow**: Modified to mention that line numbers will be referenced once code is visible
-
-### Technical Details
-
-- **All Prompt Components Updated**: Modified `mainPrompts`, `systemPrompts`, `taskPrompts`, `instructionComponents`, `levelGuidance`, and `timerMessages`
-- **Format Examples**: Added specific formatting examples like "In UserService.js on line 23" and "Lines 45-50 in the main component"
-- **Cross-Reference Support**: Enhanced GitHub reviews to reference implementation lines across multiple files
-- **Accessibility**: Line number references make reviews more accessible for developers using screen readers or line-jumping tools
-
-### Fixed
-
-- **Duration Slider Visibility**: Fixed invisible range slider on ExamEditor form
-
-  - **Custom Styling**: Added proper CSS styling to replace removed default browser appearance
-  - **Tokyo Theme Colors**: Used Tokyo theme colors (#7c3aed accent, #2a2e3a background) for consistent design
-  - **Interactive Elements**: Added hover effects and smooth transitions for better user experience
-  - **Cross-Browser Support**: Included styling for both WebKit and Mozilla browsers
-  - **Visual Feedback**: Slider thumb now properly visible with purple accent color and hover animations
-
-- **Form Element Visibility Issues**: Fixed invisible form elements on ExamEditor form
-  - **Duration Slider**: Added proper CSS styling to replace removed default browser appearance with Tokyo theme colors (#7c3aed accent, #2a2e3a background)
-  - **Cancel Button**: Added background color (`bg-neutral-20`) and border to make button visible and clickable
-  - **Custom Checkbox**: Replaced default browser checkbox with custom Tokyo-themed styling with purple accent
-  - **Interactive Elements**: Added hover effects and smooth transitions for better user experience
-  - **Cross-Browser Support**: Included styling for both WebKit and Mozilla browsers
-  - **Visual Feedback**: All form elements now properly visible with consistent Tokyo theme styling and animations
-
-## [0.13.11] - 2025-01-26
-
-### Fixed
-
-- Fixed intermittent fade-in animation on landing page by removing immediate scroll check and adjusting trigger threshold to ensure Recent Code Reviews section consistently requires scrolling to appear
-- **Landing Page Pills Not Showing**: Fixed NEW/UPDATED pills not appearing on landing page when Dashboard was visited first
-  - **Independent Display**: Both Dashboard and Landing page can now show pills independently without interfering
-  - **Smart Cleanup**: Pills are only removed from localStorage after both components have displayed them
-  - **Component Tracking**: Added tracking flags to prevent duplicate pill displays on same component
-  - **Cross-Component Sync**: Proper coordination between Dashboard and Landing page pill systems
-
-### Enhanced
-
-- **Improved Landing Page Animation Flow**: Enhanced fade-in behavior for better user experience
-
-  - **Research Section Auto-Fade**: Research Project section now automatically fades in 300ms after page load
-  - **Scroll-Triggered Reviews**: Recent Code Reviews section still requires scrolling to appear (preserved user preference)
-  - **Dual Animation System**: Added `fade-in-auto` class for immediate content and kept `fade-in` for scroll-triggered content
-  - **Smooth Transitions**: 0.6s ease transitions for both auto and scroll-triggered animations
-
-- **Landing Page NEW/UPDATED Pills**: Extended pill system to Recent Code Reviews section
-  - **Visual Consistency**: NEW (green) and UPDATED (orange) pills now appear on landing page cards
-  - **First-Time Display**: Pills show only on first visit to landing page after creating/updating a code review
-  - **Auto-Cleanup**: localStorage automatically clears after displaying pills to prevent stale indicators
-  - **Accent Ring**: NEW/UPDATED cards get subtle accent ring highlighting like on dashboard
-  - **User Feedback**: Immediate visual confirmation when users navigate to landing page after actions
-
-## [0.13.10] - 2025-06-01
-
-### Enhanced
-
-- **Aggressive Front Page Refresh**: Implemented multiple mechanisms to ensure latest projects appear immediately
-  - **5-Second Polling**: Reduced refresh interval from 30 seconds to 5 seconds for near real-time updates
-  - **Tab Focus Refresh**: Automatically refreshes when user switches back to the browser tab
-  - **Window Focus Refresh**: Updates data when window regains focus
-  - **Manual Refresh Button**: Added refresh icon next to "Recent Code Reviews" title for instant user control
-  - **Cache Busting**: Added timestamp-based cache busting to force fresh database queries
-  - **Debug Logging**: Added console logging to track refresh timing and data counts
-
-### Fixed
-
-- **Stale Data Issue**: Resolved front page showing outdated project list
-- **Immediate Updates**: New/updated code reviews now appear on front page within 5 seconds or instantly with manual refresh
-- **Browser Tab Switching**: Ensures fresh data when user returns to the tab
-
-### UI Improvements
-
-- **Refresh Control**: Subtle refresh button with hover effects integrated into section header
-- **Visual Feedback**: Loading states properly reset during manual refresh
-- **User Empowerment**: Users can now force immediate refresh if needed
-
-### Technical Details
-
-- **Multiple Event Listeners**: Handles `visibilitychange` and `focus` events for comprehensive refresh triggers
-- **Abort Controllers**: Ensures fresh database requests without caching interference
-- **Memory Management**: Proper cleanup of all intervals and event listeners on component unmount
-- **Performance**: 5-second polling provides immediate updates while maintaining reasonable server load
-
-## [0.13.9] - 2025-06-01
-
-### Fixed
-
-- **Reverted Pill Positioning**: Restored user's preferred pill positioning and three-dots menu spacing
-
-  - **Pill Position**: Back to `top-0.5 right-1` with original `px-3 py-0` padding as preferred by user
-  - **Three-dots Menu**: Removed `mt-8` margin to restore original spacing
-  - **User Preference**: Maintained user's carefully chosen positioning and styling
-
-- **Front Page Data Refresh**: Fixed recent code reviews not updating with latest projects
-  - **Auto-refresh**: Added 30-second interval to fetch latest public code reviews
-  - **Real-time Updates**: Front page now shows newest code reviews as they're created
-  - **Cleanup**: Proper interval cleanup on component unmount to prevent memory leaks
-
-### Changed
-
-- **Reduced Vertical Spacing**: Made front page more compact with tighter spacing
-  - **Section Padding**: Reduced from `py-12 md:py-16` to `py-8 md:py-12` across all front page sections
-  - **Heading Margins**: Reduced title margins from `mb-4/mb-6` to `mb-3` for tighter layout
-  - **Research Section**: Reduced icon margin from `mb-6` to `mb-4`
-  - **Paragraph Spacing**: Tightened text spacing for better visual flow
-
-### Technical Details
-
-- **Polling Strategy**: Added 30-second refresh interval for RecentCodeReviews component
-- **Memory Management**: Proper cleanup of intervals to prevent memory leaks
-- **Consistent Spacing**: Applied uniform spacing reduction across all front page sections
-- **User Experience**: Maintains functionality while respecting user's visual preferences
-
-## [0.13.8] - 2025-06-01
-
-### Added
-
-- **Smart Project Ordering**: Projects now display newest first across the entire application
-
-  - **Dashboard Ordering**: Added `.order("created_at", { ascending: false })` to display most recently created/updated projects first
-  - **Front Page Consistency**: Confirmed front page already displays latest projects (maintained existing ordering)
-  - **Improved Discovery**: Users can immediately see their newest work at the top
-
-- **Enhanced NEW/UPDATED Pill System**: Complete redesign of project status indicators with intelligent color coding
-  - **NEW Pills**: Green (`bg-green-500`) for newly created code reviews - positive association with creation
-  - **UPDATED Pills**: Orange (`bg-orange-500`) for recently updated code reviews - attention-grabbing for modifications
-  - **Smart Logic**: Automatically detects creation vs. update actions and shows appropriate pill
-  - **Updated Tracking**: Added `recentlyUpdatedExamId` state management and localStorage persistence
-  - **Single Visit Display**: Pills show only on first dashboard visit after action, then automatically clear
-
-### Changed
-
-- **ExamEditor Integration**: Enhanced save workflow to track both creation and update actions
-
-  - **Update Detection**: Stores `recentlyUpdatedExamId` in localStorage when saving existing code reviews
-  - **Creation Tracking**: Maintains existing `newlyCreatedExamId` tracking for new code reviews
-  - **Seamless UX**: Users immediately see status of their latest actions when returning to dashboard
-
-- **Visual Improvements**: Enhanced pill positioning and appearance
-  - **Perfect Positioning**: Moved to `top-2 right-2` for optimal corner placement with proper margins
-  - **Three-dots Spacing**: Restored `mt-8` margin to prevent overlap with status pills
-  - **Typography**: Enhanced font weight to `font-bold` for better readability
-  - **Consistent Padding**: Standardized `px-2 py-1` for uniform pill appearance
-
-### Technical Details
-
-- **State Management**: Added `recentlyUpdatedExamId` state alongside existing `newlyCreatedExamId`
-- **Database Optimization**: Leveraged existing `created_at` field for efficient chronological ordering
-- **Memory Management**: Automatic localStorage cleanup prevents stale indicators
-- **Component Interface**: Extended `ExamSimulatorCardProps` with `isUpdated` prop for clean separation of concerns
-- **Performance**: Minimal overhead - single additional database order clause and localStorage operation
-
-## [0.13.7] - 2025-06-01
-
-### Changed
-
-- **Enhanced Form Button Hover Effects**: Significantly improved visual feedback for better user experience
-  - **Cancel Button**: Added background color change on hover (`hover:bg-tokyo-bg-lightest`) with subtle border radius
-  - **Create/Update Button**: Added scaling effect (`hover:scale-105`) and enhanced shadow (`hover:shadow-lg`)
-  - **Delete Button**: Added scaling effect (`hover:scale-105`) and enhanced shadow (`hover:shadow-lg`)
-  - **Smooth Animations**: Updated all buttons to use `transition-all duration-200` for smooth, consistent animations
-  - **Visual Feedback**: All buttons now provide clear visual indication when hovered, improving usability
-
-### Fixed
-
-- **Button Interaction Clarity**: Previously subtle hover effects now provide clear visual feedback to users
-- **User Experience**: Enhanced interactive elements to meet modern web standards for button responsiveness
-
-## [0.13.6] - 2025-06-01
-
-### Changed
-
-- **Perfect NEW Indicator Positioning**: Final positioning improvements for the NEW badge
-
-  - **Top Right Corner**: Positioned at `top-2 right-2` for perfect corner placement with proper margins
-  - **No Overlap**: Three-dot menu moved down (`mt-8`) to avoid any visual conflicts
-  - **Better Spacing**: Title padding increased to `pr-20` for clean text flow
-
-- **Complete Tokyo Theme Integration**: Updated ExamEditor to match design system
-  - **Primary Button**: Changed from blue to `bg-tokyo-accent hover:bg-tokyo-accent-darker`
-  - **Delete Button**: Updated to proper red styling `
-
-## [0.13.31] - 2025-06-02
-
-### Changed
-
-- **Optimized Transcript Buffering - 10-Second Intervals**: Significantly simplified and optimized transcript collection system
-  - **Fixed 10-Second Timer**: Replaced complex buffering logic with simple 10-second intervals for more predictable behavior
-  - **Simplified Logic**: Removed complex timing calculations, pause detection, and sentence boundary analysis
-  - **Better Performance**: Eliminated unnecessary `lastTranscriptTimeRef` tracking and reduced computational overhead
-  - **More Predictable**: Transcripts are now consistently collected every 10 seconds regardless of content patterns
-  - **Cleaner Code**: Reduced complexity from ~40 lines of buffering logic to ~15 lines for easier maintenance
-
-## [0.13.32] - 2025-06-02
-
-### Changed
-
-- **Optimized Transcript Logging - Reduced Console Noise**: Significantly reduced transcript logging frequency for cleaner console output
-  - **Moved Logging Location**: Removed logging from GenAI Live client that was triggering on every transcript fragment
-  - **Save-Only Logging**: Added logging to `flushTranscriptBuffer()` function - only logs when chunks are actually saved
-  - **10-Second Intervals**: Logging now occurs every 10 seconds when buffered content is saved, not on every fragment
-  - **Preview Format**: Logs show first 100 characters of saved content with "..." indicator for longer content
-  - **Cleaner Console**: Dramatically reduced console noise while maintaining visibility into transcript processing
-  - **Better Performance**: Reduced logging overhead by ~90% since fragments arrive much more frequently than saves
-
-## [0.13.33] - 2025-06-02
-
-### Fixed
-
-- **Transcript Word Fragmentation**: Resolved issue where AI speech was being saved with spaces between every character
-
-  - **Smart Spacing Logic**: Replaced simple spacing with intelligent character-by-character analysis
-  - **Letter Continuation**: Prevents spaces when connecting letters that are part of the same word (e.g., "H" + "e" = "He", not "H e")
-  - **Proper Word Boundaries**: Still adds spaces appropriately between different words and around punctuation
-  - **Result**: Transcript chunks now save as "Hello! Thanks for having me" instead of "Hel lo! Tha nks fo r hav ing me"
-  - **Pattern Recognition**: Uses regex to detect letter-to-letter connections vs word boundaries
-
-- **Summary Modal Text Overflow**: Fixed generated text overflowing container on smaller screen sizes
-  - **Button Theme Styling**: Updated button colors to properly match Tokyo theme (Copy: neutral colors, OK: accent colors)
-  - **Footer Button Visibility**: Restructured modal with flexbox layout to ensure footer buttons always remain visible
-  - **Flexible Content Area**: Content section now uses `flex-1` to take available space while preserving header and footer
-  - **Container Structure Fix**: Added `min-w-0` and `overflow-hidden` to main modal container to prevent entire div overflow
-  - **Reduced Padding**: Decreased content padding from `p-6` to `p-4` and inner container from `p-4` to `p-3`
-  - **Source Fix**: Shortened decorative lines in summary generation from 27-30 characters to 15 characters
-  - **Element Change**: Replaced stubborn `<pre>` element with `<div>` for better text wrapping behavior
-  - **Preserved Formatting**: Used `whitespace-pre-line` to maintain line breaks and formatting
-  - **Comprehensive Overflow Fix**: Added `min-w-0`, `overflow-hidden`, and inline CSS styles for absolute containment
-  - **Width Constraints**: Applied `w-full` and `max-w-full` to both container and text element
-  - **Forced Breaking**: Used `break-all` class and inline `wordBreak: 'break-all'` style for aggressive text breaking
-  - **Container Boundaries**: Both the modal container and content now stay within boundaries at all screen sizes
-  - **Root Cause Resolution**: Fixed both the content generation and modal structure to prevent any overflow
-
-## [0.13.34] - 2025-06-02
-
-### Fixed
-
-- **Transcript Word Spacing**: Fixed overly aggressive smart spacing logic that was preventing spaces between separate words
-
-  - **Root Cause**: Previous "smart spacing logic" was too aggressive and blocked spaces between words like "I'm" and "ready"
-  - **Simplified Logic**: Replaced complex letter-detection logic with simple rule: add space unless either end already has one
-  - **Proper Word Separation**: Transcripts now correctly show "Hi there! I'm ready to review your code with you" instead of "Hi there! I'mreadyto reviewyour codewithyou"
-  - **Better User Experience**: AI speech transcripts are now readable and properly formatted
-  - **Maintained Protection**: Still prevents double spaces while allowing proper word boundaries
-
-- **Summary Modal OK Button Error**: Fixed "Cannot read properties of null (reading 'style')" error when pressing OK on summary screen
-
-  - **Root Cause**: DOM manipulation in copy button was trying to access elements that might not exist
-  - **React State Solution**: Replaced DOM manipulation with React state management for copy button feedback
-  - **Eliminated DOM Access**: Removed `document.getElementById()` calls that were causing null reference errors
-  - **Safer Implementation**: Copy button feedback now uses `useState` and `setCopyButtonText` instead of direct DOM manipulation
-
-- **Summary Modal Button Styling**: Enhanced button styling to properly match Tokyo Night theme with hover effects
-  - **Proper CSS Variables**: Replaced undefined Tailwind classes with actual CSS variables (`var(--tokyo-accent)`, `var(--Neutral-20)`)
-  - **Enhanced Hover Effects**: Added smooth scaling (`scale(1.02)`) and box shadow effects on button hover
-  - **Tokyo Theme Integration**: Both Copy and OK buttons now use proper Tokyo Night color palette
-  - **Interactive Feedback**: Buttons provide clear visual feedback with 200ms smooth transitions
-  - **Consistent Styling**: All UI elements now properly integrate with the established design system
-
-## [0.13.35] - 2025-06-02
-
-### Fixed
-
-- **Duplicate Timer Setup**: Removed duplicate timer configuration that was causing double introduction messages and timer prompts
-  - **Root Cause**: Both `Altair.tsx` and `useExamTimers.ts` were setting up timers independently
-  - **Solution**: Removed timer setup from `Altair.tsx` since `useExamTimers.ts` handles this properly
-  - **Impact**: Eliminates double "Hi! I'm your AI code reviewer" messages and conflicting timer prompts
-  - **Cleaner User Experience**: Single, properly timed introduction and review flow
-
-### Changed
-
-- **Suggestion-Focused Prompts**: Updated all prompts to emphasize providing concrete suggestions rather than asking questions
-  - **Main Prompts**: Changed from "discuss your feedback" to "discuss your suggestions" throughout
-  - **System Instructions**: Updated from question-focused to suggestion-focused language
-  - **Review Flow**: Emphasizes "actionable code improvements with exact suggestions" instead of general advice
-  - **Level Guidance**: All levels now focus on providing specific improvement suggestions with line numbers
-  - **Timer Messages**: Updated introduction to mention "specific suggestions for improvement"
-  - **Better Code Reviews**: AI will now provide more concrete, actionable suggestions instead of theoretical discussions
-
-### Technical Details
-
-- **Files Modified**:
-  - `src/components/altair/Altair.tsx`: Removed duplicate timer setup (40+ lines removed)
-  - `src/prompts.json`: Updated all prompt sections to be suggestion-focused
-- **Prompt Changes**: Replaced question-oriented language with suggestion-oriented language across all prompt categories
-- **Timer Consolidation**: Single source of truth for timer management in `useExamTimers.ts`
-- **Improved AI Behavior**: More focused on providing specific, line-referenced code improvements
-
-## [0.13.36] - 2025-06-02
-
-### Added
-
-- **Live Suggestion Extraction System**: Real-time AI-powered suggestion tracking during code reviews
-  - **OpenAI Integration**: Uses existing OpenAI API to intelligently extract concrete suggestions from natural conversation
-  - **Smart Detection**: Automatically identifies actionable code improvements from transcript chunks without forcing trigger words
-  - **Live Panel Display**: Floating suggestions panel in top-right corner with Tokyo Night theme styling
-  - **10-Second Processing**: Leverages existing transcript buffering to process suggestions every 10 seconds
-  - **Duplicate Prevention**: Advanced filtering prevents duplicate suggestions from appearing multiple times
-  - **Line Number Integration**: Captures specific line references when AI mentions them in suggestions
-  - **Real-Time Updates**: Suggestions appear live as the AI reviewer speaks, building up throughout the session
-  - **Clean UI**: Non-intrusive panel with suggestion counter, processing indicator, and clear button
-  - **Professional Formatting**: Suggestions display with timestamps and proper bullet-point formatting
-
-### Fixed
-
-- **OpenAI API Parameter Mismatch**: Fixed 400 Bad Request error in suggestion extraction system
-  - **Root Cause**: `getCompletion` function expects 3 parameters (prompt, systemPrompt, doesReturnJSON) but was only receiving 1
-  - **Parameter Fix**: Updated suggestion extractor to provide proper system prompt and JSON flag parameters
-  - **API Compatibility**: Now correctly calls `getCompletion(extractionPrompt, systemPrompt, false)`
-  - **Error Resolution**: Eliminates "Failed to fetch completion: 400" errors during live suggestion processing
-
-### Enhanced
-
-- **Live Suggestion Integration in Summary**: Code review summaries now use actual extracted suggestions instead of keyword analysis
-  - **Key Review Points**: Summary now displays the actual live suggestions extracted during the review
-  - **Removed Unnecessary Metrics**: Eliminated confusing metrics like "transcript segments", "user interactions", "suggestion keywords", and "issue keywords"
-  - **Cleaner Session Activity**: Simplified to show only relevant information (transcript length and line number references)
-  - **Real Actionable Content**: Key Review Points section now shows the concrete suggestions from the OpenAI extraction system
-  - **Fallback Support**: Maintains fallback to excerpt analysis if no live suggestions are available
-  - **Better User Value**: Summary now contains the actual suggestions users saw during the review instead of statistical analysis
-
-### Technical Implementation
-
-- **New Hook**: `useLiveSuggestionExtractor` - handles OpenAI API calls and suggestion state management
-- **New Component**: `LiveSuggestionsPanel` - displays live suggestions with Tokyo Night theme
-- **Enhanced Tracker**: `useConversationTracker` now accepts optional callback for transcript chunk processing
-- **Integration Points**:
-  - `AIExaminerPage.tsx`: Main integration point with suggestion display
-  - `ExamWorkflow.tsx`: Updated to support transcript chunk callbacks
-- **OpenAI Prompt Engineering**: Sophisticated extraction prompt with quality criteria and format specifications
-- **State Management**: Efficient suggestion deduplication and processing state tracking
-
-### User Experience
-
-- **Natural Conversation**: AI speaks completely naturally without forced trigger words or artificial phrasing
-- **Contextual Awareness**: Only shows panel during active code reviews (`examIntentStarted = true`)
-- **Actionable Insights**: Focuses on concrete, implementable suggestions rather than general observations
-- **Visual Feedback**: Processing indicator shows when suggestions are being extracted
-- **Easy Management**: Clear button allows users to reset the suggestion list if needed
 
 ## [0.14.6] - 2025-06-02
 

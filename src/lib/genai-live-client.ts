@@ -105,6 +105,12 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     return { ...this.config };
   }
 
+  public canResume(): boolean {
+    return !!(
+      this.sessionResumptionHandle && this.sessionResumptionHandle.length > 0
+    );
+  }
+
   constructor(options: LiveClientOptions) {
     super();
     this.client = new GoogleGenAI(options);
@@ -170,24 +176,33 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       willUseResumption: !!this.sessionResumptionHandle,
     });
 
-    // Use session resumption if we have a handle
-    const resumptionConfig = this.sessionResumptionHandle
-      ? {
-          ...config,
-          sessionResumption: { handle: this.sessionResumptionHandle },
-        }
-      : config;
+    // Only use session resumption if we have a valid handle
+    if (
+      this.sessionResumptionHandle &&
+      this.sessionResumptionHandle.length > 0
+    ) {
+      const resumptionConfig = {
+        ...config,
+        sessionResumption: { handle: this.sessionResumptionHandle },
+      };
 
-    console.log("🔍 Final Resume Config:", resumptionConfig);
+      console.log("🔍 Final Resume Config:", resumptionConfig);
 
-    this.log(
-      "client.resume",
-      this.sessionResumptionHandle
-        ? `Resuming with session handle: ${this.sessionResumptionHandle}`
-        : "No session handle available, starting fresh session"
-    );
+      this.log(
+        "client.resume",
+        `Resuming with session handle: ${this.sessionResumptionHandle}`
+      );
 
-    return this.connect(model, resumptionConfig);
+      return this.connect(model, resumptionConfig);
+    } else {
+      // No session handle available, just do a normal connect
+      console.log("🔍 No session handle available, doing normal connect");
+      this.log(
+        "client.resume",
+        "No session handle available, starting fresh session"
+      );
+      return this.connect(model, config);
+    }
   }
 
   public disconnect() {
@@ -416,6 +431,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   sendRealtimeInput(chunks: Array<{ mimeType: string; data: string }>) {
     let hasAudio = false;
     let hasVideo = false;
+
     for (const ch of chunks) {
       this.session?.sendRealtimeInput({ media: ch });
       if (ch.mimeType.includes("audio")) {
@@ -428,6 +444,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         break;
       }
     }
+
     const message =
       hasAudio && hasVideo
         ? "audio + video"

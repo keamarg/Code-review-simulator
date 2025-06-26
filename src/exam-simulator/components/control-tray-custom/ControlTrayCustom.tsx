@@ -18,12 +18,20 @@ import cn from "classnames";
 
 import { memo, ReactNode, RefObject, useEffect, useRef, useState } from "react";
 import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
-import { UseMediaStreamResult } from "../../../hooks/use-media-stream-mux";
-import { useScreenCapture } from "../../../hooks/use-screen-capture";
-import { useWebcam } from "../../../hooks/use-webcam";
 import { AudioRecorder } from "../../../lib/audio-recorder";
 import AudioPulse from "../../../components/audio-pulse/AudioPulse";
 import "./control-tray-custom.scss";
+
+// Browser detection
+function isFirefox() {
+  return navigator.userAgent.toLowerCase().includes("firefox");
+}
+function isSafari() {
+  return (
+    /^((?!chrome|android).)*safari/i.test(navigator.userAgent) &&
+    !navigator.userAgent.toLowerCase().includes("chrome")
+  );
+}
 
 export type ControlTrayProps = {
   videoRef: RefObject<HTMLVideoElement>;
@@ -37,44 +45,6 @@ export type ControlTrayProps = {
   forceStopVideo?: boolean;
 };
 
-type MediaStreamButtonProps = {
-  isStreaming: boolean;
-  onIcon: string;
-  offIcon: string;
-  start: () => Promise<any>;
-  stop: () => any;
-};
-
-/**
- * button used for triggering webcam or screen-capture
- */
-const MediaStreamButton = memo(
-  ({ isStreaming, onIcon, offIcon, start, stop }: MediaStreamButtonProps) =>
-    isStreaming ? (
-      <button
-        className="transition duration-200 ease-in-out focus:outline-none rounded bg-tokyo-bg-lighter border border-tokyo-selection text-tokyo-fg shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
-        onClick={stop}
-      >
-        <span className="material-symbols-outlined">{onIcon}</span>
-      </button>
-    ) : (
-      <button
-        className="transition duration-200 ease-in-out focus:outline-none rounded bg-tokyo-bg-lighter border border-tokyo-selection text-tokyo-fg shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center"
-        onClick={async (e) => {
-          e.preventDefault();
-          try {
-            await start();
-          } catch (error) {
-            console.error("Error starting media stream:", error);
-            // Don't throw the error to prevent unhandled promise rejection
-          }
-        }}
-      >
-        <span className="material-symbols-outlined">{offIcon}</span>
-      </button>
-    )
-);
-
 function ControlTray({
   videoRef,
   children,
@@ -86,16 +56,32 @@ function ControlTray({
   forceStopAudio,
   forceStopVideo,
 }: ControlTrayProps) {
-  const videoStreams = [useWebcam(), useScreenCapture()];
   const [activeVideoStream, setActiveVideoStream] =
     useState<MediaStream | null>(null);
-  const [, screenCapture] = videoStreams;
   const [inVolume, setInVolume] = useState(0);
   const [audioRecorder] = useState(() => new AudioRecorder());
   const [muted, setMuted] = useState(false);
   const renderCanvasRef = useRef<HTMLCanvasElement>(null);
   const connectButtonRef = useRef<HTMLButtonElement>(null);
   const [buttonIsOn, setButtonIsOn] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [showStartMic, setShowStartMic] = useState(false);
+  const [pendingVideoStream, setPendingVideoStream] =
+    useState<MediaStream | null>(null);
+  const [showPreShareWarning, setShowPreShareWarning] = useState(false);
+  const [pendingShareAction, setPendingShareAction] = useState<
+    null | (() => void)
+  >(null);
+
+  // Track audio stream for proper cleanup
+  const audioStreamRef = useRef<MediaStream | null>(null);
+
+  // New state for two-step approach
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
+  const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
+
+  // Track if audio recording has been started for resume
+  const audioRecordingStartedRef = useRef(false);
 
   const { client, connected, disconnect, volume } = useGenAILiveContext();
 
@@ -107,12 +93,15 @@ function ControlTray({
 
   // Handle force stop video/screen sharing
   useEffect(() => {
-    if (forceStopVideo && screenCapture.isStreaming) {
-      screenCapture.stop();
-      setActiveVideoStream(null);
-      onVideoStreamChange(null);
+    if (forceStopVideo && isScreenSharing) {
+      if (activeVideoStream) {
+        activeVideoStream.getTracks().forEach((track) => track.stop());
+        setActiveVideoStream(null);
+        onVideoStreamChange(null);
+      }
+      setIsScreenSharing(false);
     }
-  }, [forceStopVideo, screenCapture, onVideoStreamChange]);
+  }, [forceStopVideo, isScreenSharing, activeVideoStream, onVideoStreamChange]);
 
   useEffect(() => {
     document.documentElement.style.setProperty(
@@ -121,37 +110,34 @@ function ControlTray({
     );
   }, [inVolume]);
 
+  // Store handler functions so they can be removed
+  const audioDataHandler = (base64: string) => {
+    const sampleRate = audioRecorder.audioContext?.sampleRate || 16000;
+    client.sendRealtimeInput([
+      {
+        mimeType: `audio/pcm;rate=${sampleRate}`,
+        data: base64,
+      },
+    ]);
+  };
+  const audioVolumeHandler = (volume: number) => {
+    setInVolume(volume);
+  };
+
+  // Handle force stop audio/microphone
   useEffect(() => {
-    const onData = (base64: string) => {
-      client.sendRealtimeInput([
-        {
-          mimeType: "audio/pcm;rate=16000",
-          data: base64,
-        },
-      ]);
-    };
-
-    // Clean up existing listeners first
-    audioRecorder.off("data", onData).off("volume", setInVolume);
-
-    // Always stop first, then decide whether to start
-    audioRecorder.stop();
-
-    // Only start if connected, not muted, and not force stopped
-    if (connected && !muted && !forceStopAudio && audioRecorder) {
-      audioRecorder.on("data", onData).on("volume", setInVolume);
-      audioRecorder.start().catch((error) => {
-        console.error("Failed to start audio recording:", error);
-      });
-    }
-
-    return () => {
-      // Clean up listeners on unmount or dependency change
-      audioRecorder.off("data", onData).off("volume", setInVolume);
-      // Also stop recording on cleanup
+    if (forceStopAudio) {
+      console.log("🎛️ ControlTray: Force stopping audio recording...");
+      audioRecorder.off("data", audioDataHandler);
+      audioRecorder.off("volume", audioVolumeHandler);
       audioRecorder.stop();
-    };
-  }, [connected, client, muted, audioRecorder, forceStopAudio]);
+
+      // Also stop the MediaStream tracks for complete cleanup
+      cleanupAudioStream();
+
+      console.log("✅ ControlTray: Audio recording and MediaStream stopped");
+    }
+  }, [forceStopAudio, audioRecorder, audioDataHandler, audioVolumeHandler]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -189,48 +175,391 @@ function ControlTray({
     };
   }, [connected, activeVideoStream, client, videoRef]);
 
-  // Enhanced handler for swapping from one video-stream to the next
-  const changeStreams = (next?: UseMediaStreamResult) => async () => {
-    try {
-      if (next) {
-        const mediaStream = await next.start();
-        setActiveVideoStream(mediaStream);
-        onVideoStreamChange(mediaStream);
-      } else {
-        setActiveVideoStream(null);
-        onVideoStreamChange(null);
-      }
+  // Main button click handler
+  const handleMainButtonClick = async () => {
+    // Safari is not supported
+    if (isSafari()) {
+      alert(
+        "Safari is not supported. Please use Chrome or Firefox for the best experience."
+      );
+      return;
+    }
 
-      videoStreams.filter((msr) => msr !== next).forEach((msr) => msr.stop());
-    } catch (error) {
-      console.error("Error changing video streams:", error);
-      // Handle the error gracefully without throwing
-      if (error instanceof DOMException && error.name === "NotAllowedError") {
-        console.warn(
-          "Media permission denied. User may need to grant permission."
-        );
+    if (connected) {
+      // Pausing - disconnect from the API and stop audio, but keep screen sharing active
+      audioRecorder.off("data", audioDataHandler);
+      audioRecorder.off("volume", audioVolumeHandler);
+      audioRecorder.stop();
+
+      // Stop MediaStream tracks for complete cleanup
+      cleanupAudioStream();
+
+      await disconnect();
+
+      // Keep screen sharing active for resume (don't stop video tracks)
+      // Don't reset isScreenSharing or activeVideoStream
+      // Don't reset permissionsGranted - keep it true for resume
+
+      // Reset audio recording flag for future resume
+      audioRecordingStartedRef.current = false;
+
+      setButtonIsOn(false);
+      onButtonClicked(false);
+      return;
+    }
+
+    // Check if we can resume an existing session
+    if (hasExamStarted && client.canResume()) {
+      console.log("🎛️ ControlTray: Resuming existing session...");
+      // Use the same unified flow for resume as for first start
+      await startUnifiedFlow();
+      return;
+    }
+
+    // For Firefox, use the two-step approach
+    if (isFirefox()) {
+      if (!permissionsGranted) {
+        await requestPermissions();
+      } else {
+        await startReview();
       }
+      return;
+    }
+
+    // For Chrome, use the unified flow
+    await startUnifiedFlow();
+  };
+
+  // Request permissions (microphone and screen sharing)
+  const requestPermissions = async () => {
+    if (isRequestingPermissions) return;
+
+    console.log("🎛️ ControlTray: requestPermissions called");
+    setIsRequestingPermissions(true);
+    setButtonIsOn(true);
+
+    try {
+      console.log("🎛️ ControlTray: Requesting permissions...");
+
+      // Request both permissions in parallel (like Chrome)
+      const [audioStream, videoStream] = await Promise.all([
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+          },
+        }),
+        navigator.mediaDevices.getDisplayMedia({
+          video: true,
+        }),
+      ]);
+
+      console.log("✅ ControlTray: Both permissions granted successfully");
+      console.log("🎛️ ControlTray: Audio stream received:", {
+        active: audioStream.active,
+        trackCount: audioStream.getTracks().length,
+        trackStates: audioStream
+          .getTracks()
+          .map((t) => ({ kind: t.kind, readyState: t.readyState })),
+      });
+
+      // Store audio stream for cleanup - CRITICAL for Firefox flow
+      audioStreamRef.current = audioStream;
+      console.log(
+        "🎛️ ControlTray: Audio stream stored in ref:",
+        !!audioStreamRef.current
+      );
+
+      // Set up video stream
+      const videoOnlyStream = new MediaStream(videoStream.getVideoTracks());
+      setActiveVideoStream(videoOnlyStream);
+      onVideoStreamChange(videoOnlyStream);
+      setIsScreenSharing(true);
+
+      // Mark permissions as granted
+      setPermissionsGranted(true);
+      setButtonIsOn(false);
+
+      console.log("✅ ControlTray: Permissions granted, ready to start review");
+    } catch (permissionError) {
+      console.error(
+        "❌ ControlTray: Permission request failed:",
+        permissionError
+      );
+      setButtonIsOn(false);
+      setIsRequestingPermissions(false);
+
+      if (permissionError instanceof DOMException) {
+        if (permissionError.name === "NotAllowedError") {
+          alert(
+            "Microphone and screen sharing permissions are required. Please allow both permissions and try again."
+          );
+        } else {
+          alert("Permission error: " + permissionError.message);
+        }
+      } else {
+        alert("Failed to get permissions. Please try again.");
+      }
+    } finally {
+      setIsRequestingPermissions(false);
     }
   };
 
-  // Enhanced button click handler with integrated screen sharing
-  const handleMainButtonClick = async () => {
+  // Start the actual review (Firefox second step)
+  const startReview = async () => {
+    console.log("🎛️ ControlTray: startReview called");
+    console.log(
+      "🎛️ ControlTray: audioStreamRef.current:",
+      !!audioStreamRef.current
+    );
+    console.log("🎛️ ControlTray: activeVideoStream:", !!activeVideoStream);
+    console.log("🎛️ ControlTray: permissionsGranted:", permissionsGranted);
+
+    if (!permissionsGranted) {
+      console.error("❌ ControlTray: Permissions not granted yet");
+      alert(
+        "Please grant permissions first by clicking 'Share Screen & Microphone'."
+      );
+      return;
+    }
+
+    if (!audioStreamRef.current) {
+      console.error("❌ ControlTray: Audio stream not available");
+      alert(
+        "Audio stream not available. Please try granting permissions again."
+      );
+      return;
+    }
+
+    if (!activeVideoStream) {
+      console.error("❌ ControlTray: Video stream not available");
+      alert(
+        "Screen sharing not available. Please try granting permissions again."
+      );
+      return;
+    }
+
+    setButtonIsOn(true);
+
+    try {
+      console.log("🎛️ ControlTray: Starting code review...");
+
+      // Start the review first, then start audio recording after connection is established
+      console.log(
+        "🎛️ ControlTray: Calling onButtonClicked(true) to start review"
+      );
+      onButtonClicked(true);
+      console.log("✅ ControlTray: Review started successfully");
+
+      // Start audio recording after the review/connection is established
+      await audioRecorder.start(audioStreamRef.current);
+      audioRecorder.on("data", audioDataHandler);
+      audioRecorder.on("volume", audioVolumeHandler);
+      console.log("✅ ControlTray: Audio recording started successfully");
+    } catch (error) {
+      console.error("❌ ControlTray: Failed to start review:", error);
+      setButtonIsOn(false);
+      alert("Failed to start the code review. Please try again.");
+    }
+  };
+
+  // Handler for the pre-sharing warning modal
+  const handlePreShareWarningOk = async () => {
+    setShowPreShareWarning(false);
+    if (pendingShareAction) await pendingShareAction();
+  };
+
+  // Handler for the Start Review modal (for Firefox and Safari)
+  const handleStartReviewClick = async () => {
+    console.log("🎛️ ControlTray: handleStartReviewClick called (modal)");
+    setShowStartMic(false);
+
+    // For Safari, request screen sharing in this user gesture
+    if (isSafari()) {
+      try {
+        console.log(
+          "🎛️ ControlTray: Safari - requesting screen sharing from modal..."
+        );
+        const videoStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+        });
+        console.log("✅ ControlTray: Safari screen sharing granted from modal");
+
+        // Set up video stream
+        const videoOnlyStream = new MediaStream(videoStream.getVideoTracks());
+        setActiveVideoStream(videoOnlyStream);
+        onVideoStreamChange(videoOnlyStream);
+        setIsScreenSharing(true);
+
+        // Start audio recording now that we have both permissions
+        if (audioStreamRef.current) {
+          try {
+            console.log(
+              "🎛️ ControlTray: Safari - starting audio recording after screen sharing..."
+            );
+            await audioRecorder.start(audioStreamRef.current);
+            audioRecorder.on("data", audioDataHandler);
+            audioRecorder.on("volume", audioVolumeHandler);
+            console.log(
+              "✅ ControlTray: Safari audio recording started successfully"
+            );
+          } catch (audioError) {
+            console.error(
+              "❌ ControlTray: Safari audio recording start error:",
+              audioError
+            );
+            setButtonIsOn(false);
+            alert(
+              "Failed to start microphone. Please check permissions and try again."
+            );
+            return;
+          }
+        }
+
+        // Start the review
+        console.log(
+          "🎛️ ControlTray: Calling onButtonClicked(true) to start review (Safari modal)"
+        );
+        try {
+          onButtonClicked(true);
+          console.log(
+            "🎛️ ControlTray: onButtonClicked(true) called successfully"
+          );
+        } catch (error) {
+          console.error(
+            "❌ ControlTray: Error calling onButtonClicked(true):",
+            error
+          );
+          setButtonIsOn(false);
+          alert("Failed to start the code review. Please try again.");
+          return;
+        }
+      } catch (screenShareError) {
+        console.error(
+          "❌ ControlTray: Safari screen sharing failed:",
+          screenShareError
+        );
+        setButtonIsOn(false);
+        if (
+          screenShareError instanceof DOMException &&
+          screenShareError.name === "NotAllowedError"
+        ) {
+          alert(
+            "Screen sharing is required to start the code review. Please allow screen sharing and try again."
+          );
+        } else {
+          alert("Failed to start screen sharing. Please try again.");
+        }
+        return;
+      }
+      return;
+    }
+
+    // Original Firefox flow
+    let audioStream: MediaStream;
+    try {
+      console.log(
+        "🎛️ ControlTray: Requesting microphone access (from modal)..."
+      );
+      audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      });
+      console.log("✅ ControlTray: Microphone access granted");
+    } catch (audioError) {
+      console.error(
+        "❌ ControlTray: Microphone access error (Firefox):",
+        audioError
+      );
+      setButtonIsOn(false);
+      alert(
+        "Microphone access is required. Please allow microphone access and try again."
+      );
+      return;
+    }
+    try {
+      // Store audio stream for cleanup
+      audioStreamRef.current = audioStream;
+      console.log(
+        "🎛️ ControlTray: Audio stream stored in ref (Firefox modal):",
+        !!audioStreamRef.current
+      );
+      console.log("🎛️ ControlTray: Audio stream received in Firefox modal:", {
+        active: audioStream.active,
+        trackCount: audioStream.getTracks().length,
+        trackStates: audioStream
+          .getTracks()
+          .map((t) => ({ kind: t.kind, readyState: t.readyState })),
+      });
+
+      console.log(
+        "🎛️ ControlTray: Starting audio recording from audio stream (from modal)..."
+      );
+      await audioRecorder.start(audioStream);
+      audioRecorder.on("data", audioDataHandler);
+      audioRecorder.on("volume", audioVolumeHandler);
+      console.log("✅ ControlTray: Audio recording started successfully");
+      console.log(
+        "🎛️ ControlTray: Calling onButtonClicked(true) to start review"
+      );
+      try {
+        onButtonClicked(true);
+        console.log(
+          "🎛️ ControlTray: onButtonClicked(true) called successfully"
+        );
+      } catch (error) {
+        console.error(
+          "❌ ControlTray: Error calling onButtonClicked(true):",
+          error
+        );
+        setButtonIsOn(false);
+        alert("Failed to start the code review. Please try again.");
+        return;
+      }
+    } catch (audioError) {
+      console.error(
+        "❌ ControlTray: Audio recording start error (Firefox):",
+        audioError
+      );
+      setButtonIsOn(false);
+      alert(
+        "Failed to start microphone. Please check permissions and try again."
+      );
+      return;
+    }
+  };
+
+  // Unified flow - one click to share screen and start review (for Chrome and other browsers)
+  const startUnifiedFlow = async () => {
     const newButtonState = !buttonIsOn;
     setButtonIsOn(newButtonState);
 
     try {
       if (newButtonState) {
-        // Starting - first ensure screen sharing is active
-        if (!screenCapture.isStreaming) {
+        // Start screen sharing first (only if not already sharing)
+        let videoStream: MediaStream;
+        if (isScreenSharing && activeVideoStream) {
+          console.log(
+            "🎛️ ControlTray: Using existing screen sharing for resume"
+          );
+          videoStream = activeVideoStream;
+        } else {
           try {
-            const mediaStream = await screenCapture.start();
-            setActiveVideoStream(mediaStream);
-            onVideoStreamChange(mediaStream);
+            console.log(
+              "🎛️ ControlTray: Starting screen sharing (video only)..."
+            );
+            videoStream = await navigator.mediaDevices.getDisplayMedia({
+              video: true,
+            });
+            console.log("✅ ControlTray: Screen sharing started successfully");
           } catch (screenShareError) {
-            // Revert button state if screen sharing fails
             setButtonIsOn(false);
-
-            // Show user-friendly error message
             if (
               screenShareError instanceof DOMException &&
               screenShareError.name === "NotAllowedError"
@@ -241,29 +570,154 @@ function ControlTray({
             } else {
               alert("Failed to start screen sharing. Please try again.");
             }
-            return; // Don't proceed with AI connection
+            return;
           }
+
+          // Only attach video tracks to the video element to prevent echo
+          const videoOnlyStream = new MediaStream(videoStream.getVideoTracks());
+          setActiveVideoStream(videoOnlyStream);
+          onVideoStreamChange(videoOnlyStream);
+          setIsScreenSharing(true);
         }
 
-        onButtonClicked(newButtonState);
+        // Try to request microphone immediately
+        let audioStream: MediaStream | null = null;
+        let micError: any = null;
+        try {
+          console.log(
+            "🎛️ ControlTray: Requesting microphone access immediately after screen sharing..."
+          );
+
+          audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+            },
+          });
+          console.log("✅ ControlTray: Microphone access granted");
+          console.log(
+            "🎛️ ControlTray: Audio stream received in unified flow:",
+            {
+              active: audioStream.active,
+              trackCount: audioStream.getTracks().length,
+              trackStates: audioStream
+                .getTracks()
+                .map((t) => ({ kind: t.kind, readyState: t.readyState })),
+            }
+          );
+        } catch (error) {
+          micError = error;
+          console.error("❌ ControlTray: Microphone access error:", error);
+        }
+
+        if (audioStream) {
+          // Store audio stream for cleanup
+          audioStreamRef.current = audioStream;
+          console.log(
+            "🎛️ ControlTray: Audio stream stored in ref (unified flow):",
+            !!audioStreamRef.current
+          );
+
+          // Start audio recording using only the audio stream
+          try {
+            console.log(
+              "🎛️ ControlTray: Starting review first, then audio recording..."
+            );
+
+            // Start the review first
+            console.log(
+              "🎛️ ControlTray: Calling onButtonClicked(newButtonState) to start review (unified flow)"
+            );
+            onButtonClicked(newButtonState);
+            console.log(
+              "🎛️ ControlTray: onButtonClicked(newButtonState) called successfully"
+            );
+
+            // Start audio recording after the review/connection is established
+            await audioRecorder.start(audioStream);
+            audioRecorder.on("data", audioDataHandler);
+            audioRecorder.on("volume", audioVolumeHandler);
+            console.log("✅ ControlTray: Audio recording started successfully");
+          } catch (audioError) {
+            setButtonIsOn(false);
+            alert(
+              "Failed to start microphone. Please check permissions and try again."
+            );
+            return;
+          }
+        } else if (micError) {
+          console.error("❌ ControlTray: Microphone access failed:", micError);
+          setButtonIsOn(false);
+          alert(
+            "Microphone access is required. Please allow microphone access and try again."
+          );
+          return;
+        }
       } else {
-        // Pausing - disconnect from the API and stop screen sharing
+        // Pausing - disconnect from the API and stop audio, but keep screen sharing active
+        audioRecorder.off("data", audioDataHandler);
+        audioRecorder.off("volume", audioVolumeHandler);
+        audioRecorder.stop();
+
+        // Stop MediaStream tracks for complete cleanup
+        cleanupAudioStream();
+
         await disconnect();
 
-        // Stop screen sharing when pausing
-        if (screenCapture.isStreaming) {
-          screenCapture.stop();
-          setActiveVideoStream(null);
-          onVideoStreamChange(null);
-        }
+        // Keep screen sharing active for resume (don't stop video tracks)
+        // Don't reset isScreenSharing or activeVideoStream
+        // Don't reset permissionsGranted - keep it true for resume
 
-        // Notify parent component
-        onButtonClicked(newButtonState);
+        // Reset audio recording flag for future resume
+        audioRecordingStartedRef.current = false;
+
+        onButtonClicked(false);
       }
     } catch (error) {
       console.error("Error toggling connection:", error);
-      // Revert button state on error
       setButtonIsOn(!newButtonState);
+    }
+  };
+
+  // Get button text based on current state
+  const getButtonText = () => {
+    if (isSafari()) {
+      return "Safari Not Supported";
+    }
+    if (connected) {
+      return "Pause";
+    }
+    if (hasExamStarted) {
+      return "Resume";
+    }
+
+    // For Chrome, use the old one-click text
+    if (!isFirefox() && !isSafari()) {
+      return "Share screen & start review";
+    }
+
+    // For Firefox, use the two-step approach
+    if (permissionsGranted) {
+      return "Start Code Review";
+    }
+    if (isRequestingPermissions) {
+      return "Requesting Permissions...";
+    }
+    return "Share Screen & Microphone";
+  };
+
+  // Helper function to properly clean up audio stream
+  const cleanupAudioStream = () => {
+    if (audioStreamRef.current) {
+      console.log("🎛️ ControlTray: Cleaning up audio stream...");
+      audioStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+        console.log("🎛️ ControlTray: Stopped audio track:", track.kind);
+      });
+      audioStreamRef.current = null;
+      console.log("🎛️ ControlTray: Audio stream cleanup completed");
     }
   };
 
@@ -274,25 +728,33 @@ function ControlTray({
         <button
           ref={connectButtonRef}
           className={cn(
-            "transition duration-200 ease-in-out focus:outline-none rounded border bg-tokyo-accent text-white shadow-sm hover:bg-tokyo-accent-darker hover:shadow-lg mb-2 py-5 px-8 cursor-pointer"
+            "transition duration-200 ease-in-out focus:outline-none rounded border bg-tokyo-accent text-white shadow-sm hover:bg-tokyo-accent-darker hover:shadow-lg mb-2 py-5 px-8 cursor-pointer",
+            {
+              "opacity-50 cursor-not-allowed": isSafari(),
+            }
           )}
           onClick={handleMainButtonClick}
-          disabled={false} // Always enabled for better UX
+          disabled={isRequestingPermissions || isSafari()} // Disable while requesting permissions or for Safari
         >
-          {connected
-            ? "Pause"
-            : hasExamStarted
-            ? "Resume"
-            : "Share screen & start review"}
+          {getButtonText()}
         </button>
 
-        {/* Screen sharing status indicator */}
-        {screenCapture.isStreaming && (
+        {/* Status indicators */}
+        {isScreenSharing && (
           <div className="flex items-center text-sm text-tokyo-fg-dim mb-4">
             <span className="material-symbols-outlined mr-1 text-green-400">
               present_to_all
             </span>
             Screen sharing active
+          </div>
+        )}
+
+        {permissionsGranted && !connected && (
+          <div className="flex items-center text-sm text-tokyo-fg-dim mb-4">
+            <span className="material-symbols-outlined mr-1 text-blue-400">
+              mic
+            </span>
+            Permissions granted - ready to start
           </div>
         )}
       </div>
@@ -323,16 +785,26 @@ function ControlTray({
                 )
               ) {
                 // Stop audio recording
+                audioRecorder.off("data", audioDataHandler);
+                audioRecorder.off("volume", audioVolumeHandler);
                 audioRecorder.stop();
 
                 // Disconnect from the API
                 await disconnect();
 
+                // Clean up audio stream
+                cleanupAudioStream();
+
                 // Stop screen sharing
-                if (screenCapture.isStreaming) {
-                  screenCapture.stop();
-                  setActiveVideoStream(null);
-                  onVideoStreamChange(null);
+                if (isScreenSharing) {
+                  if (activeVideoStream) {
+                    activeVideoStream
+                      .getTracks()
+                      .forEach((track) => track.stop());
+                    setActiveVideoStream(null);
+                    onVideoStreamChange(null);
+                  }
+                  setIsScreenSharing(false);
                 }
 
                 // Reset button state

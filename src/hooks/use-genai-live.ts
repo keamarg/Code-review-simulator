@@ -46,7 +46,10 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
   // register audio for streaming server -> speakers
   useEffect(() => {
     if (!audioStreamerRef.current) {
-      audioContext({ id: "audio-out" }).then((audioCtx: AudioContext) => {
+      audioContext({
+        id: "audio-out",
+        sampleRate: 24000, // Match AudioStreamer and AudioRecorder sample rate
+      }).then((audioCtx: AudioContext) => {
         audioStreamerRef.current = new AudioStreamer(audioCtx);
         audioStreamerRef.current
           .addWorklet<any>("vumeter-out", VolMeterWorket, (ev: any) => {
