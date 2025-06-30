@@ -5,6 +5,257 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.34] - 2025-06-26
+
+### Refined
+
+- **Terminology Consistency**: Refined terminology approach to create clear distinction between quick start and custom workflows
+  - **Navigation Menu**: "Create Review" → "Create Custom Review" (emphasizes the custom configuration aspect)
+  - **Dashboard Interface**: Reverted to "Your code reviews", "Search code reviews", and "No code reviews found" (general browsing context)
+  - **Exam Editor**: All creation, editing, and deletion workflows use "custom review" terminology (creation/editing context)
+  - **Recent Reviews Component**: Uses "code review sessions" for general browsing
+  - **Button Actions**: "Start code review" for general actions, maintains familiar language
+  - **Strategic Approach**: "Custom review" used specifically in creation/editing flows, "code reviews" used in browsing/general contexts
+  - **Clear User Flow**: Navigation → "Create Custom Review" leads to editor that creates "custom reviews", while browsing shows "code reviews"
+
+## [0.17.33] - 2025-06-26
+
+### Changed
+
+- **Landing Page Layout**: Removed top padding from research section entirely for better visual flow
+
+  - **No Top Padding**: Changed from `py-8 md:py-10` to `pb-8 md:pb-10` to eliminate gap between hero and research sections
+  - **Seamless Transition**: Creates immediate visual connection between quick start area and research information
+  - **Better Visual Flow**: Eliminates awkward spacing that was breaking the page's visual rhythm
+
+- **Terminology Clarification**: Updated "create review" to "create custom review" throughout the application
+  - **Navigation Menu**: "Create Review" → "Create Custom Review"
+  - **Dashboard Interface**: "Your code reviews" → "Your custom reviews", search placeholder updated to "Search custom reviews", and empty states updated
+  - **Exam Editor**: All creation, editing, and deletion messages now reference "custom review", titles updated to "Create/Edit Custom Review"
+  - **Recent Reviews Component**: Updated to reference "custom review sessions" in descriptive text
+  - **User Messaging**: All toast notifications and confirmation dialogs now use "custom review" terminology
+  - **Button Text**: Dashboard and card action buttons updated to "Start custom review"
+  - **Selective Updates**: Maintained "code reviews" in general contexts while using "custom review" for creation/editing flows
+  - **Clearer Distinction**: Helps users understand the difference between quick start (general) and custom (configured) reviews
+
+## [0.17.32] - 2025-06-26
+
+### Refined
+
+- **Quick Start Button Interaction**: Refined the hover effect for better user experience
+
+  - **Toned Down Zoom**: Reduced hover scale from `hover:scale-110` to `hover:scale-105` for more subtle, polished interaction
+  - **Better Balance**: Maintains visual engagement without being overwhelming or excessive
+  - **Improved UX**: More refined hover feedback that feels professional and appropriate
+
+- **Landing Page Spacing**: Improved visual flow between sections
+  - **Reduced Research Section Padding**: Decreased top padding from `py-12 md:py-16` to `py-8 md:py-10`
+  - **Tighter Layout**: Brings research project section closer to hero section for better visual connection
+  - **Enhanced Flow**: Creates more cohesive page layout with improved section relationships
+
+## [0.17.31] - 2025-06-26
+
+### Enhanced
+
+- **Quick Start Button Prominence**: Significantly enhanced the quick start button on the landing page for better visibility and user engagement
+  - **Vibrant Orange Gradient**: Changed from tokyo-accent to striking orange gradient (`from-orange-500 to-orange-600`) for eye-catching appeal
+  - **Larger Size**: Increased button size with `py-5 px-10` padding and `text-xl` font size for better prominence
+  - **Bolder Typography**: Enhanced from `font-semibold` to `font-bold` for stronger visual impact
+  - **Enhanced Visual Effects**: Added orange border, stronger hover scale (`hover:scale-110`), and enhanced shadows (`hover:shadow-2xl`)
+  - **Improved Spacing**: Increased section padding from `py-12 md:py-10` to `py-16 md:py-14` and button top margin from `mt-8` to `mt-12`
+  - **Smoother Animations**: Extended transition duration to `300ms` for more polished interactions
+  - **Icon Enhancement**: Larger icon size (`h-7 w-7`) with thicker stroke width (`2.5`) for better visibility
+  - **Modern Styling**: Used `rounded-xl` corners and gradient hover effects for contemporary, professional appearance
+  - **Design Harmony**: Orange color choice provides energetic, action-oriented feel while maintaining design consistency
+
+## [0.17.30] - 2025-06-26
+
+### Confirmed
+
+- **Normal Mode Compatibility**: Verified that quick start implementation does not affect existing normal mode functionality
+  - **Dashboard Flow**: Regular exam access via Dashboard → "Start code review" → `/live?id=${examId}` works unchanged
+  - **Supabase Integration**: Normal exams still load from Supabase database as before
+  - **Full Timer Support**: Timed exams retain complete countdown timer and duration functionality
+  - **Standard Prompts**: Regular exams use existing `getPrompt.standard()` and `getPrompt.github()` prompts
+  - **All Exam Types**: Standard and GitHub repository exam types function normally
+  - **Navigation Patterns**: Normal mode uses URL parameters, quick start uses navigation state - completely separate
+  - **Backward Compatibility**: All existing features and workflows remain fully functional
+  - **Conditional Logic**: Quick start only activates when explicitly triggered via navigation state, leaving normal paths untouched
+
+## [0.17.29] - 2025-06-26
+
+### Changed
+
+- **Live Suggestions UI**: Moved live suggestions from popup window to inline display beneath control buttons
+  - **Better UX**: Suggestions now appear directly on the review screen instead of in a separate popup window
+  - **Simplified Interface**: No need to manage multiple windows or position popup windows
+  - **Seamless Integration**: Suggestions appear automatically when review starts and disappear when review ends
+  - **Cleaner Code**: Removed popup window management, state tracking, and window positioning logic
+  - **Same Functionality**: All suggestion features remain the same - just better positioned for user convenience
+
+### Removed
+
+- **PopupWindow Component Usage**: Removed popup window implementation for live suggestions
+  - **State Cleanup**: Removed `showSuggestionsPopup` state and related effects
+  - **Import Cleanup**: Removed unused PopupWindow import
+  - **Simplified Props**: Removed popup-related props from component interfaces
+
+## [0.17.28] - 2025-06-26
+
+### Fixed
+
+- **Quick Start AI Introduction**: Fixed issue where AI didn't start talking automatically in quick start sessions
+
+  - **Root Cause**: Quick start sessions have `duration: 0`, so no timers were set up, including the introduction timer
+  - **Solution**: Added introduction timer setup for quick start sessions even when duration is 0
+  - **Result**: AI now introduces itself immediately in quick start sessions like in regular reviews
+  - **Timer Logic**: Quick start sessions get introduction timer only, while timed sessions get full timer suite
+
+- **Double Screen Sharing Dialog**: Fixed screen sharing permission dialog appearing twice after review ends
+
+  - **Root Cause**: Auto-trigger mechanism was being called multiple times during state transitions when `connected` changed from `true` to `false`
+  - **Solution**: Added tracking flags to prevent multiple auto-trigger calls during the same session
+  - **hasAutoTriggeredRef**: Prevents auto-trigger from being called more than once per session
+  - **hasNotifiedButtonReadyRef**: Prevents onButtonReady from being called multiple times during state transitions
+  - **State Reset**: Both flags are properly reset when review ends for future sessions
+
+- **Screen Sharing Dialog on Stop**: Fixed screen sharing permission dialog appearing when pressing "Stop Code Review" button
+
+  - **Root Cause**: Auto-trigger mechanism was being called inappropriately during review cleanup
+  - **Solution**: Added guards to prevent auto-trigger during button state transitions and review cleanup
+  - **Additional Protection**: Reset auto-trigger flag when review ends to prevent inappropriate re-triggering
+  - **Button State Logic**: Added `!buttonIsOn` condition to prevent triggering when button is already active
+
+- **AI Voice Restarting After Review**: Fixed issue where AI would start a new review automatically after the previous review ended
+  - **Root Cause**: Auto-trigger mechanism was being reactivated when `connected` changed from `true` to `false` after review ended
+  - **Solution**: Made auto-trigger a one-time-only mechanism that permanently disables after any review starts
+  - **Permanent Disable**: Once `examIntentStarted` becomes true, auto-trigger is permanently disabled for the session
+  - **Initial Load Only**: Auto-trigger now only works on the initial page load, not after reviews end
+  - **Clean Session End**: Reviews now end cleanly without triggering new sessions
+
+### Enhanced
+
+- **Auto-Trigger Safety**: Improved auto-trigger mechanism with better state management
+  - **Flag Reset**: Auto-trigger flag is now properly reset when reviews end
+  - **Timeout Cleanup**: Auto-trigger timeout is cleared during review cleanup
+  - **State Guards**: Added multiple guards to prevent inappropriate auto-triggering during state transitions
+
+## [0.17.27] - 2025-06-26
+
+### Added
+
+- **Quick Start Functionality**: Added "Share screen & Start" button on the front page for immediate code review sessions
+  - **Quick Start Button**: Prominent button below the main heading that opens a simple configuration modal
+  - **Simplified Setup**: Modal with only code review type and developer experience dropdowns
+  - **Instant Launch**: Bypasses exam creation process and starts general review immediately
+  - **No Duration Limit**: Quick start sessions have no time constraints, allowing open-ended code reviews
+  - **General Review Prompts**: New prompt system for general code reviews without specific assignment requirements
+  - **Home Navigation**: Quick start sessions return to home page instead of dashboard when complete
+
+### Changed
+
+- **Landing Page Enhancement**: Added quick start functionality to improve user experience for immediate code reviews
+
+  - **Prominent CTA**: "Share screen & Start" button with clear description for instant access
+  - **Modal Interface**: Clean, focused modal for quick session configuration
+  - **Navigation Flow**: Quick start sessions integrate seamlessly with existing review infrastructure
+
+- **Prompt System Extension**: Added general review prompts for open-ended code review sessions
+  - **New Prompt Type**: `generalReview` prompt in prompts.json for unlimited duration sessions
+  - **Open-Ended Flow**: Prompts designed for flexible, developer-guided review sessions
+  - **No Timer Pressure**: Removes time constraints to allow thorough, unhurried code discussions
+
+### Technical Details
+
+- **QuickStartModal Component**: New modal component for quick start configuration
+- **AIExaminerPage Updates**: Enhanced to handle quick start sessions via navigation state
+- **ExamWorkflow Enhancements**: Added support for temporary exam objects and general review prompts
+- **Prompt Utility Extension**: Added `getGeneralPrompt` function for quick start sessions
+- **Timer Logic Updates**: Conditional timer setup that skips timers for duration-0 sessions
+
+## [0.17.26] - 2025-06-26
+
+### Changed
+
+- **Start Button UI Improvement**: Main start button now disappears when review is active instead of being disabled
+  - **Cleaner Interface**: Button completely hidden when `connected` is true, reducing visual clutter
+  - **Better UX**: Clear visual indication that review is active - no disabled button to confuse users
+  - **Simplified Logic**: Removed `connected` condition from disabled state since button is now hidden
+  - **Only Red Button Visible**: During active review, only the red "Stop Code Review" button is shown
+
+## [0.17.25] - 2025-06-26
+
+### Changed
+
+- **Stop Button Simplification**: Removed duplicate stop functionality from main button
+  - **Single Stop Button**: Now only the red "Stop Code Review" button handles stopping the review
+  - **Main Button Focus**: Main button only handles starting the review and shows "Share screen & start review"
+  - **Cleaner UI**: Eliminated confusion between two stop buttons with different behaviors
+  - **Simplified Logic**: Removed stop logic from main button click handler and startUnifiedFlow function
+  - **Better UX**: Clear separation between start (main button) and stop (red button) actions
+
+### Fixed
+
+- **CRITICAL: Automatic Reconnection Issue**: Fixed major bug where stopping a review would immediately start a new one
+
+  - **Root Cause**: ExamWorkflow was automatically reconnecting because examIntentStarted was still true when session ended
+  - **Immediate State Reset**: Now calls onManualStop() immediately when session ends, not when modal closes
+  - **Prevents Restart Loop**: examIntentStarted is set to false before reconnection effect can trigger
+  - **Clean Stop Flow**: Stop button now properly ends review without triggering automatic restart
+  - **Modal Timing Fix**: Removed duplicate onManualStop() call from modal close handler
+
+- **Main Button State Issues**: Fixed main button remaining active during review
+
+  - **Button Disabled**: Main button now properly disabled when review is active (connected state)
+  - **Visual Feedback**: Button shows disabled styling when review is in progress
+  - **Prevent Restart**: Button cannot be clicked during active review to prevent accidental restarts
+  - **State Reset**: Added effect to reset buttonIsOn when connection ends or force stop is triggered
+  - **Force Stop Handling**: Button state now properly resets when forceStopAudio/forceStopVideo are triggered
+
+- **Stop Button Restart Issue**: Fixed red stop button causing review to restart
+
+  - **Simplified Cleanup**: Red button now only calls onEndReview() and lets parent handle cleanup
+  - **Removed Duplicate Logic**: Eliminated conflicting cleanup code that was causing restart loops
+  - **Clean Stop Flow**: Stop button now properly ends review without triggering restart
+
+- **Critical Button Logic Fix**: Fixed main button toggle logic that was causing restart issues
+  - **Start-Only Logic**: Main button now only calls onButtonClicked(true) instead of toggling
+  - **Removed Stop Logic**: Eliminated onButtonClicked(false) calls from main button
+  - **Parent Handler Update**: Updated handleStartExamClicked to only handle starting, not stopping
+  - **Clear Separation**: Main button = start only, red button = stop only
+
+### Added
+
+- **Comprehensive Debugging**: Added detailed console logging to track button states and connection flow
+  - **Button State Tracking**: Logs all button state changes with context
+  - **Connection Monitoring**: Tracks connection state changes and their effects
+  - **Stop Flow Debugging**: Detailed logging of stop button click and cleanup sequence
+  - **State Synchronization**: Monitors examIntentStarted and force stop flag changes
+
+## [0.17.24] - 2025-06-26
+
+### Changed
+
+- **Pause/Resume Functionality Removal**: Simplified the app by removing pause and resume functionality
+  - **Button Simplification**: Main button now only shows "Share screen & start review" or "Stop Review"
+  - **Session Management**: Removed complex session resumption logic and state tracking
+  - **Cleaner Code**: Eliminated resume-related props, state variables, and methods
+  - **Simplified Flow**: Users now start a fresh session each time instead of resuming
+  - **Reduced Complexity**: Removed hasExamStarted, hasEverConnected, and related resume logic
+  - **Client Simplification**: Removed canResume() and resume() methods from GenAILiveClient
+  - **Configuration Cleanup**: Removed session resumption configuration from AI config
+
+## [0.17.23] - 2025-06-26
+
+### Changed
+
+- **Firefox Support Removal**: Removed Firefox support to simplify browser compatibility
+  - **Firefox Detection**: Added Firefox browser detection that disables the main button
+  - **User Guidance**: Firefox users see "Firefox Not Supported" button with clear message to use Chrome
+  - **Simplified Browser Logic**: Removed complex Firefox-specific permission flows and two-step approach
+  - **Better UX**: Users get immediate feedback that Firefox isn't supported instead of confusing error states
+  - **Chrome Only**: Now only Chrome is supported for the best experience
+
 ## [0.17.22] - 2025-06-24
 
 ### Reverted
@@ -715,3 +966,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **"Latest" Badge Styling**: Updated the "Latest" text badge in the `LiveSuggestionsPanel` to appear as an orange pill (`#F97316` background) with white text. This aligns its appearance with other similar status pills in the application (e.g., the original "UPDATED" pills).
 - **Latest Suggestion Item Background**: Reverted the background of the entire latest suggestion item to its previous purple gradient style, as the solid purple background was a misunderstanding.
+
+## [0.17.35] - 2025-06-26
+
+### Enhanced
+
+- **QuickStartModal Button Styling**: Improved the "Share screen & start review" button for better visibility and user experience
+  - **Larger Camera Icon**: Increased icon size from `h-4 w-4` to `h-6 w-6` (50% larger) for better visibility
+  - **Enhanced Icon Weight**: Increased stroke width from `2` to `2.5` for clearer definition
+  - **Orange Gradient Color**: Changed from tokyo-accent purple to orange gradient (`#f97316` to `#ea580c`) to match main quick start button
+  - **Consistent Branding**: Creates unified orange color scheme across all quick start functionality
+  - **Better Hover Effects**: Added `hover:shadow-lg` and `hover:scale-105` for improved interactive feedback
+  - **Visual Cohesion**: Button now perfectly complements the main "Quick Start" button on the landing page
+
+## [0.17.36] - 2025-06-26
+
+### Refined
+
+- **QuickStartModal Button Interactions**: Refined button hover effects for better user experience
+  - **Toned Down Zoom**: Reduced main button hover scale from `hover:scale-105` to `hover:scale-102` for more subtle, professional interaction
+  - **Enhanced Cancel Button**: Added hover effects with `hover:bg-tokyo-bg-lightest` and `hover:border-tokyo-comment` for better visual feedback
+  - **Consistent Transitions**: Both buttons now use smooth `transition-all duration-200` animations
+  - **Balanced Feedback**: Maintains engaging interactions while feeling refined and polished
+  - **Professional Polish**: Buttons now provide appropriate visual feedback without being overwhelming
+
+## [Unreleased]
+
+### Added
+
+- **Quick Start Screen Share Cancellation Handling**: Enhanced user experience when screen sharing is cancelled during quick start
+
+  - **Smart Navigation**: When user cancels screen sharing permission in quick start mode, automatically returns to landing page and reopens the QuickStartModal
+  - **Seamless Recovery**: Users can immediately retry with different settings without losing their progress
+  - **Callback Chain**: Implemented proper callback propagation from ControlTray → ExamWorkflow → AIExaminerPage → LandingPage
+  - **Multi-Browser Support**: Handles screen sharing cancellation across Chrome, Firefox, and Safari flows
+  - **Quick Start Only**: Feature only activates for quick start sessions, normal mode unaffected
+
+- **Quick Start GitHub Repository Support**: Added GitHub repository URL input to Quick Start modal for seamless GitHub repo reviews
+  - **Dynamic Input Field**: GitHub repository URL field appears when "Github Repo" is selected as code review type
+  - **Input Validation**: Validates that GitHub URL is provided before starting review
+  - **Seamless Integration**: Repository URL is passed through the entire quick start flow and automatically populated in the review session
+  - **Better UX**: Users no longer need to manually enter repository URL after quick start auto-starts the review
+  - **Placeholder & Help Text**: Clear guidance with placeholder text and helpful instructions
+  - **Auto-Reset**: Repository URL field resets when switching away from GitHub repo type
+  - **Enhanced Titles**: Quick start GitHub reviews get descriptive titles with repository information
+
+## [0.17.28] - 2025-06-26
+
+### Fixed
+
+- **Quick Start AI Introduction**: Fixed issue where AI didn't start talking automatically in quick start sessions
+
+  - **Root Cause**: Quick start sessions have `duration: 0`, so no timers were set up, including the introduction timer
+  - **Solution**: Added introduction timer setup for quick start sessions even when duration is 0
+  - **Result**: AI now introduces itself immediately in quick start sessions like in regular reviews
+  - **Timer Logic**: Quick start sessions get introduction timer only, while timed sessions get full timer suite
+
+- **Double Screen Sharing Dialog**: Fixed screen sharing permission dialog appearing twice after review ends
+
+  - **Root Cause**: Auto-trigger mechanism was being called multiple times during state transitions when `connected` changed from `true` to `false`
+  - **Solution**: Added tracking flags to prevent multiple auto-trigger calls during the same session
+  - **hasAutoTriggeredRef**: Prevents auto-trigger from being called more than once per session
+  - **hasNotifiedButtonReadyRef**: Prevents onButtonReady from being called multiple times during state transitions
+  - **State Reset**: Both flags are properly reset when review ends for future sessions
+
+- **Screen Sharing Dialog on Stop**: Fixed screen sharing permission dialog appearing when pressing "Stop Code Review" button
+
+  - **Root Cause**: Auto-trigger mechanism was being called inappropriately during review cleanup
+  - **Solution**: Added guards to prevent auto-trigger during button state transitions and review cleanup
+  - **Additional Protection**: Reset auto-trigger flag when review ends to prevent inappropriate re-triggering
+  - **Button State Logic**: Added `!buttonIsOn` condition to prevent triggering when button is already active
+
+- **AI Voice Restarting After Review**: Fixed issue where AI would start a new review automatically after the previous review ended
+  - **Root Cause**: Auto-trigger mechanism was being reactivated when `connected` changed from `true` to `false` after review ended
+  - **Solution**: Made auto-trigger a one-time-only mechanism that permanently disables after any review starts
+  - **Permanent Disable**: Once `examIntentStarted` becomes true, auto-trigger is permanently disabled for the session
+  - **Initial Load Only**: Auto-trigger now only works on the initial page load, not after reviews end
+  - **Clean Session End**: Reviews now end cleanly without triggering new sessions
+
+### Enhanced
+
+- **Auto-Trigger Safety**: Improved auto-trigger mechanism with better state management
+  - **Flag Reset**: Auto-trigger flag is now properly reset when reviews end
+  - **Timeout Cleanup**: Auto-trigger timeout is cleared during review cleanup
+  - **State Guards**: Added multiple guards to prevent inappropriate auto-triggering during state transitions
+
+### Fixed
+
+- **Quick Start GitHub Repository API Rate Limiting**: Fixed 429 "Too Many Requests" errors when using GitHub repositories in quick start mode
+
+  - **Root Cause**: Quick start mode was making duplicate API calls to process GitHub repositories, causing rate limit violations
+  - **Solution**: Modified processing flow to prepare GitHub repository content immediately when repo URL is available in quick start mode, preventing duplicate API calls
+  - **Timing Optimization**: Quick start GitHub repos now process during loading phase instead of waiting for exam start, eliminating race conditions
+  - **Normal Mode Unaffected**: Regular GitHub repository reviews continue to work as before with on-demand processing
+
+- **GitHub Repository Screen Sharing Priority**: Improved GitHub repository review functionality to properly prioritize screen sharing over repository analysis
+  - **Issue**: AI was focusing on pre-analyzed repository content instead of code visible on user's screen
+  - **Solution**: Modified GitHub prompts to use repository analysis as background context only
+  - **Screen-First Approach**: AI now always asks to see specific code files first before providing suggestions
+  - **Better Integration**: Repository analysis provides helpful context but doesn't override live screen review
+  - **Clearer Instructions**: AI explicitly instructed to focus on visible line numbers and ask for navigation to different files
+
+### Added
+
+- **Two-Screen Setup Recommendation**: Added visual guidance in QuickStartModal to educate users on optimal review setup
+  - **Side-by-Side Layout**: Form fields on the left, two-screen recommendation on the right for better space utilization
+  - **Visual Illustration**: Dedicated section with two-screen setup image showing recommended configuration
+  - **Wider Modal**: Expanded modal width (max-w-4xl) to accommodate the horizontal layout
+  - **Balanced Design**: Equal-width columns create professional, balanced appearance
+  - **Clear Guidance**: Explains benefits of using code reviewer on one screen and code editor on another
+  - **Professional Styling**: Styled with information icon, bordered container, and Tokyo theme colors
+  - **Fallback Handling**: Graceful fallback styling if image fails to load
+  - **Strategic Placement**: Positioned alongside form fields so users see setup recommendation while configuring
+  - **Enhanced UX**: Helps users understand optimal workflow before beginning their code review session

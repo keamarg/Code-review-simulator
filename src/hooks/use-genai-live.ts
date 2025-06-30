@@ -28,7 +28,6 @@ export type UseGenAILiveResults = {
   connected: boolean;
   connect: (model: string, config: LiveConnectConfig) => Promise<void>;
   disconnect: () => Promise<void>;
-  resume: (model: string, config: LiveConnectConfig) => Promise<void>;
   volume: number;
   status: "connected" | "disconnected" | "connecting";
 };
@@ -106,19 +105,11 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
     client.disconnect();
   }, [client]);
 
-  const resume = useCallback(
-    async (model: string, config: LiveConnectConfig) => {
-      await client.resume(model, config);
-    },
-    [client]
-  );
-
   return {
     client,
     connected,
     connect,
     disconnect,
-    resume,
     volume,
     status: client.status,
   };

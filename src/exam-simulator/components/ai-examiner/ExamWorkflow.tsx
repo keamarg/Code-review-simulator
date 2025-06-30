@@ -10,10 +10,11 @@ import { createLiveConfig } from "../../utils/liveConfigUtils"; // Import the ne
 import { LoadingAnimation } from "../ui/LoadingAnimation"; // Check path
 import { AIExaminerDisplay } from "./AIExaminer"; // Import the refactored display component
 import { CountdownTimer } from "../CountdownTimer"; // Import CountdownTimer
-import { getCurrentModel } from "../../../config/aiConfig"; // Import centralized config
+import { getCurrentModel, getTimerConfig } from "../../../config/aiConfig"; // Import centralized config
 import { useConversationTracker } from "../../hooks/useConversationTracker"; // New hook for tracking conversation
 import { CodeReviewSummaryModal } from "../ui/CodeReviewSummaryModal"; // New modal component
 import ControlTrayCustom from "../control-tray-custom/ControlTrayCustom"; // Correct import for ControlTrayCustom
+import prompts from "../../../prompts.json"; // Import prompts for introduction message
 
 const EXAM_DURATION_IN_MINUTES = 10; // default duration
 
@@ -25,14 +26,16 @@ interface ExamWorkflowProps {
   onTranscriptChunk?: (chunk: string) => void; // Callback for live suggestion extraction
   liveSuggestions?: Array<{ text: string; timestamp: Date }>; // Live suggestions from the suggestion extractor
   onLoadingStateChange?: (isLoading: boolean) => void; // New callback to notify parent of loading state
+  onButtonReady?: (triggerButton: () => void) => void; // Callback to notify when button is ready for auto-triggering
+  onScreenShareCancelled?: () => void; // Callback for when screen sharing is cancelled
   // Pass-through props for ControlTrayCustom
   videoRef: React.RefObject<HTMLVideoElement>;
   supportsVideo: boolean;
   onVideoStreamChange?: (stream: MediaStream | null) => void;
   onButtonClicked?: (isButtonOn: boolean) => void;
-  hasExamStarted?: boolean;
   forceStopAudio?: boolean;
   forceStopVideo?: boolean;
+  quickStartExam?: any; // Optional quick start exam data
 }
 
 export function ExamWorkflow({
@@ -43,18 +46,20 @@ export function ExamWorkflow({
   onTranscriptChunk,
   liveSuggestions,
   onLoadingStateChange,
+  onButtonReady,
   videoRef,
   supportsVideo,
   onVideoStreamChange,
   onButtonClicked,
-  hasExamStarted,
   forceStopAudio,
   forceStopVideo,
+  quickStartExam,
+  onScreenShareCancelled,
 }: ExamWorkflowProps) {
   const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(
     null
   );
-  const [examStarted, setExamStarted] = useState(false); // For CountdownTimer
+  const [examStarted, setExamStarted] = useState(false);
   const [isLoadingExamData, setIsLoadingExamData] = useState<boolean>(true);
   const [examError, setExamError] = useState<string | null>(null);
 
@@ -63,7 +68,6 @@ export function ExamWorkflow({
   const [prompt, setPrompt] = useState<string>("");
   const [isLoadingPrompt, setIsLoadingPrompt] = useState<boolean>(false);
   const [liveConfig, setLiveConfig] = useState<any>(null); // Local config state
-  const [hasEverConnected, setHasEverConnected] = useState<boolean>(false); // Track if we've connected before
 
   // New state for summary modal
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -71,10 +75,9 @@ export function ExamWorkflow({
   const [githubQuestions, setGithubQuestions] = useState<string>("");
 
   // Connection guard to prevent duplicate connections
-  const isConnectingRef = useRef<boolean>(false);
+  const [isConnectingRef] = useState(() => ({ current: false }));
 
-  const { client, connected, connect, resume, disconnect } =
-    useGenAILiveContext();
+  const { client, connected, connect, disconnect } = useGenAILiveContext();
 
   // Use conversation tracker hook
   const { getConversationSummary, clearConversation, getDebugInfo } =
@@ -112,9 +115,11 @@ export function ExamWorkflow({
       // Reset exam state immediately for fast UI response
       setExamStarted(false);
 
-      // Notify parent component immediately for timer expiration
+      // Notify parent component immediately for both timer and manual stop
       if (reason === "timer" && onTimerExpired) {
         onTimerExpired();
+      } else if (reason === "manual" && onManualStop) {
+        onManualStop();
       }
 
       // Show modal with loading state first, then generate summary asynchronously
@@ -150,6 +155,7 @@ export function ExamWorkflow({
       client,
       disconnect,
       onTimerExpired,
+      onManualStop,
       getConversationSummary,
       examSimulator,
       examDurationInMinutes,
@@ -189,13 +195,23 @@ export function ExamWorkflow({
     };
   }, [client]);
 
-  // Fetch exam data from Supabase
+  // Fetch exam data from Supabase or use quickStartExam
   useEffect(() => {
     if (!examId) {
       setExamError("No Exam ID provided.");
       setIsLoadingExamData(false);
       return;
     }
+
+    // If quickStartExam is provided, use it directly
+    if (quickStartExam) {
+      console.log("🚀 Using quick start exam data:", quickStartExam);
+      setExamSimulator(quickStartExam as ExamSimulator);
+      setIsLoadingExamData(false);
+      return;
+    }
+
+    // Otherwise, fetch from Supabase as normal
     const fetchExamSimulator = async () => {
       setIsLoadingExamData(true);
       setExamError(null);
@@ -219,7 +235,18 @@ export function ExamWorkflow({
     };
 
     fetchExamSimulator();
-  }, [examId]);
+  }, [examId, quickStartExam]);
+
+  // Initialize repo URL from quick start exam data if available
+  useEffect(() => {
+    if (quickStartExam?.repoUrl && quickStartExam.type === "Github Repo") {
+      console.log(
+        "🚀 Setting repo URL from quick start data:",
+        quickStartExam.repoUrl
+      );
+      setRepoUrl(quickStartExam.repoUrl);
+    }
+  }, [quickStartExam]);
 
   // Prepare exam content (questions, prompt)
   const prepareExamContent = useCallback(async () => {
@@ -229,6 +256,10 @@ export function ExamWorkflow({
     setExamError(""); // Clear any previous errors
     try {
       let finalPrompt = "";
+
+      // Check if this is a quick start session (duration = 0)
+      const isQuickStart = examSimulator.duration === 0;
+
       if (examSimulator.type === "Github Repo") {
         if (!repoUrl) {
           setIsLoadingPrompt(false);
@@ -258,6 +289,13 @@ export function ExamWorkflow({
         setStudentTask(
           "Review the provided GitHub repository based on the learning goals."
         );
+      } else if (isQuickStart) {
+        // Quick start general review - no questions generation needed
+        console.log("🚀 Preparing quick start general review");
+        const studentTaskAnswer =
+          "Show me the code you'd like me to review, and I'll provide specific suggestions for improvement.";
+        setStudentTask(studentTaskAnswer);
+        finalPrompt = getPrompt.general(examSimulator, studentTaskAnswer);
       } else {
         // Standard exam type
         const examContent = await getExaminerQuestions(examSimulator);
@@ -288,25 +326,59 @@ export function ExamWorkflow({
   useEffect(() => {
     if (examSimulator) {
       if (examSimulator.type === "Github Repo") {
-        // For GitHub, we wait for examIntentStarted and repoUrl to be set before preparing.
-        // Prompt preparation will be triggered by the examIntentStarted effect.
+        // For quick start GitHub repos, prepare immediately when repoUrl is available
+        // For normal GitHub repos, wait for examIntentStarted
+        const isQuickStart = examSimulator.duration === 0;
+        if (isQuickStart && repoUrl && !prompt && !isLoadingPrompt) {
+          console.log(
+            "🚀 Quick start GitHub repo - preparing content immediately"
+          );
+          prepareExamContent();
+        }
+        // For normal GitHub repos, prompt preparation will be triggered by the examIntentStarted effect.
       } else {
         prepareExamContent();
       }
     }
-  }, [examSimulator, prepareExamContent]);
+  }, [examSimulator, prepareExamContent, repoUrl, prompt, isLoadingPrompt]);
 
   // Effect for when exam intent starts (user clicks start button)
   useEffect(() => {
     if (examIntentStarted && examSimulator) {
       if (examSimulator.type === "Github Repo") {
-        if (repoUrl && !prompt) {
-          prepareExamContent(); // This will set the prompt
-        } else if (prompt) {
-          const newConfig = createLiveConfig(prompt);
-          setLiveConfig(newConfig);
-        } else if (!repoUrl) {
-          setExamError("Please enter a GitHub repository URL before starting.");
+        const isQuickStart = examSimulator.duration === 0;
+
+        if (isQuickStart) {
+          // For quick start, the content should already be prepared
+          if (prompt) {
+            console.log(
+              "🚀 Quick start GitHub repo - using pre-prepared content"
+            );
+            const newConfig = createLiveConfig(prompt);
+            setLiveConfig(newConfig);
+          } else if (!repoUrl) {
+            setExamError(
+              "Please enter a GitHub repository URL before starting."
+            );
+          } else if (!isLoadingPrompt) {
+            // Fallback: if somehow content wasn't prepared, prepare it now
+            console.log(
+              "⚠️ Quick start GitHub repo - preparing content as fallback"
+            );
+            prepareExamContent();
+          }
+        } else {
+          // Normal GitHub repo flow
+          if (repoUrl && !prompt) {
+            prepareExamContent(); // This will set the prompt
+          } else if (prompt) {
+            const newConfig = createLiveConfig(prompt);
+            setLiveConfig(newConfig);
+          } else if (!repoUrl) {
+            setExamError(
+              "Please enter a GitHub repository URL before starting."
+            );
+          }
         }
       } else {
         // Standard Exam
@@ -331,6 +403,7 @@ export function ExamWorkflow({
     connected,
     client,
     prepareExamContent,
+    isLoadingPrompt,
   ]);
 
   // Effect to connect and start timers when config is set and intent is active
@@ -343,28 +416,23 @@ export function ExamWorkflow({
     ) {
       isConnectingRef.current = true;
 
-      // Only use resume if we have a valid session handle and have connected before
-      const shouldResume = hasEverConnected && client?.canResume();
-      const connectionMethod = shouldResume ? resume : connect;
-      const isInitialConnection = !hasEverConnected;
+      console.log(`🔗 Starting new session...`);
 
-      console.log(`🔗 Starting ${shouldResume ? "resume" : "new"} session...`);
-
-      connectionMethod(getCurrentModel(), liveConfig)
+      connect(getCurrentModel(), liveConfig)
         .then(() => {
           console.log(
             "✅ Connection successful - live feed should now be active"
           );
           setExamStarted(true);
 
-          // Only set up timers on initial connection, not on resume
-          if (isInitialConnection) {
-            // Clean up any existing timers first
-            if (timerCleanupRef.current) {
-              timerCleanupRef.current();
-            }
+          // Clean up any existing timers first
+          if (timerCleanupRef.current) {
+            timerCleanupRef.current();
+          }
 
-            console.log("⏰ Setting up timers for new session");
+          // Set up timers - for quick start, at least set up introduction timer
+          if (examDurationActiveExamMs > 0) {
+            console.log("⏰ Setting up full timers for timed session");
             // Set up new timers and store cleanup function
             timerCleanupRef.current = examTimers({
               client,
@@ -372,20 +440,31 @@ export function ExamWorkflow({
               isInitialConnection: true,
             });
           } else {
-            console.log("⏰ Skipping timer setup for resumed session");
+            console.log(
+              "🚀 Quick start session - setting up introduction timer only"
+            );
+            // For quick start sessions, we still want the AI to introduce itself
+            const timerConfig = getTimerConfig();
+            const introTimer = setTimeout(() => {
+              if (client) {
+                console.log("🎙️ Sending introduction message for quick start");
+                client.send([{ text: prompts.timerMessages.introduction }]);
+              }
+            }, timerConfig.introductionDelay + 500);
+
+            // Return cleanup function for the intro timer
+            timerCleanupRef.current = () => {
+              clearTimeout(introTimer);
+              console.log("🧹 Quick start intro timer cleanup complete");
+            };
           }
 
-          // Update hasEverConnected AFTER timer setup
-          setHasEverConnected(true);
           isConnectingRef.current = false;
         })
         .catch((error) => {
           console.error(`❌ Failed to start session:`, error);
           setExamError("Failed to connect to the exam server.");
           isConnectingRef.current = false;
-
-          // Reset hasEverConnected on connection failure to force fresh start
-          setHasEverConnected(false);
         });
     } else if (!examIntentStarted && connected) {
       // Clean up when exam intent stops
@@ -400,9 +479,7 @@ export function ExamWorkflow({
     examIntentStarted,
     liveConfig?.systemInstruction?.parts?.[0]?.text,
     connected,
-    hasEverConnected,
     connect,
-    resume,
     client,
     examDurationActiveExamMs,
   ]);
@@ -440,13 +517,17 @@ export function ExamWorkflow({
       <h1 className="mb-4 text-xl font-bold text-tokyo-fg-bright text-center">
         {examSimulator.title}
       </h1>
-      <CountdownTimer
-        totalMs={examDurationActiveExamMs}
-        autoStart={false} // Will be controlled by examStarted state
-        startTrigger={examStarted}
-        pauseTrigger={!examIntentStarted} // Pause when exam intent is not started
-        onTimeUp={handleTimeUp} // New callback for timer expiration
-      />
+
+      {/* Only show countdown timer for sessions with duration limits */}
+      {examDurationActiveExamMs > 0 && (
+        <CountdownTimer
+          totalMs={examDurationActiveExamMs}
+          autoStart={false} // Will be controlled by examStarted state
+          startTrigger={examStarted}
+          pauseTrigger={!examIntentStarted} // Pause when exam intent is not started
+          onTimeUp={handleTimeUp} // New callback for timer expiration
+        />
+      )}
 
       {examSimulator.type === "Github Repo" && (
         <div className="my-6">
@@ -490,9 +571,6 @@ export function ExamWorkflow({
         onClose={() => {
           setShowSummaryModal(false);
           clearConversation(); // Clear the conversation history
-          if (stopReason === "manual" || stopReason === "timer") {
-            if (onManualStop) onManualStop();
-          }
         }}
       />
 
@@ -504,9 +582,10 @@ export function ExamWorkflow({
           supportsVideo={supportsVideo}
           onVideoStreamChange={onVideoStreamChange}
           onButtonClicked={onButtonClicked}
-          hasExamStarted={hasExamStarted}
           forceStopAudio={forceStopAudio}
           forceStopVideo={forceStopVideo}
+          onButtonReady={onButtonReady}
+          onScreenShareCancelled={onScreenShareCancelled}
         />
       )}
     </div>

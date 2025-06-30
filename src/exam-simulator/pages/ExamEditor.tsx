@@ -100,7 +100,7 @@ export default function ExamEditor() {
       if (isEditMode) {
         // Ensure exam is defined before accessing its properties
         if (!exam) {
-          showToast("Error: Could not find code review to update.");
+          showToast("Error: Could not find custom review to update.");
           return;
         }
         const updatedExam: ExamSimulator = {
@@ -120,14 +120,14 @@ export default function ExamEditor() {
           .eq("id", examId);
 
         if (updateError) {
-          console.error("Error updating code review:", updateError);
+          console.error("Error updating custom review:", updateError);
           showToast(
-            `Error: Could not update code review. ${updateError.message}`
+            `Error: Could not update custom review. ${updateError.message}`
           );
           return;
         }
 
-        showToast("Code review updated!");
+        showToast("Custom review updated!");
 
         // Store the recently updated exam ID in localStorage for highlighting in dashboard
         localStorage.setItem("recentlyUpdatedExamId", examId);
@@ -155,14 +155,14 @@ export default function ExamEditor() {
           .single(); // To get the newly created record back, including DB-generated ID/timestamps
 
         if (insertError) {
-          console.error("Error creating code review:", insertError);
+          console.error("Error creating custom review:", insertError);
           showToast(
-            `Error: Could not create code review. ${insertError.message}`
+            `Error: Could not create custom review. ${insertError.message}`
           );
           return; // Stop execution if insert fails
         }
 
-        showToast("Code review created!");
+        showToast("Custom review created!");
 
         // Store the newly created exam ID in localStorage for highlighting in dashboard
         if (createdExam?.id) {
@@ -186,7 +186,7 @@ export default function ExamEditor() {
 
   const handleDelete = () => {
     if (!isEditMode) return;
-    if (window.confirm("Are you sure you want to delete this code review?")) {
+    if (window.confirm("Are you sure you want to delete this custom review?")) {
       // delete exam using supabase
       const deleteExam = async () => {
         const { error } = await supabase
@@ -195,12 +195,12 @@ export default function ExamEditor() {
           .eq("id", examId);
 
         if (error) {
-          console.error("Error deleting code review:", error);
-          showToast(`Error: Could not delete code review. ${error.message}`);
+          console.error("Error deleting custom review:", error);
+          showToast(`Error: Could not delete custom review. ${error.message}`);
           return;
         }
 
-        showToast("Code review deleted!");
+        showToast("Custom review deleted!");
         navigate("/dashboard");
       };
 
@@ -233,7 +233,7 @@ export default function ExamEditor() {
             </svg>
           </Link>
           <h1 className="text-3xl font-bold text-neutral-90">
-            {isEditMode ? "Edit Code Review" : "Create Code Review"}
+            {isEditMode ? "Edit Custom Review" : "Create Custom Review"}
           </h1>
         </div>
 
@@ -279,7 +279,7 @@ export default function ExamEditor() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
-                placeholder="Enter code review title"
+                placeholder="Enter custom review title"
                 required
               />
             </div>
@@ -301,14 +301,14 @@ export default function ExamEditor() {
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>
-                  Code review focus
+                  Custom review focus
                 </div>
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors h-32 resize-none"
-                placeholder="Describe the code review task"
+                placeholder="Describe the custom review task"
               />
             </div>
 
@@ -331,7 +331,7 @@ export default function ExamEditor() {
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                       />
                     </svg>
-                    Code review type
+                    Custom review type
                   </div>
                 </label>
                 <select
@@ -409,7 +409,7 @@ export default function ExamEditor() {
               </select>
               <p className="text-xs text-neutral-500 mt-1">
                 This will determine the depth and style of feedback provided
-                during the code review.
+                during the custom review.
               </p>
             </div>
 
@@ -422,10 +422,10 @@ export default function ExamEditor() {
                   onChange={(e) => setIsPublic(e.target.checked)}
                   className="custom-checkbox mr-2 h-4 w-4 rounded"
                 />
-                Make code review public
+                Make custom review public
               </label>
               <p className="text-xs text-neutral-500 mt-1">
-                If checked, other users will be able to see and take this code
+                If checked, other users will be able to see and take this custom
                 review.
               </p>
             </div>
@@ -514,8 +514,8 @@ export default function ExamEditor() {
                       ? "Updating..."
                       : "Creating..."
                     : isEditMode
-                    ? "Update Code Review"
-                    : "Create Code Review"}
+                    ? "Update Custom Review"
+                    : "Create Custom Review"}
                 </button>
               </div>
             </div>

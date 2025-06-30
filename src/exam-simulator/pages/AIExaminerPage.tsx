@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import Layout from "../layout/Layout";
 import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
@@ -13,7 +13,6 @@ import {
 import { LiveSuggestionsPanel } from "../components/ui/LiveSuggestionsPanel";
 import { LoadingAnimation } from "../components/ui/LoadingAnimation";
 import cn from "classnames";
-import PopupWindow from "../components/ui/PopupWindow";
 // supabase might not be needed here anymore if ExamWorkflow handles all supabase interactions
 // import { supabase } from "../config/supabaseClient";
 
@@ -34,8 +33,9 @@ interface ExamPageContentProps {
   suggestions: Suggestion[];
   isProcessing: boolean;
   onLoadingStateChange: (isLoading: boolean) => void;
-  showSuggestionsPopup: boolean;
-  onCloseSuggestionsPopup: () => void;
+  quickStartExam: any;
+  onButtonReady: (triggerButton: () => void) => void;
+  onScreenShareCancelled?: () => void;
 }
 
 function ExamPageContent({
@@ -55,12 +55,12 @@ function ExamPageContent({
   suggestions,
   isProcessing,
   onLoadingStateChange,
-  showSuggestionsPopup,
-  onCloseSuggestionsPopup,
+  quickStartExam,
+  onButtonReady,
+  onScreenShareCancelled,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
   const hasNotifiedScreenShareRef = useRef(true);
-  const [hasExamEverStarted, setHasExamEverStarted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTaskLoading, setIsTaskLoading] = useState(false);
 
@@ -83,12 +83,6 @@ function ExamPageContent({
       }
     }
   }, [videoStream, client, connected]);
-
-  useEffect(() => {
-    if (examIntentStarted) {
-      setHasExamEverStarted(true);
-    }
-  }, [examIntentStarted]);
 
   useEffect(() => {
     if (client) {
@@ -131,10 +125,23 @@ function ExamPageContent({
           supportsVideo={true}
           onVideoStreamChange={setVideoStream}
           onButtonClicked={handleStartExamClicked}
-          hasExamStarted={hasExamEverStarted}
           forceStopAudio={forceStopAudio}
           forceStopVideo={forceStopVideo}
+          quickStartExam={quickStartExam}
+          onButtonReady={onButtonReady}
+          onScreenShareCancelled={onScreenShareCancelled}
         />
+
+        {/* Live Suggestions Panel - Now shown inline when review is active */}
+        {examIntentStarted && videoStream && (
+          <div className="mt-8">
+            <LiveSuggestionsPanel
+              suggestions={suggestions}
+              isProcessing={isProcessing}
+              isVisible={true}
+            />
+          </div>
+        )}
 
         <video
           className={cn({
@@ -153,16 +160,7 @@ function ExamPageContent({
         />
       </div>
 
-      {/* Live Suggestions Panel - Now conditionally rendered in a popup */}
-      {showSuggestionsPopup && (
-        <PopupWindow onClose={onCloseSuggestionsPopup} title="Live Suggestions">
-          <LiveSuggestionsPanel
-            suggestions={suggestions}
-            isProcessing={isProcessing}
-            isVisible={true}
-          />
-        </PopupWindow>
-      )}
+      {/* Remove the popup window completely */}
     </div>
   );
 }
@@ -171,7 +169,23 @@ export default function LivePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [searchParams] = useSearchParams();
-  const id = searchParams.get("id") || undefined; // This is the examId
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Handle quick start or regular exam ID
+  const examId = searchParams.get("id");
+  const quickStartData = location.state as {
+    quickStart?: boolean;
+    autoStart?: boolean;
+    type?: string;
+    developerLevel?: string;
+    repoUrl?: string;
+  } | null;
+
+  // Generate a temporary ID for quick start sessions
+  const id =
+    examId ||
+    (quickStartData?.quickStart ? `quickstart-${Date.now()}` : undefined);
 
   const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
   const [isLoadingKey, setIsLoadingKey] = useState(true);
@@ -207,29 +221,115 @@ export default function LivePage() {
     isProcessing,
   } = useLiveSuggestionExtractor();
 
-  // State for controlling the suggestions popup
-  const [showSuggestionsPopup, setShowSuggestionsPopup] = useState(false);
+  // Store quick start exam data
+  const [quickStartExam, setQuickStartExam] = useState<any>(null);
 
-  const navigate = useNavigate();
+  // Track if we should auto-trigger the button when it becomes available
+  const shouldAutoTriggerRef = useRef(false);
+  const autoTriggerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasAutoTriggeredRef = useRef(false); // Track if we've already auto-triggered to prevent repeats
 
-  const onCloseSuggestionsPopup = useCallback(() => {
-    setShowSuggestionsPopup(false);
-  }, [setShowSuggestionsPopup]);
+  // Create temporary exam for quick start
+  useEffect(() => {
+    if (quickStartData?.quickStart && !examId) {
+      const tempExam = {
+        id: id,
+        title:
+          quickStartData.type === "Github Repo"
+            ? "GitHub Repository Review"
+            : "General Code Review",
+        description:
+          quickStartData.type === "Github Repo"
+            ? `Code review of GitHub repository: ${
+                quickStartData.repoUrl || "Repository URL not provided"
+              }`
+            : "A general code review session focusing on code quality improvements and best practices.",
+        type: quickStartData.type || "Standard",
+        duration: 0, // No duration limit for quick start
+        learning_goals: quickStartData.developerLevel || "intermediate",
+        is_public: false,
+        created_at: new Date().toISOString(),
+        user_id: "quickstart",
+        repoUrl: quickStartData.repoUrl, // Add repo URL for GitHub type
+      };
+      setQuickStartExam(tempExam);
+      console.log("🚀 Quick start exam created:", tempExam);
+    }
+  }, [quickStartData, examId, id]);
+
+  // Auto-start exam for quick start with autoStart flag
+  useEffect(() => {
+    if (
+      quickStartData?.autoStart &&
+      quickStartExam &&
+      !examIntentStarted &&
+      !hasAutoTriggeredRef.current
+    ) {
+      console.log(
+        "🚀 Auto-start requested - setting trigger flag (initial load only)"
+      );
+      shouldAutoTriggerRef.current = true;
+
+      // Set a timeout to trigger if the button doesn't become available quickly
+      autoTriggerTimeoutRef.current = setTimeout(() => {
+        if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
+          console.log("🚀 Auto-start timeout - triggering manual start");
+          setExamIntentStarted(true);
+          shouldAutoTriggerRef.current = false;
+          hasAutoTriggeredRef.current = true;
+        }
+      }, 2000);
+    }
+  }, [quickStartData?.autoStart, quickStartExam, examIntentStarted]);
+
+  // Permanently disable auto-trigger once any review starts
+  useEffect(() => {
+    if (examIntentStarted && !hasAutoTriggeredRef.current) {
+      console.log(
+        "🚀 Review started - permanently disabling auto-trigger for this session"
+      );
+      shouldAutoTriggerRef.current = false;
+      hasAutoTriggeredRef.current = true;
+      if (autoTriggerTimeoutRef.current) {
+        clearTimeout(autoTriggerTimeoutRef.current);
+        autoTriggerTimeoutRef.current = null;
+      }
+    }
+  }, [examIntentStarted]);
 
   const handleEndReview = () => {
+    console.log("🛑 AIExaminerPage: handleEndReview called", {
+      examIntentStarted,
+      forceStopAudio,
+      forceStopVideo,
+    });
+
+    // Reset auto-trigger flag to prevent inappropriate re-triggering
+    shouldAutoTriggerRef.current = false;
+    // Note: NOT resetting hasAutoTriggeredRef here - we want it to stay true
+    // to prevent auto-trigger from starting new reviews after this review ends
+    if (autoTriggerTimeoutRef.current) {
+      clearTimeout(autoTriggerTimeoutRef.current);
+      autoTriggerTimeoutRef.current = null;
+    }
+
     // Terminate the AI session completely if client is available
     if (genaiClient) {
+      console.log("🛑 AIExaminerPage: Terminating genaiClient session");
       genaiClient.terminateSession();
     }
 
     // Force stop audio and video, end the exam
+    console.log(
+      "🛑 AIExaminerPage: Setting force stop flags and examIntentStarted to false"
+    );
     setForceStopAudio(true);
     setForceStopVideo(true);
     setExamIntentStarted(false);
-    setShowSuggestionsPopup(false);
 
     // Reset force stop after a longer delay to ensure everything stops
     setTimeout(() => {
+      console.log("🛑 AIExaminerPage: Resetting force stop flags");
       setForceStopAudio(false);
       setForceStopVideo(false);
     }, 3000);
@@ -237,8 +337,12 @@ export default function LivePage() {
 
   // Add a new handler for summary modal close
   const handleSummaryModalClose = () => {
-    navigate("/dashboard");
-    setShowSuggestionsPopup(false);
+    // For quick start, go back to home instead of dashboard
+    if (quickStartData?.quickStart) {
+      navigate("/");
+    } else {
+      navigate("/dashboard");
+    }
   };
 
   // Handle timer expiration - reset state and force stop audio/video
@@ -252,7 +356,6 @@ export default function LivePage() {
     setForceStopAudio(true);
     setForceStopVideo(true);
     setExamIntentStarted(false);
-    setShowSuggestionsPopup(false);
 
     // Clear all suggestions since review is complete
     clearAllSuggestions();
@@ -268,12 +371,47 @@ export default function LivePage() {
   const handleManualStop = () => {
     console.log("🛑 Manual stop initiated");
     handleEndReview();
-    setShowSuggestionsPopup(false);
   };
 
   const handleClientReady = useCallback((client: any) => {
     setGenaiClient(client);
   }, []);
+
+  // Callback for when the control button is ready for auto-triggering
+  const handleButtonReady = useCallback((triggerButton: () => void) => {
+    if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
+      console.log("🚀 Button ready - triggering auto-start");
+      shouldAutoTriggerRef.current = false;
+      hasAutoTriggeredRef.current = true; // Mark as triggered to prevent repeats
+
+      // Clear timeout since we're triggering now
+      if (autoTriggerTimeoutRef.current) {
+        clearTimeout(autoTriggerTimeoutRef.current);
+        autoTriggerTimeoutRef.current = null;
+      }
+
+      // Small delay to ensure everything is initialized
+      setTimeout(() => {
+        triggerButton();
+      }, 100);
+    } else if (hasAutoTriggeredRef.current) {
+      console.log(
+        "🚫 Auto-trigger already completed - ignoring subsequent calls"
+      );
+    } else {
+      console.log("🚫 Auto-trigger flag not set - ignoring button ready call");
+    }
+  }, []);
+
+  // Handle screen sharing cancellation in quick start - navigate back to landing page
+  const handleScreenShareCancelled = useCallback(() => {
+    if (quickStartData?.quickStart) {
+      console.log(
+        "🚫 Screen sharing cancelled in quick start - returning to landing page"
+      );
+      navigate("/", { state: { reopenQuickStart: true } });
+    }
+  }, [quickStartData?.quickStart, navigate]);
 
   // Terminate session on page reload/close
   useEffect(() => {
@@ -281,7 +419,6 @@ export default function LivePage() {
       if (genaiClient) {
         genaiClient.terminateSession();
       }
-      setShowSuggestionsPopup(false);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -291,6 +428,10 @@ export default function LivePage() {
       // Also terminate on component unmount
       if (genaiClient) {
         genaiClient.terminateSession();
+      }
+      // Clean up auto-trigger timeout
+      if (autoTriggerTimeoutRef.current) {
+        clearTimeout(autoTriggerTimeoutRef.current);
       }
     };
   }, [genaiClient]);
@@ -302,19 +443,8 @@ export default function LivePage() {
         track.stop();
       });
       setVideoStream(null);
-      setShowSuggestionsPopup(false);
     }
   }, [forceStopVideo, videoStream]);
-
-  // Show popup when exam starts and video stream is available (screen is shared)
-  // Hide it when exam stops or video stream is lost
-  useEffect(() => {
-    if (examIntentStarted && videoStream) {
-      setShowSuggestionsPopup(true);
-    } else {
-      setShowSuggestionsPopup(false);
-    }
-  }, [examIntentStarted, videoStream]);
 
   useEffect(() => {
     const apiKeyEndpoint =
@@ -347,11 +477,19 @@ export default function LivePage() {
   }, []);
 
   const handleStartExamClicked = (isButtonOn: boolean) => {
+    console.log("🎛️ AIExaminerPage: handleStartExamClicked called", {
+      isButtonOn,
+      currentExamIntentStarted: examIntentStarted,
+    });
+
+    // Only handle starting the exam - stopping is handled by the red button
     if (isButtonOn) {
+      console.log("🎛️ AIExaminerPage: Setting examIntentStarted to true");
       setExamIntentStarted(true);
     } else {
-      setExamIntentStarted(false);
-      setShowSuggestionsPopup(false);
+      console.log(
+        "⚠️ AIExaminerPage: handleStartExamClicked called with false - this should not happen anymore!"
+      );
     }
   };
 
@@ -384,7 +522,18 @@ export default function LivePage() {
   if (!id) {
     return (
       <Layout>
-        <div>No Exam ID specified in URL.</div>
+        <div className="text-tokyo-fg-bright text-center py-8">
+          <h2 className="text-xl font-bold mb-4">No Code Review Session</h2>
+          <p className="mb-4">
+            No exam ID specified and no quick start data found.
+          </p>
+          <button
+            onClick={() => navigate("/")}
+            className="bg-tokyo-accent hover:bg-tokyo-accent-darker text-white px-6 py-2 rounded-md transition-colors"
+          >
+            Go to Home
+          </button>
+        </div>
       </Layout>
     );
   }
@@ -409,8 +558,9 @@ export default function LivePage() {
           suggestions={suggestions}
           isProcessing={isProcessing}
           onLoadingStateChange={setIsTaskLoading}
-          showSuggestionsPopup={showSuggestionsPopup}
-          onCloseSuggestionsPopup={onCloseSuggestionsPopup}
+          quickStartExam={quickStartExam}
+          onButtonReady={handleButtonReady}
+          onScreenShareCancelled={handleScreenShareCancelled}
         />
       </GenAILiveProvider>
     </Layout>

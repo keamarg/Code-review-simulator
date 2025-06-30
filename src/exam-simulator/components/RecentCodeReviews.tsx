@@ -137,14 +137,14 @@ const RecentCodeReviews: React.FC = () => {
           <h2 className="text-2xl md:text-3xl font-bold text-tokyo-fg-bright mb-3">
             Recent Code Reviews
           </h2>
-          <p className="text-lg text-tokyo-fg mb-4">
-            No public code reviews available yet.
+          <p className="text-tokyo-fg mb-2">
+            Check out some recently created code review sessions
           </p>
           <Link
             to="/signup"
             className="inline-flex items-center justify-center bg-tokyo-accent hover:bg-tokyo-accent-darker text-white py-3 px-6 rounded-md transition-colors"
           >
-            Create your first review
+            Create your first code review
           </Link>
         </div>
       </section>
@@ -158,7 +158,7 @@ const RecentCodeReviews: React.FC = () => {
           <h2 className="text-2xl md:text-3xl font-bold text-tokyo-fg-bright mb-3">
             Recent Code Reviews
           </h2>
-          <p className="text-lg text-tokyo-fg">
+          <p className="text-tokyo-fg mb-2">
             Check out some recently created code review sessions
           </p>
         </div>

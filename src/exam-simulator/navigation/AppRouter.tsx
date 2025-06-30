@@ -17,23 +17,21 @@ const basename = new URL(process.env.PUBLIC_URL || "", window.location.origin)
 export function AppRouter() {
   return (
     <AuthProvider>
-      
-        <BrowserRouter basename={basename}>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
+      <BrowserRouter basename={basename}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
 
-            {/* Protected Routes */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/create" element={<ExamEditor />} />
-              <Route path="/exam" element={<ExamEditor />} />
-              <Route path="/live" element={<AIExaminerPage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/create" element={<ExamEditor />} />
+            <Route path="/exam" element={<ExamEditor />} />
+            <Route path="/live" element={<AIExaminerPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
     </AuthProvider>
   );
 }

@@ -87,7 +87,7 @@ export default function Layout({ children }: LayoutProps) {
                       to="/create"
                       className="text-tokyo-fg hover:text-tokyo-fg-brightest"
                     >
-                      Create Review
+                      Create Custom Review
                     </Link>
                   </li>
                   <li>

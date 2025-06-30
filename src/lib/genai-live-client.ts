@@ -105,12 +105,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     return { ...this.config };
   }
 
-  public canResume(): boolean {
-    return !!(
-      this.sessionResumptionHandle && this.sessionResumptionHandle.length > 0
-    );
-  }
-
   constructor(options: LiveClientOptions) {
     super();
     this.client = new GoogleGenAI(options);
@@ -161,48 +155,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
     this._status = "connected";
     return true;
-  }
-
-  async resume(model: string, config: LiveConnectConfig): Promise<boolean> {
-    if (this._status === "connected" || this._status === "connecting") {
-      return false;
-    }
-
-    // Debug logging for resume
-    console.log("🔍 Resume Debug:", {
-      hasSessionHandle: !!this.sessionResumptionHandle,
-      sessionHandle: this.sessionResumptionHandle,
-      originalConfig: config,
-      willUseResumption: !!this.sessionResumptionHandle,
-    });
-
-    // Only use session resumption if we have a valid handle
-    if (
-      this.sessionResumptionHandle &&
-      this.sessionResumptionHandle.length > 0
-    ) {
-      const resumptionConfig = {
-        ...config,
-        sessionResumption: { handle: this.sessionResumptionHandle },
-      };
-
-      console.log("🔍 Final Resume Config:", resumptionConfig);
-
-      this.log(
-        "client.resume",
-        `Resuming with session handle: ${this.sessionResumptionHandle}`
-      );
-
-      return this.connect(model, resumptionConfig);
-    } else {
-      // No session handle available, just do a normal connect
-      console.log("🔍 No session handle available, doing normal connect");
-      this.log(
-        "client.resume",
-        "No session handle available, starting fresh session"
-      );
-      return this.connect(model, config);
-    }
   }
 
   public disconnect() {

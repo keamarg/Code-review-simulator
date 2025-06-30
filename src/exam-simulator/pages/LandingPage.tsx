@@ -1,9 +1,24 @@
-import React, { useEffect } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import Layout from "../layout/Layout";
 import RecentCodeReviews from "../components/RecentCodeReviews";
+import { QuickStartModal } from "../components/ui/QuickStartModal";
 
 const LandingPage: React.FC = () => {
+  const [showQuickStartModal, setShowQuickStartModal] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Check if we should reopen the modal (e.g., returning from cancelled screen share)
+    const state = location.state as { reopenQuickStart?: boolean } | null;
+    if (state?.reopenQuickStart) {
+      setShowQuickStartModal(true);
+      // Clear the state to prevent reopening on refresh
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
+
   useEffect(() => {
     // Auto fade-in elements that should appear immediately after page load
     const autoFadeElements = document.querySelectorAll(".fade-in-auto");
@@ -31,11 +46,28 @@ const LandingPage: React.FC = () => {
     return () => window.removeEventListener("scroll", fadeInOnScroll);
   }, []);
 
+  const handleQuickStart = (
+    type: string,
+    developerLevel: string,
+    repoUrl?: string
+  ) => {
+    // Navigate to live page with quick start parameters and auto-start flag
+    navigate("/live", {
+      state: {
+        quickStart: true,
+        autoStart: true, // This will trigger automatic start
+        type,
+        developerLevel,
+        repoUrl, // Pass the repo URL if provided
+      },
+    });
+  };
+
   return (
     <Layout>
       <div className="bg-tokyo-bg">
         {/* Hero Section */}
-        <section className="relative bg-tokyo-accent-darker py-12 md:py-10">
+        <section className="relative bg-tokyo-accent-darker py-16 md:py-14">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="md:flex md:items-center md:justify-between">
               <div className="md:w-full text-center">
@@ -45,13 +77,45 @@ const LandingPage: React.FC = () => {
                 <p className="mt-4 text-xl text-tokyo-fg-bright">
                   Practice code reviews with an interactive AI assistant
                 </p>
+
+                {/* Quick Start Button - Enhanced */}
+                <div className="mt-12">
+                  <button
+                    onClick={() => setShowQuickStartModal(true)}
+                    className="inline-flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white py-5 px-10 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl text-xl font-bold shadow-lg border-2 border-orange-400 hover:border-orange-300"
+                  >
+                    <svg
+                      className="h-7 w-7 mr-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Quick Start
+                  </button>
+                  <p className="text-sm text-tokyo-fg-bright mt-3">
+                    Start a general code review session immediately
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {/* Research focus section */}
-        <section className="py-12 md:py-16 fade-in-auto bg-tokyo-bg-lighter">
+        <section className="pb-8 md:pb-10 fade-in-auto bg-tokyo-bg-lighter">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-tokyo-bg-lightest flex items-center justify-center">
               <svg
@@ -95,6 +159,13 @@ const LandingPage: React.FC = () => {
           </div>
         </section>
       </div>
+
+      {/* Quick Start Modal */}
+      <QuickStartModal
+        isOpen={showQuickStartModal}
+        onClose={() => setShowQuickStartModal(false)}
+        onStartReview={handleQuickStart}
+      />
 
       {/* CSS for animations */}
       <style>

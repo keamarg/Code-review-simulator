@@ -36,9 +36,6 @@ export const AI_CONFIG = {
   // Response settings
   DEFAULT_RESPONSE_MODALITY: "audio" as const,
 
-  // Session configuration
-  SESSION_RESUMPTION_ENABLED: true, // Re-enabled for pause/resume functionality
-
   // Legacy aliases for backward compatibility
   get DEFAULT_SILENCE_DURATION_MS() {
     return this.VAD_SETTINGS.SILENCE_DURATION_MS;
