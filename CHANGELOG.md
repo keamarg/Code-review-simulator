@@ -36,10 +36,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Audio Handler Stability**: Improved audio recording cleanup reliability
+
   - **Stable Dependencies**: Using `useCallback` for `audioDataHandler` and `audioVolumeHandler` prevents unnecessary effect re-runs
   - **Cleanup Guards**: Added proper guards to prevent duplicate cleanup operations
   - **Session Isolation**: Each recording session now has proper state isolation and cleanup
   - **Memory Management**: Reduced memory pressure from recreated handler functions on every render
+
+- **Browser Compatibility Notice**: Added clear browser requirement information on landing page
+  - **User Guidance**: Added notice under Quick Start button stating "Google Chrome required for screen sharing and microphone access"
+  - **Better UX**: Users now know browser requirements before attempting to start a review
+  - **Visual Design**: Used info icon and subtle styling to provide helpful context without being intrusive
+  - **Prevents Frustration**: Helps users avoid failed attempts with unsupported browsers (Safari, Firefox)
 
 ### Clarified
 
@@ -1113,10 +1120,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Audio Handler Stability**: Improved audio recording cleanup reliability
+
   - **Stable Dependencies**: Using `useCallback` for `audioDataHandler` and `audioVolumeHandler` prevents unnecessary effect re-runs
   - **Cleanup Guards**: Added proper guards to prevent duplicate cleanup operations
   - **Session Isolation**: Each recording session now has proper state isolation and cleanup
   - **Memory Management**: Reduced memory pressure from recreated handler functions on every render
+
+- **Browser Compatibility Notice**: Added clear browser requirement information on landing page
+  - **User Guidance**: Added notice under Quick Start button stating "Google Chrome required for screen sharing and microphone access"
+  - **Better UX**: Users now know browser requirements before attempting to start a review
+  - **Visual Design**: Used info icon and subtle styling to provide helpful context without being intrusive
+  - **Prevents Frustration**: Helps users avoid failed attempts with unsupported browsers (Safari, Firefox)
 
 ### Clarified
 
