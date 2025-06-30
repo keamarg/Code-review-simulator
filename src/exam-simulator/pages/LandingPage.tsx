@@ -3,11 +3,13 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import Layout from "../layout/Layout";
 import RecentCodeReviews from "../components/RecentCodeReviews";
 import { QuickStartModal } from "../components/ui/QuickStartModal";
+import { useAuth } from "../contexts/AuthContext";
 
 const LandingPage: React.FC = () => {
   const [showQuickStartModal, setShowQuickStartModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   useEffect(() => {
     // Check if we should reopen the modal (e.g., returning from cancelled screen share)
@@ -18,6 +20,18 @@ const LandingPage: React.FC = () => {
       navigate(location.pathname, { replace: true });
     }
   }, [location, navigate]);
+
+  // Check if user just signed in and wants to continue with quick start
+  useEffect(() => {
+    if (user) {
+      const quickStartIntent = localStorage.getItem("quickStartIntent");
+      if (quickStartIntent) {
+        console.log("🚀 User signed in - resuming quick start flow");
+        localStorage.removeItem("quickStartIntent");
+        setShowQuickStartModal(true);
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     // Auto fade-in elements that should appear immediately after page load
@@ -63,6 +77,21 @@ const LandingPage: React.FC = () => {
     });
   };
 
+  const handleQuickStartButtonClick = () => {
+    if (!user) {
+      // Store the quick start intent and redirect to login
+      console.log(
+        "🔐 User not authenticated - storing quick start intent and redirecting to login"
+      );
+      localStorage.setItem("quickStartIntent", "true");
+      navigate("/login");
+      return;
+    }
+
+    // User is authenticated, show the modal
+    setShowQuickStartModal(true);
+  };
+
   return (
     <Layout>
       <div className="bg-tokyo-bg">
@@ -81,7 +110,7 @@ const LandingPage: React.FC = () => {
                 {/* Quick Start Button - Enhanced */}
                 <div className="mt-12">
                   <button
-                    onClick={() => setShowQuickStartModal(true)}
+                    onClick={handleQuickStartButtonClick}
                     className="inline-flex items-center justify-center bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white py-5 px-10 rounded-xl transition-all duration-300 transform hover:scale-105 hover:shadow-2xl text-xl font-bold shadow-lg border-2 border-orange-400 hover:border-orange-300"
                   >
                     <svg

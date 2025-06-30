@@ -31,7 +31,16 @@ const LoginPage = () => {
 
       if (error) throw error;
 
-      navigate("/dashboard"); // Redirect to dashboard after login
+      // Check if user was trying to do a quick start
+      const quickStartIntent = localStorage.getItem("quickStartIntent");
+      if (quickStartIntent) {
+        console.log(
+          "🚀 Login successful - redirecting to landing page for quick start"
+        );
+        navigate("/"); // Redirect to landing page where quick start modal will open
+      } else {
+        navigate("/dashboard"); // Normal redirect to dashboard
+      }
     } catch (error) {
       alert("Login failed: " + (error as Error).message);
     }

@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.41] - 2025-06-30
+
+### Improved
+
+- **Quick Start Authentication Flow**: Enhanced the quick start user experience by preserving user intent through the authentication process
+  - **Authentication Check**: Quick Start button now checks if user is signed in before showing the modal
+  - **Intent Preservation**: When unauthenticated users click Quick Start, their intent is stored and they're redirected to sign in
+  - **Smart Redirect**: After successful authentication, users are redirected back to the landing page where the Quick Start modal automatically opens
+  - **Seamless Experience**: Users no longer lose their quick start intent when going through the sign-in flow
+  - **Better UX Flow**: Eliminates the frustrating experience of being dumped in the dashboard after signing in for quick start
+  - **Signup Support**: Signup flow also handles quick start intent with appropriate messaging about email verification
+  - **Local Storage**: Uses localStorage to persist quick start intent across page navigation and authentication
+
+### Fixed
+
+- **Quick Start Sign-in Redirect Issue**: Fixed issue where unauthenticated users clicking "Share screen & start" would be redirected to dashboard after signing in instead of returning to quick start
+
+  - **Root Cause**: Protected route system was redirecting all authenticated users to dashboard regardless of their original intent
+  - **Solution**: Added quick start intent tracking that survives the authentication flow
+  - **User Journey**: Quick Start button → Sign In prompt → Authentication → Return to Quick Start modal
+  - **Preserved Context**: Users maintain their quick start session context throughout the authentication process
+
+- **Sign Out 403 Forbidden Error**: Fixed Supabase authentication logout error that was occurring in localhost development
+  - **Root Cause**: Default logout was attempting global scope logout which returned 403 Forbidden in development environment
+  - **Solution**: Implemented graceful logout with local scope first, fallback to default logout, and manual session cleanup as last resort
+  - **Error Handling**: Added comprehensive error handling with console warnings for debugging
+  - **Fallback Strategy**: If all logout methods fail, manually clear local storage tokens to ensure user is logged out
+  - **Development Fix**: Resolves the POST `/auth/v1/logout?scope=global 403 (Forbidden)` error in localhost
+
 ## [0.17.40] - 2025-06-30
 
 ### Improved

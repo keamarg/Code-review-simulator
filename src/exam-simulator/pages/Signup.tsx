@@ -12,7 +12,6 @@ const SignUp = () => {
     organization: "",
     role: "",
     experience: "",
-    isDeveloper: false,
   });
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -40,13 +39,22 @@ const SignUp = () => {
             organization: formData.organization,
             role: formData.role,
             experience: formData.experience,
-            is_developer: formData.isDeveloper,
           },
         },
       });
       if (error) throw error;
-      alert("Check your email for verification link");
-      navigate("/login"); // Navigate to login page
+
+      // Check if user was trying to do a quick start
+      const quickStartIntent = localStorage.getItem("quickStartIntent");
+      if (quickStartIntent) {
+        alert(
+          "Check your email for verification link. After verifying, you can return to continue your quick start session."
+        );
+        navigate("/login"); // Navigate to login page where they can sign in after verification
+      } else {
+        alert("Check your email for verification link");
+        navigate("/login"); // Navigate to login page
+      }
     } catch (error) {
       alert(error);
     }
@@ -156,23 +164,6 @@ const SignUp = () => {
                   value={formData.experience}
                 />
               </div>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                id="isDeveloper"
-                name="isDeveloper"
-                type="checkbox"
-                className="h-4 w-4 text-tokyo-accent focus:ring-tokyo-accent-lighter border-tokyo-selection rounded bg-tokyo-bg-lightest"
-                checked={formData.isDeveloper}
-                onChange={handleChange}
-              />
-              <label
-                htmlFor="isDeveloper"
-                className="ml-2 block text-sm text-tokyo-fg"
-              >
-                I am a professional developer
-              </label>
             </div>
 
             <div>
