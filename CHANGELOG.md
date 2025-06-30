@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.40] - 2025-06-30
+
+### Improved
+
+- **Quick Start Modal Field Order**: Reorganized the Quick Start modal form fields for better user experience
+  - **Developer Experience First**: Moved Developer Experience Level to be the first field, as it's the most fundamental choice
+  - **Code Review Type Second**: Moved Code Review Type to be the second field, creating logical flow from general to specific
+  - **Conditional GitHub URL**: GitHub Repository URL field now only appears when "Github Repo" is selected from the Code Review Type dropdown
+  - **Cleaner Interface**: Eliminates disabled/grayed-out fields when not needed, reducing visual clutter
+  - **Better UX Flow**: Users now progress naturally from their experience level → review type → specific configuration (if needed)
+  - **Dynamic Form**: Form adapts to user selections, showing only relevant fields at each step
+
 ## [0.17.39] - 2025-06-30
 
 ### Fixed
@@ -1088,55 +1100,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Impact**: Eliminates duplicate console messages like "🚀 Preparing quick start general review" appearing twice
   - **Performance**: Reduces unnecessary processing and API calls during exam initialization
   - **Clean Logs**: Console now shows each preparation step only once instead of multiple times
-
-## [0.17.39] - 2025-06-30
-
-### Fixed
-
-- **CRITICAL: Multiple Force Stop Audio Calls**: Fixed issue where force stop audio was being called 4-5 times during session cleanup causing excessive logging and potential performance issues
-
-  - **Root Cause**: The `forceStopAudio` useEffect had unstable dependencies (`audioDataHandler` and `audioVolumeHandler`) that were recreated on every render, causing the effect to run multiple times
-  - **Solution**: Used `useCallback` to make handler functions stable and added `forceStopInProgressRef` guard to prevent duplicate calls
-  - **Impact**: Eliminates console log spam showing "🎛️ ControlTray: Force stopping audio recording..." appearing 4-5 times
-  - **Performance**: Reduces redundant audio cleanup operations during session termination
-  - **Clean Logs**: Force stop now runs only once per session end instead of multiple times
-
-- **Audio Worklet Console Spam**: Reduced excessive console logging from audio worklet after recording stops
-
-  - **Root Cause**: Audio worklet continues sending data for a brief period after recording is stopped, causing 15+ identical log messages
-  - **Solution**: Added `hasLoggedIgnoring` flag to only log the worklet data ignoring message once per session
-  - **Impact**: Eliminates repetitive "🎤 AudioRecorder: Worklet received data but recording is false, ignoring" messages
-  - **Clean Console**: Only one informative message about suppressing further worklet messages
-  - **Better Debugging**: Console remains readable without being flooded with expected worklet cleanup messages
-
-- **Multiple Auto-Trigger Calls**: Fixed issue where auto-trigger mechanism was being called multiple times during connection state changes
-
-  - **Root Cause**: `onButtonReady` effect in ControlTray was resetting notification flag during connection state changes, allowing multiple auto-trigger calls
-  - **Solution**: Removed notification flag reset during connection state changes, letting parent component handle auto-trigger prevention
-  - **Impact**: Eliminates "🚫 Auto-trigger already completed - ignoring subsequent calls" spam messages
-  - **Clean Flow**: Auto-trigger now only happens once per session as intended
-  - **Better State Management**: Parent component (AIExaminerPage) properly manages auto-trigger lifecycle
-
-### Enhanced
-
-- **Audio Handler Stability**: Improved audio recording cleanup reliability
-
-  - **Stable Dependencies**: Using `useCallback` for `audioDataHandler` and `audioVolumeHandler` prevents unnecessary effect re-runs
-  - **Cleanup Guards**: Added proper guards to prevent duplicate cleanup operations
-  - **Session Isolation**: Each recording session now has proper state isolation and cleanup
-  - **Memory Management**: Reduced memory pressure from recreated handler functions on every render
-
-- **Browser Compatibility Notice**: Added clear browser requirement information on landing page
-  - **User Guidance**: Added notice under Quick Start button stating "Google Chrome required for screen sharing and microphone access"
-  - **Better UX**: Users now know browser requirements before attempting to start a review
-  - **Visual Design**: Used info icon and subtle styling to provide helpful context without being intrusive
-  - **Prevents Frustration**: Helps users avoid failed attempts with unsupported browsers (Safari, Firefox)
-
-### Clarified
-
-- **Automatic Reconnection Skip Messages**: Clarified that "🚫 Automatic reconnection skipped" messages are normal and expected behavior
-
-  - **WebSocket Error 1007**: When WebSocket closes with error 1007 ("Request contains an invalid argument"), the system correctly skips reconnection
-  - **Expected Behavior**: Only WebSocket error 1011 triggers automatic reconnection; all other errors are handled by skipping reconnection
-  - **No Action Required**: These messages indicate the system is working correctly and preventing inappropriate reconnection attempts
-  - **Debugging Aid**: The detailed skip reasons help developers understand why reconnection was not attempted

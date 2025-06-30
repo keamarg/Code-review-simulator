@@ -72,97 +72,8 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
           <div className="flex gap-6">
             {/* Left Side - Form Fields */}
             <div className="flex-1">
-              {/* Code Review Type Dropdown */}
+              {/* Developer Experience Dropdown - MOVED TO FIRST */}
               <div className="mb-6">
-                <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
-                  <div className="flex items-center">
-                    <svg
-                      className="h-4 w-4 mr-2 text-tokyo-comment"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                    Code review type
-                  </div>
-                </label>
-                <select
-                  value={type}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
-                >
-                  <option value="Standard">Standard</option>
-                  <option value="Github Repo">Github Repo</option>
-                </select>
-              </div>
-
-              {/* GitHub Repository URL Input - Always visible */}
-              <div className="mb-6">
-                <label
-                  className={`block text-sm font-medium mb-2 ${
-                    type === "Github Repo"
-                      ? "text-tokyo-fg-bright"
-                      : "text-tokyo-comment"
-                  }`}
-                >
-                  <div className="flex items-center">
-                    <svg
-                      className={`h-4 w-4 mr-2 ${
-                        type === "Github Repo"
-                          ? "text-tokyo-comment"
-                          : "text-tokyo-selection"
-                      }`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                    GitHub Repository URL
-                  </div>
-                </label>
-                <input
-                  type="text"
-                  value={repoUrl}
-                  onChange={(e) => setRepoUrl(e.target.value)}
-                  disabled={type !== "Github Repo"}
-                  placeholder={
-                    type === "Github Repo"
-                      ? "https://github.com/user/repository"
-                      : "Select Github Repo to enable"
-                  }
-                  className={`w-full px-4 py-2 border rounded-md transition-colors ${
-                    type === "Github Repo"
-                      ? "border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent"
-                      : "border-tokyo-selection bg-tokyo-bg-darker text-tokyo-comment cursor-not-allowed"
-                  }`}
-                />
-                <p
-                  className={`text-xs mt-1 ${
-                    type === "Github Repo"
-                      ? "text-tokyo-comment"
-                      : "text-tokyo-selection"
-                  }`}
-                >
-                  {type === "Github Repo"
-                    ? "Enter the full GitHub repository URL you want to review"
-                    : "This field is only available for GitHub repository reviews"}
-                </p>
-              </div>
-
-              {/* Developer Experience Dropdown */}
-              <div className="mb-0">
                 <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
                   <div className="flex items-center">
                     <svg
@@ -195,6 +106,70 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
                   during the code review.
                 </p>
               </div>
+
+              {/* Code Review Type Dropdown - MOVED TO SECOND */}
+              <div className="mb-6">
+                <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
+                  <div className="flex items-center">
+                    <svg
+                      className="h-4 w-4 mr-2 text-tokyo-comment"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    Code review type
+                  </div>
+                </label>
+                <select
+                  value={type}
+                  onChange={(e) => handleTypeChange(e.target.value)}
+                  className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
+                >
+                  <option value="Standard">Standard</option>
+                  <option value="Github Repo">Github Repo</option>
+                </select>
+              </div>
+
+              {/* GitHub Repository URL Input - CONDITIONALLY RENDERED */}
+              {type === "Github Repo" && (
+                <div className="mb-6">
+                  <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
+                    <div className="flex items-center">
+                      <svg
+                        className="h-4 w-4 mr-2 text-tokyo-comment"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                      GitHub Repository URL
+                    </div>
+                  </label>
+                  <input
+                    type="text"
+                    value={repoUrl}
+                    onChange={(e) => setRepoUrl(e.target.value)}
+                    placeholder="https://github.com/user/repository"
+                    className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
+                  />
+                  <p className="text-xs text-tokyo-comment mt-1">
+                    Enter the full GitHub repository URL you want to review
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Right Side - Two-Screen Setup Recommendation */}
