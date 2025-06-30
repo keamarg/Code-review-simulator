@@ -56,28 +56,26 @@ export function ExamWorkflow({
   quickStartExam,
   onScreenShareCancelled,
 }: ExamWorkflowProps) {
+  const { client, connected, connect, disconnect } = useGenAILiveContext();
   const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(
     null
   );
+  const [isLoadingExamData, setIsLoadingExamData] = useState(false);
+  const [examError, setExamError] = useState("");
+  const [repoUrl, setRepoUrl] = useState(""); // State to manage GitHub repository URL
+  const [githubQuestions, setGithubQuestions] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
+  const [studentTask, setStudentTask] = useState("");
   const [examStarted, setExamStarted] = useState(false);
-  const [isLoadingExamData, setIsLoadingExamData] = useState<boolean>(true);
-  const [examError, setExamError] = useState<string | null>(null);
-
-  const [studentTask, setStudentTask] = useState<string>("");
-  const [repoUrl, setRepoUrl] = useState<string>(""); // For GitHub type exams
-  const [prompt, setPrompt] = useState<string>("");
-  const [isLoadingPrompt, setIsLoadingPrompt] = useState<boolean>(false);
-  const [liveConfig, setLiveConfig] = useState<any>(null); // Local config state
+  const [liveConfig, setLiveConfig] = useState<any>(null);
+  const timerCleanupRef = useRef<(() => void) | null>(null);
+  const isConnectingRef = useRef(false);
+  const hasUsedQuickStartRef = useRef(false); // Track if we've already used quick start data
 
   // New state for summary modal
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [reviewSummary, setReviewSummary] = useState<string>("");
-  const [githubQuestions, setGithubQuestions] = useState<string>("");
-
-  // Connection guard to prevent duplicate connections
-  const [isConnectingRef] = useState(() => ({ current: false }));
-
-  const { client, connected, connect, disconnect } = useGenAILiveContext();
 
   // Use conversation tracker hook
   const { getConversationSummary, clearConversation, getDebugInfo } =
@@ -88,9 +86,6 @@ export function ExamWorkflow({
   const examDurationActiveExamMs = examDurationInMinutes * 60 * 1000;
 
   const [stopReason, setStopReason] = useState<"timer" | "manual" | null>(null);
-
-  // Track timer cleanup function
-  const timerCleanupRef = useRef<(() => void) | null>(null);
 
   // Unified handler for both timer expiration and manual stop
   const handleSessionEnd = useCallback(
@@ -204,17 +199,23 @@ export function ExamWorkflow({
     }
 
     // If quickStartExam is provided, use it directly
-    if (quickStartExam) {
+    if (quickStartExam && !hasUsedQuickStartRef.current) {
       console.log("🚀 Using quick start exam data:", quickStartExam);
       setExamSimulator(quickStartExam as ExamSimulator);
       setIsLoadingExamData(false);
+      hasUsedQuickStartRef.current = true; // Mark as used to prevent duplicate logging
+      return;
+    }
+
+    // Skip if we've already used quick start data
+    if (quickStartExam && hasUsedQuickStartRef.current) {
       return;
     }
 
     // Otherwise, fetch from Supabase as normal
     const fetchExamSimulator = async () => {
       setIsLoadingExamData(true);
-      setExamError(null);
+      setExamError("");
       try {
         const { data, error } = await supabase
           .from("exams")
@@ -324,12 +325,12 @@ export function ExamWorkflow({
   // Effect to trigger prompt preparation when examSimulator is loaded
   // and for standard exams, or when repoUrl is set for GitHub exams.
   useEffect(() => {
-    if (examSimulator) {
+    if (examSimulator && !prompt && !isLoadingPrompt) {
       if (examSimulator.type === "Github Repo") {
         // For quick start GitHub repos, prepare immediately when repoUrl is available
         // For normal GitHub repos, wait for examIntentStarted
         const isQuickStart = examSimulator.duration === 0;
-        if (isQuickStart && repoUrl && !prompt && !isLoadingPrompt) {
+        if (isQuickStart && repoUrl) {
           console.log(
             "🚀 Quick start GitHub repo - preparing content immediately"
           );
@@ -337,10 +338,11 @@ export function ExamWorkflow({
         }
         // For normal GitHub repos, prompt preparation will be triggered by the examIntentStarted effect.
       } else {
+        // Standard exam - prepare content immediately
         prepareExamContent();
       }
     }
-  }, [examSimulator, prepareExamContent, repoUrl, prompt, isLoadingPrompt]);
+  }, [examSimulator, repoUrl]);
 
   // Effect for when exam intent starts (user clicks start button)
   useEffect(() => {
@@ -402,7 +404,6 @@ export function ExamWorkflow({
     prompt,
     connected,
     client,
-    prepareExamContent,
     isLoadingPrompt,
   ]);
 

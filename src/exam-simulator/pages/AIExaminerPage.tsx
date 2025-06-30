@@ -231,7 +231,7 @@ export default function LivePage() {
 
   // Create temporary exam for quick start
   useEffect(() => {
-    if (quickStartData?.quickStart && !examId) {
+    if (quickStartData?.quickStart && !examId && !quickStartExam) {
       const tempExam = {
         id: id,
         title:
@@ -255,7 +255,7 @@ export default function LivePage() {
       setQuickStartExam(tempExam);
       console.log("🚀 Quick start exam created:", tempExam);
     }
-  }, [quickStartData, examId, id]);
+  }, [quickStartData?.quickStart, examId, id, quickStartExam]);
 
   // Auto-start exam for quick start with autoStart flag
   useEffect(() => {

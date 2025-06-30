@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import twoScreenSetupImage from "../../../two-screen-setup.jpg";
 
 interface QuickStartModalProps {
   isOpen: boolean;
@@ -18,59 +19,22 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
   const [type, setType] = useState("Standard");
   const [developerLevel, setDeveloperLevel] = useState("intermediate");
   const [repoUrl, setRepoUrl] = useState("");
-  const [imageError, setImageError] = useState(false);
-  const [imageSrc, setImageSrc] = useState("/two-screen-setup.jpg");
 
   const handleStartReview = () => {
-    // Validate GitHub repo URL if Github Repo is selected
+    // Validate GitHub repo URL if needed
     if (type === "Github Repo" && !repoUrl.trim()) {
-      alert("Please enter a GitHub repository URL");
+      alert("Please enter a GitHub repository URL before starting.");
       return;
     }
 
-    onStartReview(
-      type,
-      developerLevel,
-      type === "Github Repo" ? repoUrl : undefined
-    );
-    onClose();
+    onStartReview(type, developerLevel, type === "Github Repo" ? repoUrl : "");
   };
 
-  // Reset repo URL when switching away from Github Repo
   const handleTypeChange = (newType: string) => {
     setType(newType);
+    // Reset repo URL when switching away from GitHub type
     if (newType !== "Github Repo") {
       setRepoUrl("");
-    }
-  };
-
-  // Reset image error when modal opens and try different image paths
-  React.useEffect(() => {
-    if (isOpen) {
-      setImageError(false);
-      // Try the default path first
-      setImageSrc("/two-screen-setup.jpg");
-    }
-  }, [isOpen]);
-
-  const handleImageError = () => {
-    console.error("❌ Failed to load image:", imageSrc);
-    console.log("Base URL:", window.location.origin);
-    console.log("Current path:", window.location.pathname);
-
-    // Try alternative paths
-    if (imageSrc === "/two-screen-setup.jpg") {
-      console.log("Trying alternative path with process.env.PUBLIC_URL...");
-      setImageSrc(`${process.env.PUBLIC_URL}/two-screen-setup.jpg`);
-    } else if (imageSrc === `${process.env.PUBLIC_URL}/two-screen-setup.jpg`) {
-      console.log("Trying relative path...");
-      setImageSrc("./two-screen-setup.jpg");
-    } else if (imageSrc === "./two-screen-setup.jpg") {
-      console.log("Trying GitHub Pages path...");
-      setImageSrc("/Code-review-simulator/two-screen-setup.jpg");
-    } else {
-      console.log("All image paths failed, showing fallback");
-      setImageError(true);
     }
   };
 
@@ -253,55 +217,11 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
                   Recommended Setup: Two Screens
                 </h3>
                 <div className="bg-tokyo-bg rounded-md p-3 mb-3 flex-1 flex items-center">
-                  {!imageError ? (
-                    <img
-                      src={imageSrc}
-                      alt="Two-screen setup illustration showing code review interface on one screen and code editor on another"
-                      className="w-full h-auto rounded-md border border-tokyo-selection"
-                      onLoad={() => {
-                        console.log(
-                          "✅ Two-screen setup image loaded successfully"
-                        );
-                        setImageError(false);
-                      }}
-                      onError={handleImageError}
-                    />
-                  ) : (
-                    <div
-                      className="w-full rounded-md border border-tokyo-selection flex items-center justify-center text-center"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, #2d3748 0%, #4a5568 100%)",
-                        minHeight: "120px",
-                        color: "#a0aec0",
-                        fontSize: "14px",
-                        flexDirection: "column",
-                        gap: "8px",
-                      }}
-                    >
-                      <div>Two-screen setup illustration</div>
-                      <div style={{ fontSize: "12px", opacity: 0.7 }}>
-                        Image failed to load: {imageSrc}
-                      </div>
-                      <button
-                        onClick={() => {
-                          setImageError(false);
-                          setImageSrc("/two-screen-setup.jpg");
-                        }}
-                        style={{
-                          fontSize: "11px",
-                          padding: "4px 8px",
-                          backgroundColor: "#4a5568",
-                          border: "1px solid #718096",
-                          borderRadius: "4px",
-                          color: "#e2e8f0",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Retry
-                      </button>
-                    </div>
-                  )}
+                  <img
+                    src={twoScreenSetupImage}
+                    alt="Two-screen setup illustration showing code review interface on one screen and code editor on another"
+                    className="w-full h-auto rounded-md border border-tokyo-selection"
+                  />
                 </div>
                 <p className="text-xs text-tokyo-comment leading-relaxed">
                   For the best experience, use{" "}

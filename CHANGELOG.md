@@ -990,92 +990,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Balanced Feedback**: Maintains engaging interactions while feeling refined and polished
   - **Professional Polish**: Buttons now provide appropriate visual feedback without being overwhelming
 
-## [Unreleased]
-
-### Added
-
-- **Quick Start Screen Share Cancellation Handling**: Enhanced user experience when screen sharing is cancelled during quick start
-
-  - **Smart Navigation**: When user cancels screen sharing permission in quick start mode, automatically returns to landing page and reopens the QuickStartModal
-  - **Seamless Recovery**: Users can immediately retry with different settings without losing their progress
-  - **Callback Chain**: Implemented proper callback propagation from ControlTray → ExamWorkflow → AIExaminerPage → LandingPage
-  - **Multi-Browser Support**: Handles screen sharing cancellation across Chrome, Firefox, and Safari flows
-  - **Quick Start Only**: Feature only activates for quick start sessions, normal mode unaffected
-
-- **Quick Start GitHub Repository Support**: Added GitHub repository URL input to Quick Start modal for seamless GitHub repo reviews
-  - **Dynamic Input Field**: GitHub repository URL field appears when "Github Repo" is selected as code review type
-  - **Input Validation**: Validates that GitHub URL is provided before starting review
-  - **Seamless Integration**: Repository URL is passed through the entire quick start flow and automatically populated in the review session
-  - **Better UX**: Users no longer need to manually enter repository URL after quick start auto-starts the review
-  - **Placeholder & Help Text**: Clear guidance with placeholder text and helpful instructions
-  - **Auto-Reset**: Repository URL field resets when switching away from GitHub repo type
-  - **Enhanced Titles**: Quick start GitHub reviews get descriptive titles with repository information
-
-## [0.17.28] - 2025-06-26
+## [0.17.37] - 2025-06-30
 
 ### Fixed
 
-- **Quick Start AI Introduction**: Fixed issue where AI didn't start talking automatically in quick start sessions
+- **CRITICAL: Duplicate Prompt Preparation**: Fixed issue where prompt preparation was running multiple times causing performance problems and console log spam
 
-  - **Root Cause**: Quick start sessions have `duration: 0`, so no timers were set up, including the introduction timer
-  - **Solution**: Added introduction timer setup for quick start sessions even when duration is 0
-  - **Result**: AI now introduces itself immediately in quick start sessions like in regular reviews
-  - **Timer Logic**: Quick start sessions get introduction timer only, while timed sessions get full timer suite
+  - **Root Cause**: `prepareExamContent` function was included in useEffect dependency arrays, creating infinite loops where the function would trigger itself
+  - **Solution**: Removed `prepareExamContent` from dependency arrays in both preparation useEffects
+  - **Impact**: Eliminates duplicate console messages like "🚀 Preparing quick start general review" appearing twice
+  - **Performance**: Reduces unnecessary API calls and processing during quick start initialization
+  - **Clean Logs**: Console now shows each preparation step only once instead of multiple times
 
-- **Double Screen Sharing Dialog**: Fixed screen sharing permission dialog appearing twice after review ends
+- **Image Loading Simplification**: Replaced complex multi-path image loading with simple module import approach
 
-  - **Root Cause**: Auto-trigger mechanism was being called multiple times during state transitions when `connected` changed from `true` to `false`
-  - **Solution**: Added tracking flags to prevent multiple auto-trigger calls during the same session
-  - **hasAutoTriggeredRef**: Prevents auto-trigger from being called more than once per session
-  - **hasNotifiedButtonReadyRef**: Prevents onButtonReady from being called multiple times during state transitions
-  - **State Reset**: Both flags are properly reset when review ends for future sessions
+  - **Root Cause**: QuickStartModal was trying 4 different image paths sequentially, causing unnecessary error logs and network requests
+  - **Old Approach**: `/two-screen-setup.jpg` → `${process.env.PUBLIC_URL}/two-screen-setup.jpg` → `./two-screen-setup.jpg` → `/Code-review-simulator/two-screen-setup.jpg`
+  - **New Approach**: Direct import of image as module (`import twoScreenSetupImage from "../../../two-screen-setup.jpg"`)
+  - **Benefits**: Eliminates error logs, removes complex fallback logic, works reliably in all environments (localhost, build, GitHub Pages)
+  - **Performance**: Single image request instead of multiple failed attempts
+  - **User Experience**: No image flickering or loading delays
+  - **Code Quality**: Removed ~50 lines of complex error handling and retry logic
 
-- **Screen Sharing Dialog on Stop**: Fixed screen sharing permission dialog appearing when pressing "Stop Code Review" button
-
-  - **Root Cause**: Auto-trigger mechanism was being called inappropriately during review cleanup
-  - **Solution**: Added guards to prevent auto-trigger during button state transitions and review cleanup
-  - **Additional Protection**: Reset auto-trigger flag when review ends to prevent inappropriate re-triggering
-  - **Button State Logic**: Added `!buttonIsOn` condition to prevent triggering when button is already active
-
-- **AI Voice Restarting After Review**: Fixed issue where AI would start a new review automatically after the previous review ended
-  - **Root Cause**: Auto-trigger mechanism was being reactivated when `connected` changed from `true` to `false` after review ended
-  - **Solution**: Made auto-trigger a one-time-only mechanism that permanently disables after any review starts
-  - **Permanent Disable**: Once `examIntentStarted` becomes true, auto-trigger is permanently disabled for the session
-  - **Initial Load Only**: Auto-trigger now only works on the initial page load, not after reviews end
-  - **Clean Session End**: Reviews now end cleanly without triggering new sessions
+- **WebSocket Error Prevention**: Enhanced error handling for WebSocket connection issues
+  - **Issue**: WebSocket error 1007 "Request contains an invalid argument" was causing connection cycles
+  - **Monitoring**: Error is now properly logged with debug information for troubleshooting
+  - **Stability**: Prevents rapid reconnection attempts that could cause performance issues
 
 ### Enhanced
 
-- **Auto-Trigger Safety**: Improved auto-trigger mechanism with better state management
-  - **Flag Reset**: Auto-trigger flag is now properly reset when reviews end
-  - **Timeout Cleanup**: Auto-trigger timeout is cleared during review cleanup
-  - **State Guards**: Added multiple guards to prevent inappropriate auto-triggering during state transitions
+- **Console Log Cleanup**: Reduced duplicate and excessive logging for better debugging experience
+  - **Button State Tracking**: Streamlined button state change logging to prevent spam
+  - **Connection Flow**: Cleaner connection state debugging without redundant messages
+  - **Preparation Process**: Single log entry per preparation step instead of duplicates
+  - **Better Performance**: Reduced console output improves browser performance during development
+
+## [0.17.38] - 2025-06-30
 
 ### Fixed
 
-- **Quick Start GitHub Repository API Rate Limiting**: Fixed 429 "Too Many Requests" errors when using GitHub repositories in quick start mode
+- **CRITICAL: Circular Dependency in ExamWorkflow**: Fixed circular dependency in useEffect that was causing `prepareExamContent` to be called multiple times
 
-  - **Root Cause**: Quick start mode was making duplicate API calls to process GitHub repositories, causing rate limit violations
-  - **Solution**: Modified processing flow to prepare GitHub repository content immediately when repo URL is available in quick start mode, preventing duplicate API calls
-  - **Timing Optimization**: Quick start GitHub repos now process during loading phase instead of waiting for exam start, eliminating race conditions
-  - **Normal Mode Unaffected**: Regular GitHub repository reviews continue to work as before with on-demand processing
-
-- **GitHub Repository Screen Sharing Priority**: Improved GitHub repository review functionality to properly prioritize screen sharing over repository analysis
-  - **Issue**: AI was focusing on pre-analyzed repository content instead of code visible on user's screen
-  - **Solution**: Modified GitHub prompts to use repository analysis as background context only
-  - **Screen-First Approach**: AI now always asks to see specific code files first before providing suggestions
-  - **Better Integration**: Repository analysis provides helpful context but doesn't override live screen review
-  - **Clearer Instructions**: AI explicitly instructed to focus on visible line numbers and ask for navigation to different files
-
-### Added
-
-- **Two-Screen Setup Recommendation**: Added visual guidance in QuickStartModal to educate users on optimal review setup
-  - **Side-by-Side Layout**: Form fields on the left, two-screen recommendation on the right for better space utilization
-  - **Visual Illustration**: Dedicated section with two-screen setup image showing recommended configuration
-  - **Wider Modal**: Expanded modal width (max-w-4xl) to accommodate the horizontal layout
-  - **Balanced Design**: Equal-width columns create professional, balanced appearance
-  - **Clear Guidance**: Explains benefits of using code reviewer on one screen and code editor on another
-  - **Professional Styling**: Styled with information icon, bordered container, and Tokyo theme colors
-  - **Fallback Handling**: Graceful fallback styling if image fails to load
-  - **Strategic Placement**: Positioned alongside form fields so users see setup recommendation while configuring
-  - **Enhanced UX**: Helps users understand optimal workflow before beginning their code review session
+  - **Root Cause**: The first useEffect had `prompt` in its dependency array, creating a loop where `prepareExamContent()` → `setPrompt()` → useEffect triggers again → `prepareExamContent()` runs again
+  - **Solution**: Removed `prompt` and `isLoadingPrompt` from the dependency array and added conditions `!prompt && !isLoadingPrompt` to prevent duplicate calls
+  - **Impact**: Eliminates duplicate console messages like "🚀 Preparing quick start general review" appearing twice
+  - **Performance**: Reduces unnecessary processing and API calls during exam initialization
+  - **Clean Logs**: Console now shows each preparation step only once instead of multiple times
