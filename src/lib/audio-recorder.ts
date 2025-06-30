@@ -42,6 +42,7 @@ export class AudioRecorder extends EventEmitter {
   vuWorklet: AudioWorkletNode | undefined;
 
   private starting: Promise<void> | null = null;
+  private hasLoggedIgnoring: boolean = false; // Track if we've already logged the ignoring message
 
   constructor(public sampleRate = 16000) {
     super();
@@ -133,9 +134,13 @@ export class AudioRecorder extends EventEmitter {
         this.recordingWorklet.port.onmessage = async (ev: MessageEvent) => {
           // Check if recording is still active before emitting data
           if (!this.recording) {
-            console.log(
-              "🎤 AudioRecorder: Worklet received data but recording is false, ignoring"
-            );
+            // Only log this message once to prevent console spam
+            if (!this.hasLoggedIgnoring) {
+              console.log(
+                "🎤 AudioRecorder: Worklet received data but recording is false, ignoring (suppressing further messages)"
+              );
+              this.hasLoggedIgnoring = true;
+            }
             return;
           }
 
@@ -176,6 +181,7 @@ export class AudioRecorder extends EventEmitter {
 
         this.source.connect(this.vuWorklet);
         this.recording = true;
+        this.hasLoggedIgnoring = false; // Reset logging flag for new recording session
         console.log("✅ AudioRecorder: Successfully started recording");
         resolve();
         this.starting = null;
@@ -194,6 +200,7 @@ export class AudioRecorder extends EventEmitter {
     console.log("🎤 AudioRecorder: Stop called, setting recording to false");
     // Immediately set recording to false to prevent new data emission
     this.recording = false;
+    this.hasLoggedIgnoring = false; // Reset for next session
 
     // its plausible that stop would be called before start completes
     // such as if the websocket immediately hangs up

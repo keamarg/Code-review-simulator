@@ -16,7 +16,15 @@
 
 import cn from "classnames";
 
-import { memo, ReactNode, RefObject, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  ReactNode,
+  RefObject,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
 import { AudioRecorder } from "../../../lib/audio-recorder";
 import AudioPulse from "../../../components/audio-pulse/AudioPulse";
@@ -160,13 +168,11 @@ function ControlTray({
       hasNotifiedButtonReadyRef.current = true;
       onButtonReady(handleMainButtonClick);
     } else if (connected || isRequestingPermissions || buttonIsOn) {
-      // Reset notification flag when button becomes unavailable
-      if (hasNotifiedButtonReadyRef.current) {
-        console.log(
-          "🎛️ ControlTray: Button no longer ready - resetting notification flag"
-        );
-        hasNotifiedButtonReadyRef.current = false;
-      }
+      // Don't reset notification flag during connection state changes
+      // The parent component (AIExaminerPage) handles preventing duplicate auto-triggers
+      console.log(
+        "🎛️ ControlTray: Button no longer ready - parent will handle auto-trigger prevention"
+      );
     } else {
       console.log("🎛️ ControlTray: Button not ready for auto-trigger");
     }
@@ -191,24 +197,33 @@ function ControlTray({
     );
   }, [inVolume]);
 
-  // Store handler functions so they can be removed
-  const audioDataHandler = (base64: string) => {
-    const sampleRate = audioRecorder.audioContext?.sampleRate || 16000;
-    client.sendRealtimeInput([
-      {
-        mimeType: `audio/pcm;rate=${sampleRate}`,
-        data: base64,
-      },
-    ]);
-  };
-  const audioVolumeHandler = (volume: number) => {
+  // Store handler functions so they can be removed - make them stable with useCallback
+  const audioDataHandler = useCallback(
+    (base64: string) => {
+      const sampleRate = audioRecorder.audioContext?.sampleRate || 16000;
+      client.sendRealtimeInput([
+        {
+          mimeType: `audio/pcm;rate=${sampleRate}`,
+          data: base64,
+        },
+      ]);
+    },
+    [client, audioRecorder]
+  );
+
+  const audioVolumeHandler = useCallback((volume: number) => {
     setInVolume(volume);
-  };
+  }, []);
+
+  // Track if force stop is already in progress to prevent duplicates
+  const forceStopInProgressRef = useRef(false);
 
   // Handle force stop audio/microphone
   useEffect(() => {
-    if (forceStopAudio) {
+    if (forceStopAudio && !forceStopInProgressRef.current) {
+      forceStopInProgressRef.current = true;
       console.log("🎛️ ControlTray: Force stopping audio recording...");
+
       audioRecorder.off("data", audioDataHandler);
       audioRecorder.off("volume", audioVolumeHandler);
       audioRecorder.stop();
@@ -217,6 +232,11 @@ function ControlTray({
       cleanupAudioStream();
 
       console.log("✅ ControlTray: Audio recording and MediaStream stopped");
+
+      // Reset flag after a short delay to allow for proper cleanup
+      setTimeout(() => {
+        forceStopInProgressRef.current = false;
+      }, 100);
     }
   }, [forceStopAudio, audioRecorder, audioDataHandler, audioVolumeHandler]);
 

@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.39] - 2025-06-30
+
+### Fixed
+
+- **CRITICAL: Multiple Force Stop Audio Calls**: Fixed issue where force stop audio was being called 4-5 times during session cleanup causing excessive logging and potential performance issues
+
+  - **Root Cause**: The `forceStopAudio` useEffect had unstable dependencies (`audioDataHandler` and `audioVolumeHandler`) that were recreated on every render, causing the effect to run multiple times
+  - **Solution**: Used `useCallback` to make handler functions stable and added `forceStopInProgressRef` guard to prevent duplicate calls
+  - **Impact**: Eliminates console log spam showing "🎛️ ControlTray: Force stopping audio recording..." appearing 4-5 times
+  - **Performance**: Reduces redundant audio cleanup operations during session termination
+  - **Clean Logs**: Force stop now runs only once per session end instead of multiple times
+
+- **Audio Worklet Console Spam**: Reduced excessive console logging from audio worklet after recording stops
+
+  - **Root Cause**: Audio worklet continues sending data for a brief period after recording is stopped, causing 15+ identical log messages
+  - **Solution**: Added `hasLoggedIgnoring` flag to only log the worklet data ignoring message once per session
+  - **Impact**: Eliminates repetitive "🎤 AudioRecorder: Worklet received data but recording is false, ignoring" messages
+  - **Clean Console**: Only one informative message about suppressing further worklet messages
+  - **Better Debugging**: Console remains readable without being flooded with expected worklet cleanup messages
+
+- **Multiple Auto-Trigger Calls**: Fixed issue where auto-trigger mechanism was being called multiple times during connection state changes
+
+  - **Root Cause**: `onButtonReady` effect in ControlTray was resetting notification flag during connection state changes, allowing multiple auto-trigger calls
+  - **Solution**: Removed notification flag reset during connection state changes, letting parent component handle auto-trigger prevention
+  - **Impact**: Eliminates "🚫 Auto-trigger already completed - ignoring subsequent calls" spam messages
+  - **Clean Flow**: Auto-trigger now only happens once per session as intended
+  - **Better State Management**: Parent component (AIExaminerPage) properly manages auto-trigger lifecycle
+
+### Enhanced
+
+- **Audio Handler Stability**: Improved audio recording cleanup reliability
+  - **Stable Dependencies**: Using `useCallback` for `audioDataHandler` and `audioVolumeHandler` prevents unnecessary effect re-runs
+  - **Cleanup Guards**: Added proper guards to prevent duplicate cleanup operations
+  - **Session Isolation**: Each recording session now has proper state isolation and cleanup
+  - **Memory Management**: Reduced memory pressure from recreated handler functions on every render
+
+### Clarified
+
+- **Automatic Reconnection Skip Messages**: Clarified that "🚫 Automatic reconnection skipped" messages are normal and expected behavior
+
+  - **WebSocket Error 1007**: When WebSocket closes with error 1007 ("Request contains an invalid argument"), the system correctly skips reconnection
+  - **Expected Behavior**: Only WebSocket error 1011 triggers automatic reconnection; all other errors are handled by skipping reconnection
+  - **No Action Required**: These messages indicate the system is working correctly and preventing inappropriate reconnection attempts
+  - **Debugging Aid**: The detailed skip reasons help developers understand why reconnection was not attempted
+
 ## [0.17.34] - 2025-06-26
 
 ### Refined
@@ -1036,3 +1081,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Impact**: Eliminates duplicate console messages like "🚀 Preparing quick start general review" appearing twice
   - **Performance**: Reduces unnecessary processing and API calls during exam initialization
   - **Clean Logs**: Console now shows each preparation step only once instead of multiple times
+
+## [0.17.39] - 2025-06-30
+
+### Fixed
+
+- **CRITICAL: Multiple Force Stop Audio Calls**: Fixed issue where force stop audio was being called 4-5 times during session cleanup causing excessive logging and potential performance issues
+
+  - **Root Cause**: The `forceStopAudio` useEffect had unstable dependencies (`audioDataHandler` and `audioVolumeHandler`) that were recreated on every render, causing the effect to run multiple times
+  - **Solution**: Used `useCallback` to make handler functions stable and added `forceStopInProgressRef` guard to prevent duplicate calls
+  - **Impact**: Eliminates console log spam showing "🎛️ ControlTray: Force stopping audio recording..." appearing 4-5 times
+  - **Performance**: Reduces redundant audio cleanup operations during session termination
+  - **Clean Logs**: Force stop now runs only once per session end instead of multiple times
+
+- **Audio Worklet Console Spam**: Reduced excessive console logging from audio worklet after recording stops
+
+  - **Root Cause**: Audio worklet continues sending data for a brief period after recording is stopped, causing 15+ identical log messages
+  - **Solution**: Added `hasLoggedIgnoring` flag to only log the worklet data ignoring message once per session
+  - **Impact**: Eliminates repetitive "🎤 AudioRecorder: Worklet received data but recording is false, ignoring" messages
+  - **Clean Console**: Only one informative message about suppressing further worklet messages
+  - **Better Debugging**: Console remains readable without being flooded with expected worklet cleanup messages
+
+- **Multiple Auto-Trigger Calls**: Fixed issue where auto-trigger mechanism was being called multiple times during connection state changes
+
+  - **Root Cause**: `onButtonReady` effect in ControlTray was resetting notification flag during connection state changes, allowing multiple auto-trigger calls
+  - **Solution**: Removed notification flag reset during connection state changes, letting parent component handle auto-trigger prevention
+  - **Impact**: Eliminates "🚫 Auto-trigger already completed - ignoring subsequent calls" spam messages
+  - **Clean Flow**: Auto-trigger now only happens once per session as intended
+  - **Better State Management**: Parent component (AIExaminerPage) properly manages auto-trigger lifecycle
+
+### Enhanced
+
+- **Audio Handler Stability**: Improved audio recording cleanup reliability
+  - **Stable Dependencies**: Using `useCallback` for `audioDataHandler` and `audioVolumeHandler` prevents unnecessary effect re-runs
+  - **Cleanup Guards**: Added proper guards to prevent duplicate cleanup operations
+  - **Session Isolation**: Each recording session now has proper state isolation and cleanup
+  - **Memory Management**: Reduced memory pressure from recreated handler functions on every render
+
+### Clarified
+
+- **Automatic Reconnection Skip Messages**: Clarified that "🚫 Automatic reconnection skipped" messages are normal and expected behavior
+
+  - **WebSocket Error 1007**: When WebSocket closes with error 1007 ("Request contains an invalid argument"), the system correctly skips reconnection
+  - **Expected Behavior**: Only WebSocket error 1011 triggers automatic reconnection; all other errors are handled by skipping reconnection
+  - **No Action Required**: These messages indicate the system is working correctly and preventing inappropriate reconnection attempts
+  - **Debugging Aid**: The detailed skip reasons help developers understand why reconnection was not attempted
