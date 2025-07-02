@@ -18,6 +18,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   const [timeLeft, setTimeLeft] = useState<number>(totalMs);
   const [running, setRunning] = useState<boolean>(autoStart);
   const onTimeUpRef = useRef(onTimeUp);
+  const hasCalledOnTimeUp = useRef(false);
 
   // Update ref when onTimeUp changes
   useEffect(() => {
@@ -40,8 +41,8 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
 
   // Handle timer expiration separately
   useEffect(() => {
-    if (timeLeft <= 0 && onTimeUpRef.current) {
-      console.log("⏰ CountdownTimer - Time expired, calling onTimeUp");
+    if (timeLeft <= 0 && !hasCalledOnTimeUp.current && onTimeUpRef.current) {
+      hasCalledOnTimeUp.current = true;
       onTimeUpRef.current();
     }
   }, [timeLeft]);

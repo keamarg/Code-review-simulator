@@ -60,29 +60,8 @@ function ExamPageContent({
   onScreenShareCancelled,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
-  const hasNotifiedScreenShareRef = useRef(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isTaskLoading, setIsTaskLoading] = useState(false);
-
-  useEffect(() => {
-    if (
-      videoStream &&
-      client &&
-      connected &&
-      hasNotifiedScreenShareRef.current
-    ) {
-      try {
-        client.send([
-          {
-            // text: "Ask the user to share their screen. Please acknowledge this and wait for my cue before starting the review.", // DISABLED
-          },
-        ]);
-        hasNotifiedScreenShareRef.current = false;
-      } catch (error) {
-        console.error("Failed to send screen share notification:", error);
-      }
-    }
-  }, [videoStream, client, connected]);
 
   useEffect(() => {
     if (client) {
@@ -182,7 +161,7 @@ export default function LivePage() {
     repoUrl?: string;
   } | null;
 
-  // Generate a temporary ID for quick start sessions
+  // Generate a temporary ID for quick start
   const id =
     examId ||
     (quickStartData?.quickStart ? `quickstart-${Date.now()}` : undefined);
@@ -253,7 +232,6 @@ export default function LivePage() {
         repoUrl: quickStartData.repoUrl, // Add repo URL for GitHub type
       };
       setQuickStartExam(tempExam);
-      console.log("🚀 Quick start exam created:", tempExam);
     }
   }, [quickStartData?.quickStart, examId, id, quickStartExam]);
 
@@ -265,15 +243,11 @@ export default function LivePage() {
       !examIntentStarted &&
       !hasAutoTriggeredRef.current
     ) {
-      console.log(
-        "🚀 Auto-start requested - setting trigger flag (initial load only)"
-      );
       shouldAutoTriggerRef.current = true;
 
       // Set a timeout to trigger if the button doesn't become available quickly
       autoTriggerTimeoutRef.current = setTimeout(() => {
         if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
-          console.log("🚀 Auto-start timeout - triggering manual start");
           setExamIntentStarted(true);
           shouldAutoTriggerRef.current = false;
           hasAutoTriggeredRef.current = true;
@@ -285,9 +259,6 @@ export default function LivePage() {
   // Permanently disable auto-trigger once any review starts
   useEffect(() => {
     if (examIntentStarted && !hasAutoTriggeredRef.current) {
-      console.log(
-        "🚀 Review started - permanently disabling auto-trigger for this session"
-      );
       shouldAutoTriggerRef.current = false;
       hasAutoTriggeredRef.current = true;
       if (autoTriggerTimeoutRef.current) {
@@ -298,38 +269,21 @@ export default function LivePage() {
   }, [examIntentStarted]);
 
   const handleEndReview = () => {
-    console.log("🛑 AIExaminerPage: handleEndReview called", {
-      examIntentStarted,
-      forceStopAudio,
-      forceStopVideo,
-    });
-
-    // Reset auto-trigger flag to prevent inappropriate re-triggering
     shouldAutoTriggerRef.current = false;
-    // Note: NOT resetting hasAutoTriggeredRef here - we want it to stay true
-    // to prevent auto-trigger from starting new reviews after this review ends
     if (autoTriggerTimeoutRef.current) {
       clearTimeout(autoTriggerTimeoutRef.current);
       autoTriggerTimeoutRef.current = null;
     }
 
-    // Terminate the AI session completely if client is available
     if (genaiClient) {
-      console.log("🛑 AIExaminerPage: Terminating genaiClient session");
       genaiClient.terminateSession();
     }
 
-    // Force stop audio and video, end the exam
-    console.log(
-      "🛑 AIExaminerPage: Setting force stop flags and examIntentStarted to false"
-    );
     setForceStopAudio(true);
     setForceStopVideo(true);
     setExamIntentStarted(false);
 
-    // Reset force stop after a longer delay to ensure everything stops
     setTimeout(() => {
-      console.log("🛑 AIExaminerPage: Resetting force stop flags");
       setForceStopAudio(false);
       setForceStopVideo(false);
     }, 3000);
@@ -337,7 +291,6 @@ export default function LivePage() {
 
   // Add a new handler for summary modal close
   const handleSummaryModalClose = () => {
-    // For quick start, go back to home instead of dashboard
     if (quickStartData?.quickStart) {
       navigate("/");
     } else {
@@ -347,20 +300,16 @@ export default function LivePage() {
 
   // Handle timer expiration - reset state and force stop audio/video
   const handleTimerExpired = () => {
-    // Terminate the AI session completely if client is available
     if (genaiClient) {
       genaiClient.terminateSession();
     }
 
-    // Force stop audio and video, end the exam
     setForceStopAudio(true);
     setForceStopVideo(true);
     setExamIntentStarted(false);
 
-    // Clear all suggestions since review is complete
     clearAllSuggestions();
 
-    // Reset force stop after a delay
     setTimeout(() => {
       setForceStopAudio(false);
       setForceStopVideo(false);
@@ -369,7 +318,6 @@ export default function LivePage() {
 
   // Handle manual stop - show summary instead of immediate redirect
   const handleManualStop = () => {
-    console.log("🛑 Manual stop initiated");
     handleEndReview();
   };
 
@@ -380,35 +328,27 @@ export default function LivePage() {
   // Callback for when the control button is ready for auto-triggering
   const handleButtonReady = useCallback((triggerButton: () => void) => {
     if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
-      console.log("🚀 Button ready - triggering auto-start");
       shouldAutoTriggerRef.current = false;
-      hasAutoTriggeredRef.current = true; // Mark as triggered to prevent repeats
+      hasAutoTriggeredRef.current = true;
 
-      // Clear timeout since we're triggering now
       if (autoTriggerTimeoutRef.current) {
         clearTimeout(autoTriggerTimeoutRef.current);
         autoTriggerTimeoutRef.current = null;
       }
 
-      // Small delay to ensure everything is initialized
       setTimeout(() => {
         triggerButton();
       }, 100);
     } else if (hasAutoTriggeredRef.current) {
-      console.log(
-        "🚫 Auto-trigger already completed - ignoring subsequent calls"
-      );
+      // Ignore subsequent calls
     } else {
-      console.log("🚫 Auto-trigger flag not set - ignoring button ready call");
+      // Ignore button ready call
     }
   }, []);
 
   // Handle screen sharing cancellation in quick start - navigate back to landing page
   const handleScreenShareCancelled = useCallback(() => {
     if (quickStartData?.quickStart) {
-      console.log(
-        "🚫 Screen sharing cancelled in quick start - returning to landing page"
-      );
       navigate("/", { state: { reopenQuickStart: true } });
     }
   }, [quickStartData?.quickStart, navigate]);
@@ -425,11 +365,9 @@ export default function LivePage() {
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      // Also terminate on component unmount
       if (genaiClient) {
         genaiClient.terminateSession();
       }
-      // Clean up auto-trigger timeout
       if (autoTriggerTimeoutRef.current) {
         clearTimeout(autoTriggerTimeoutRef.current);
       }
@@ -477,14 +415,7 @@ export default function LivePage() {
   }, []);
 
   const handleStartExamClicked = (isButtonOn: boolean) => {
-    console.log("🎛️ AIExaminerPage: handleStartExamClicked called", {
-      isButtonOn,
-      currentExamIntentStarted: examIntentStarted,
-    });
-
-    // Only handle starting the exam - stopping is handled by the red button
     if (isButtonOn) {
-      console.log("🎛️ AIExaminerPage: Setting examIntentStarted to true");
       setExamIntentStarted(true);
     } else {
       console.log(

@@ -25,37 +25,19 @@ export function useConversationTracker(
 
   const flushTranscriptBuffer = useCallback(() => {
     if (transcriptBufferRef.current.trim()) {
-      const timestamp =
-        new Date().toLocaleTimeString("en-US", {
-          hour12: false,
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }) +
-        "." +
-        new Date().getMilliseconds().toString().padStart(3, "0");
-
-      const content = transcriptBufferRef.current.trim();
-      const preview =
-        content.substring(0, 100) + (content.length > 100 ? "..." : "");
-      console.log(
-        `${timestamp} 💾 Saving transcript chunk (${content.length} chars): ${preview}`
-      );
-
-      const entry: ConversationEntry = {
-        timestamp: new Date(),
+      const transcriptEntry: ConversationEntry = {
         type: "ai_transcript",
-        content: content,
+        content: transcriptBufferRef.current.trim(),
+        timestamp: new Date(),
       };
 
-      entriesRef.current.push(entry);
+      entriesRef.current.push(transcriptEntry);
 
-      // Call the callback with the transcript chunk for external processing
+      // Send to parent callback if provided
       if (onTranscriptChunk) {
-        onTranscriptChunk(content);
+        onTranscriptChunk(transcriptBufferRef.current.trim());
       }
 
-      // Reset buffer
       transcriptBufferRef.current = "";
     }
   }, [onTranscriptChunk]);

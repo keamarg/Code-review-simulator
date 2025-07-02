@@ -62,6 +62,8 @@ export interface LiveClientEventTypes {
   turncomplete: () => void;
   // Emitted when output transcription is received
   transcript: (transcription: string) => void;
+  // Emitted when server sends GoAway message (advance warning before disconnection)
+  goAway: (timeLeft: number) => void;
 }
 
 /**
@@ -86,7 +88,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
   private sessionResumptionHandle: string | undefined = "";
   private reconnectionAttempts: number = 0;
-  private readonly maxReconnectionAttempts: number = 1;
+  private readonly maxReconnectionAttempts: number = 0; // Disable automatic reconnection - use Google's recommended approach
   private manualDisconnect: boolean = false;
 
   private _session: Session | null = null;
@@ -207,6 +209,32 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     this.log("client.terminate", "Session terminated completely");
   }
 
+  // Add manual reconnection method for user-initiated reconnection
+  public async reconnectWithResumption(): Promise<boolean> {
+    if (!this.sessionResumptionHandle || !this.config || !this._model) {
+      console.log("❌ Cannot reconnect: Missing session data");
+      return false;
+    }
+
+    console.log("🔄 Manual reconnection with session resumption...");
+
+    const resumptionConfig = {
+      ...this.config,
+      sessionResumption: { handle: this.sessionResumptionHandle },
+    };
+
+    try {
+      const success = await this.connect(this._model, resumptionConfig);
+      if (success) {
+        console.log("✅ Manual reconnection successful");
+      }
+      return success;
+    } catch (error) {
+      console.error("❌ Manual reconnection failed:", error);
+      return false;
+    }
+  }
+
   protected onopen() {
     this.reconnectionAttempts = 0; // Reset counter on successful connection
     this.log("client.open", "Connected");
@@ -313,6 +341,17 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         // timing conflicts with ongoing AI speech
       }
       return; // Important: return here to prevent falling through to "unmatched message"
+    }
+
+    // Handle GoAway messages - advance warning before connection termination
+    if (message.goAway) {
+      const timeLeft = Number(message.goAway.timeLeft) || 0;
+      console.log(
+        `⚠️ GoAway message received: Connection will close in ${timeLeft}ms`
+      );
+      this.log("server.goAway", `Connection closing in ${timeLeft}ms`);
+      this.emit("goAway", timeLeft);
+      return;
     }
 
     // this json also might be `contentUpdate { interrupted: true }`

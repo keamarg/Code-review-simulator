@@ -34,12 +34,10 @@ const LoginPage = () => {
       // Check if user was trying to do a quick start
       const quickStartIntent = localStorage.getItem("quickStartIntent");
       if (quickStartIntent) {
-        console.log(
-          "🚀 Login successful - redirecting to landing page for quick start"
-        );
-        navigate("/"); // Redirect to landing page where quick start modal will open
+        localStorage.removeItem("quickStartIntent");
+        navigate("/", { state: { reopenQuickStart: true } });
       } else {
-        navigate("/dashboard"); // Normal redirect to dashboard
+        navigate("/dashboard");
       }
     } catch (error) {
       alert("Login failed: " + (error as Error).message);

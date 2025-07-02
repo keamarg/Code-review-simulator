@@ -13,6 +13,7 @@ import { CountdownTimer } from "../CountdownTimer"; // Import CountdownTimer
 import { getCurrentModel, getTimerConfig } from "../../../config/aiConfig"; // Import centralized config
 import { useConversationTracker } from "../../hooks/useConversationTracker"; // New hook for tracking conversation
 import { CodeReviewSummaryModal } from "../ui/CodeReviewSummaryModal"; // New modal component
+import { ReconnectionBanner } from "../ui/ReconnectionBanner"; // New reconnection banner
 import ControlTrayCustom from "../control-tray-custom/ControlTrayCustom"; // Correct import for ControlTrayCustom
 import prompts from "../../../prompts.json"; // Import prompts for introduction message
 
@@ -56,7 +57,7 @@ export function ExamWorkflow({
   quickStartExam,
   onScreenShareCancelled,
 }: ExamWorkflowProps) {
-  const { client, connected, connect, disconnect } = useGenAILiveContext();
+  const { client, connected, connect } = useGenAILiveContext();
   const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(
     null
   );
@@ -71,90 +72,170 @@ export function ExamWorkflow({
   const [liveConfig, setLiveConfig] = useState<any>(null);
   const timerCleanupRef = useRef<(() => void) | null>(null);
   const isConnectingRef = useRef(false);
+  const activeConnectionRef = useRef(false);
   const hasUsedQuickStartRef = useRef(false); // Track if we've already used quick start data
 
   // New state for summary modal
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [reviewSummary, setReviewSummary] = useState<string>("");
 
-  // Use conversation tracker hook
-  const { getConversationSummary, clearConversation, getDebugInfo } =
-    useConversationTracker(client, onTranscriptChunk);
+  // New state for network status banner
+  const [showReconnectionBanner, setShowReconnectionBanner] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [micMutedDueToNetwork, setMicMutedDueToNetwork] = useState(false);
 
-  const examDurationInMinutes =
-    examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
+  // Use conversation tracker hook
+  const { getConversationSummary, clearConversation } = useConversationTracker(
+    client,
+    onTranscriptChunk
+  );
+
+  // Track AI responses to capture last message for reconnection
+  useEffect(() => {
+    if (client) {
+      const handleAITranscript = (event: any) => {
+        // Hide banner immediately when ANY transcript comes through
+        setShowReconnectionBanner(false);
+      };
+
+      client.on("transcript", handleAITranscript);
+
+      return () => {
+        client.off("transcript", handleAITranscript);
+      };
+    }
+  }, [client]);
+
+  // Only use exam duration if it's explicitly set (> 0), otherwise unlimited session
+  const examDurationInMinutes = examSimulator?.duration || 0;
   const examDurationActiveExamMs = examDurationInMinutes * 60 * 1000;
 
-  const [stopReason, setStopReason] = useState<"timer" | "manual" | null>(null);
+  // State to track if timers are already active to prevent duplicates
+  const timersActiveRef = useRef(false);
+
+  // Network connectivity monitoring - simple status only
+  useEffect(() => {
+    const handleOnline = () => {
+      if (examStarted) {
+        // Don't hide banner yet - wait for first transcript
+        setMicMutedDueToNetwork(false);
+        setIsReconnecting(false);
+
+        // Send reconnection message after network is stable
+        if (client && connected) {
+          setTimeout(() => {
+            if (client && connected) {
+              try {
+                client.send([
+                  {
+                    text: "We just experienced a brief network disconnect. Please acknowledge this and briefly summarize what you were just discussing before we continue with the code review.",
+                  },
+                ]);
+              } catch (error) {
+                console.error("Error sending reconnection message:", error);
+              }
+            }
+          }, 1000); // Wait 1 second for network stability
+        }
+      }
+    };
+
+    const handleOffline = () => {
+      if (examStarted) {
+        setShowReconnectionBanner(true);
+        setMicMutedDueToNetwork(true);
+        setIsReconnecting(false);
+
+        // Immediately interrupt AI speech when network goes down
+        if (client && connected) {
+          try {
+            client.emit("interrupted");
+          } catch (error) {
+            console.error("Error interrupting AI on disconnect:", error);
+          }
+        }
+      }
+    };
+
+    // Set initial state based on current network status
+    if (!navigator.onLine && examStarted) {
+      setShowReconnectionBanner(true);
+      setMicMutedDueToNetwork(true);
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [examStarted, client, connected]);
 
   // Unified handler for both timer expiration and manual stop
   const handleSessionEnd = useCallback(
-    (reason: "timer" | "manual") => {
-      console.log(`🛑 Session ending: ${reason}`);
-      setStopReason(reason);
-
-      // Clean up any active timers first
+    async (reason: "timer" | "manual") => {
+      // Clean up timers first to prevent side effects
       if (timerCleanupRef.current) {
-        console.log("🧹 Timer cleanup complete");
         timerCleanupRef.current();
         timerCleanupRef.current = null;
       }
+      timersActiveRef.current = false;
 
-      // Stop audio and disconnect immediately to stop voice
-      if (connected && client) {
-        console.log("🔌 Disconnecting client and terminating session");
-        disconnect(); // Do not await
+      // Reset connection guards
+      isConnectingRef.current = false;
+      activeConnectionRef.current = false;
+
+      // Terminate the session if connected
+      if (client) {
         client.terminateSession();
       }
 
-      // Reset exam state immediately for fast UI response
-      setExamStarted(false);
+      // Generate summary
+      if (onLoadingStateChange) {
+        onLoadingStateChange(true);
+      }
 
-      // Notify parent component immediately for both timer and manual stop
+      try {
+        const summary = await getConversationSummary(
+          {
+            title: examSimulator?.title,
+            description: examSimulator?.description,
+            duration: examSimulator?.duration,
+          },
+          liveSuggestions
+        );
+        setReviewSummary(summary);
+        setShowSummaryModal(true);
+      } catch (error) {
+        console.error("Error generating summary:", error);
+        setReviewSummary("Error generating summary. Please try again.");
+        setShowSummaryModal(true);
+      } finally {
+        if (onLoadingStateChange) {
+          onLoadingStateChange(false);
+        }
+      }
+
+      // Reset session tracking
+      setExamStarted(false);
+      setShowReconnectionBanner(false);
+
+      // Notify parent components
       if (reason === "timer" && onTimerExpired) {
         onTimerExpired();
       } else if (reason === "manual" && onManualStop) {
         onManualStop();
       }
-
-      // Show modal with loading state first, then generate summary asynchronously
-      setShowSummaryModal(true);
-      setReviewSummary("Generating review summary...");
-
-      // Generate summary in background without blocking UI
-      setTimeout(async () => {
-        try {
-          const examDetails = examSimulator
-            ? {
-                title: examSimulator.title,
-                description: examSimulator.description,
-                duration: examSimulator.duration ?? examDurationInMinutes,
-              }
-            : undefined;
-
-          const summary = await getConversationSummary(
-            examDetails,
-            liveSuggestions
-          );
-          setReviewSummary(summary);
-        } catch (error) {
-          console.error("Error generating summary:", error);
-          setReviewSummary(
-            "Error generating review summary. Please try again."
-          );
-        }
-      }, 100); // Small delay to ensure UI updates first
     },
     [
-      connected,
       client,
-      disconnect,
-      onTimerExpired,
-      onManualStop,
       getConversationSummary,
       examSimulator,
-      examDurationInMinutes,
       liveSuggestions,
+      onLoadingStateChange,
+      onTimerExpired,
+      onManualStop,
     ]
   );
 
@@ -171,20 +252,19 @@ export function ExamWorkflow({
   // Cleanup timers on component unmount
   useEffect(() => {
     return () => {
-      console.log("🧹 ExamWorkflow component unmounting - cleaning up");
-
       // Clean up timers
       if (timerCleanupRef.current) {
         timerCleanupRef.current();
         timerCleanupRef.current = null;
       }
 
-      // Reset connection guard
+      // Reset connection guards and session tracking
       isConnectingRef.current = false;
+      activeConnectionRef.current = false;
+      setShowReconnectionBanner(false);
 
       // Terminate any active session
       if (client) {
-        console.log("🛑 Terminating session on component unmount");
         client.terminateSession();
       }
     };
@@ -200,7 +280,6 @@ export function ExamWorkflow({
 
     // If quickStartExam is provided, use it directly
     if (quickStartExam && !hasUsedQuickStartRef.current) {
-      console.log("🚀 Using quick start exam data:", quickStartExam);
       setExamSimulator(quickStartExam as ExamSimulator);
       setIsLoadingExamData(false);
       hasUsedQuickStartRef.current = true; // Mark as used to prevent duplicate logging
@@ -241,10 +320,6 @@ export function ExamWorkflow({
   // Initialize repo URL from quick start exam data if available
   useEffect(() => {
     if (quickStartExam?.repoUrl && quickStartExam.type === "Github Repo") {
-      console.log(
-        "🚀 Setting repo URL from quick start data:",
-        quickStartExam.repoUrl
-      );
       setRepoUrl(quickStartExam.repoUrl);
     }
   }, [quickStartExam]);
@@ -267,19 +342,14 @@ export function ExamWorkflow({
           setExamError(
             "GitHub repository URL is required to start this exam type."
           );
-          console.log("Repo URL is required for GitHub exam type.");
           return;
         }
-
-        console.log("🔍 Starting GitHub repo processing for:", repoUrl);
 
         const githubQuestionsResult = await getRepoQuestions(
           repoUrl,
           examSimulator.learning_goals
         );
         setGithubQuestions(githubQuestionsResult);
-
-        console.log("✅ GitHub questions generated:", githubQuestionsResult);
 
         finalPrompt = getPrompt.github(
           examSimulator,
@@ -292,7 +362,6 @@ export function ExamWorkflow({
         );
       } else if (isQuickStart) {
         // Quick start general review - no questions generation needed
-        console.log("🚀 Preparing quick start general review");
         const studentTaskAnswer =
           "Show me the code you'd like me to review, and I'll provide specific suggestions for improvement.";
         setStudentTask(studentTaskAnswer);
@@ -309,9 +378,8 @@ export function ExamWorkflow({
         );
       }
       setPrompt(finalPrompt);
-      console.log("✅ Prompt preparation completed successfully");
     } catch (error) {
-      console.error("❌ Failed to prepare exam content:", error);
+      console.error("Failed to prepare exam content:", error);
       setExamError(
         error instanceof Error
           ? `Error: ${error.message}`
@@ -331,9 +399,6 @@ export function ExamWorkflow({
         // For normal GitHub repos, wait for examIntentStarted
         const isQuickStart = examSimulator.duration === 0;
         if (isQuickStart && repoUrl) {
-          console.log(
-            "🚀 Quick start GitHub repo - preparing content immediately"
-          );
           prepareExamContent();
         }
         // For normal GitHub repos, prompt preparation will be triggered by the examIntentStarted effect.
@@ -353,9 +418,6 @@ export function ExamWorkflow({
         if (isQuickStart) {
           // For quick start, the content should already be prepared
           if (prompt) {
-            console.log(
-              "🚀 Quick start GitHub repo - using pre-prepared content"
-            );
             const newConfig = createLiveConfig(prompt);
             setLiveConfig(newConfig);
           } else if (!repoUrl) {
@@ -364,9 +426,6 @@ export function ExamWorkflow({
             );
           } else if (!isLoadingPrompt) {
             // Fallback: if somehow content wasn't prepared, prepare it now
-            console.log(
-              "⚠️ Quick start GitHub repo - preparing content as fallback"
-            );
             prepareExamContent();
           }
         } else {
@@ -390,12 +449,18 @@ export function ExamWorkflow({
         }
       }
     } else if (!examIntentStarted && connected) {
-      // Clean up timers when exam intent stops
+      // Clean up when exam intent stops (but not during network issues)
       if (timerCleanupRef.current) {
         timerCleanupRef.current();
+        timersActiveRef.current = false;
       }
-      client.disconnect();
+      // Only disconnect if we're not in a network-related state
+      if (!isReconnecting && !showReconnectionBanner) {
+        client.disconnect();
+      }
       setExamStarted(false);
+      isConnectingRef.current = false;
+      activeConnectionRef.current = false;
     }
   }, [
     examIntentStarted,
@@ -413,76 +478,81 @@ export function ExamWorkflow({
       examIntentStarted &&
       liveConfig?.systemInstruction?.parts?.[0]?.text &&
       !connected &&
-      !isConnectingRef.current
+      !isConnectingRef.current &&
+      !activeConnectionRef.current
     ) {
       isConnectingRef.current = true;
 
-      console.log(`🔗 Starting new session...`);
+      // Reset session tracking for new connection
+      setShowReconnectionBanner(false);
 
       connect(getCurrentModel(), liveConfig)
         .then(() => {
-          console.log(
-            "✅ Connection successful - live feed should now be active"
-          );
+          activeConnectionRef.current = true;
           setExamStarted(true);
 
-          // Clean up any existing timers first
-          if (timerCleanupRef.current) {
-            timerCleanupRef.current();
-          }
+          // Only set up timers if they're not already active (prevents double setup)
+          if (!timersActiveRef.current) {
+            timersActiveRef.current = true;
 
-          // Set up timers - for quick start, at least set up introduction timer
-          if (examDurationActiveExamMs > 0) {
-            console.log("⏰ Setting up full timers for timed session");
-            // Set up new timers and store cleanup function
-            timerCleanupRef.current = examTimers({
-              client,
-              examDurationInMs: examDurationActiveExamMs,
-              isInitialConnection: true,
-            });
-          } else {
-            console.log(
-              "🚀 Quick start session - setting up introduction timer only"
-            );
-            // For quick start sessions, we still want the AI to introduce itself
-            const timerConfig = getTimerConfig();
-            const introTimer = setTimeout(() => {
-              if (client) {
-                console.log("🎙️ Sending introduction message for quick start");
-                client.send([{ text: prompts.timerMessages.introduction }]);
-              }
-            }, timerConfig.introductionDelay + 500);
+            // Clean up any existing timers first
+            if (timerCleanupRef.current) {
+              timerCleanupRef.current();
+            }
 
-            // Return cleanup function for the intro timer
-            timerCleanupRef.current = () => {
-              clearTimeout(introTimer);
-              console.log("🧹 Quick start intro timer cleanup complete");
-            };
+            // Set up timers
+            if (examDurationActiveExamMs > 0) {
+              timerCleanupRef.current = examTimers({
+                client,
+                examDurationInMs: examDurationActiveExamMs,
+                isInitialConnection: true,
+              });
+            } else {
+              const timerConfig = getTimerConfig();
+              const introTimer = setTimeout(() => {
+                if (client) {
+                  client.send([{ text: prompts.timerMessages.introduction }]);
+                }
+              }, timerConfig.introductionDelay + 500);
+
+              timerCleanupRef.current = () => {
+                clearTimeout(introTimer);
+                timersActiveRef.current = false;
+              };
+            }
           }
 
           isConnectingRef.current = false;
         })
         .catch((error) => {
-          console.error(`❌ Failed to start session:`, error);
+          console.error("Failed to connect:", error);
           setExamError("Failed to connect to the exam server.");
           isConnectingRef.current = false;
+          activeConnectionRef.current = false;
         });
     } else if (!examIntentStarted && connected) {
-      // Clean up when exam intent stops
+      // Clean up when exam intent stops (but not during network issues)
       if (timerCleanupRef.current) {
         timerCleanupRef.current();
+        timersActiveRef.current = false;
       }
-      client.disconnect();
+      // Only disconnect if we're not in a network-related state
+      if (!isReconnecting && !showReconnectionBanner) {
+        client.disconnect();
+      }
       setExamStarted(false);
       isConnectingRef.current = false;
+      activeConnectionRef.current = false;
     }
   }, [
     examIntentStarted,
     liveConfig?.systemInstruction?.parts?.[0]?.text,
     connected,
     connect,
-    client,
     examDurationActiveExamMs,
+    client,
+    isReconnecting,
+    showReconnectionBanner,
   ]);
 
   // Notify parent of loading state changes
@@ -575,6 +645,15 @@ export function ExamWorkflow({
         }}
       />
 
+      {/* Network Status Banner */}
+      <ReconnectionBanner
+        isVisible={showReconnectionBanner}
+        isReconnecting={isReconnecting}
+        timeLeft={undefined}
+        onReconnect={() => {}}
+        onEndSession={() => {}}
+      />
+
       {/* ControlTrayCustom is rendered here, with direct handler */}
       {!isLoadingPrompt && (
         <ControlTrayCustom
@@ -587,6 +666,7 @@ export function ExamWorkflow({
           forceStopVideo={forceStopVideo}
           onButtonReady={onButtonReady}
           onScreenShareCancelled={onScreenShareCancelled}
+          networkMuted={micMutedDueToNetwork}
         />
       )}
     </div>

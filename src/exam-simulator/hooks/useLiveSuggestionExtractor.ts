@@ -22,13 +22,15 @@ export const useLiveSuggestionExtractor = () => {
   const conversationHistory = useRef<Message[]>([]);
   const isSessionInitialized = useRef(false);
   const processedChunks = useRef(new Set<string>());
+  const isInitializing = useRef(false);
 
   const initializeSession = useCallback(async () => {
-    if (isSessionInitialized.current) return;
-
-    console.log("🚀 Initializing suggestion extraction session");
+    if (isInitializing.current) return;
+    isInitializing.current = true;
 
     try {
+      setIsProcessing(true);
+
       const systemMessage: Message = {
         role: "system",
         content: prompts.suggestionExtraction.systemPrompt,
@@ -50,40 +52,36 @@ export const useLiveSuggestionExtractor = () => {
       });
 
       isSessionInitialized.current = true;
-      console.log("✅ Session initialized successfully");
     } catch (error) {
-      console.error("❌ Error initializing session:", error);
+      console.error("Error initializing session:", error);
+      isSessionInitialized.current = false;
+      setIsProcessing(false);
     }
   }, []);
 
   const extractSuggestions = useCallback(
     async (transcriptChunk: string) => {
-      console.log(
-        `📝 Live suggestion extractor received chunk: "${transcriptChunk.substring(
-          0,
-          100
-        )}..." (${transcriptChunk.length} chars)`
-      );
-
       // Skip if empty or already processed
       if (
         !transcriptChunk.trim() ||
         processedChunks.current.has(transcriptChunk)
       ) {
-        console.log("⏭️ Skipping chunk (empty or already processed)");
         return;
+      }
+
+      // Check network connectivity before making API calls
+      if (!navigator.onLine) {
+        return; // Skip during network outage
       }
 
       // Initialize session if needed
       if (!isSessionInitialized.current) {
-        console.log("🔧 Initializing OpenAI session for suggestion extraction");
         await initializeSession();
       }
 
       // Mark as processed
       processedChunks.current.add(transcriptChunk);
       setIsProcessing(true);
-      console.log("🤖 Processing transcript chunk for suggestions...");
 
       try {
         // Create chunk prompt using template
@@ -161,15 +159,6 @@ export const useLiveSuggestionExtractor = () => {
               });
 
               if (uniqueNew.length > 0) {
-                // Only log the latest suggestion extracted
-                const latestSuggestion = uniqueNew[uniqueNew.length - 1];
-                console.log("📝 Latest suggestion:", latestSuggestion.text);
-                console.log(
-                  "🤖 OpenAI response:",
-                  response.substring(0, 150) +
-                    (response.length > 150 ? "..." : "")
-                );
-
                 // Update both UI suggestions and persisted suggestions
                 setSuggestions((prev) => [...prev, ...uniqueNew]);
                 setPersistedSuggestions((prev) => [...prev, ...uniqueNew]);
@@ -181,7 +170,17 @@ export const useLiveSuggestionExtractor = () => {
           }
         }
       } catch (error) {
-        console.error("❌ Error extracting suggestions:", error);
+        // Enhanced error handling for network issues
+        if (error instanceof TypeError && error.message === "Failed to fetch") {
+          // Network issues are expected during disconnections - no logging needed
+        } else if (error instanceof Error && error.name === "AbortError") {
+          // Request cancellation is normal - no logging needed
+        } else {
+          console.error("Error extracting suggestions:", error);
+        }
+
+        // Don't let live suggestion errors interfere with the main session
+        // The error is logged but we continue normally
       } finally {
         setIsProcessing(false);
       }
@@ -194,9 +193,6 @@ export const useLiveSuggestionExtractor = () => {
     processedChunks.current.clear();
     conversationHistory.current = [];
     isSessionInitialized.current = false;
-    console.log(
-      "🧹 UI suggestions cleared (persisted suggestions retained for summary)"
-    );
   }, []);
 
   const clearAllSuggestions = useCallback(() => {
@@ -205,7 +201,6 @@ export const useLiveSuggestionExtractor = () => {
     processedChunks.current.clear();
     conversationHistory.current = [];
     isSessionInitialized.current = false;
-    console.log("🧹 All suggestions cleared");
   }, []);
 
   // Simple similarity calculation for duplicate detection

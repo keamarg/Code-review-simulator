@@ -68,6 +68,11 @@ export function createLiveConfig(
     systemInstruction: {
       parts: [{ text: promptText }],
     },
+    // Enable context window compression to prevent session timeouts
+    // This allows unlimited session duration as recommended by Google
+    contextWindowCompression: {
+      slidingWindow: {},
+    },
     // Enable output audio transcription to capture AI speech as text
     outputAudioTranscription: true, // Re-enabled since disabling didn't fix the cutoff issue
     // Configure Voice Activity Detection using centralized config values

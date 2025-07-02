@@ -12,21 +12,20 @@ const LandingPage: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Check if we should reopen the modal (e.g., returning from cancelled screen share)
-    const state = location.state as { reopenQuickStart?: boolean } | null;
-    if (state?.reopenQuickStart) {
+    if (user && location.state?.reopenQuickStart) {
+      // Clear the state to prevent it from reopening on subsequent visits
+      window.history.replaceState({}, document.title);
+
+      // Open the quick start modal
       setShowQuickStartModal(true);
-      // Clear the state to prevent reopening on refresh
-      navigate(location.pathname, { replace: true });
     }
-  }, [location, navigate]);
+  }, [user, location.state]);
 
   // Check if user just signed in and wants to continue with quick start
   useEffect(() => {
     if (user) {
       const quickStartIntent = localStorage.getItem("quickStartIntent");
       if (quickStartIntent) {
-        console.log("🚀 User signed in - resuming quick start flow");
         localStorage.removeItem("quickStartIntent");
         setShowQuickStartModal(true);
       }
@@ -80,9 +79,6 @@ const LandingPage: React.FC = () => {
   const handleQuickStartButtonClick = () => {
     if (!user) {
       // Store the quick start intent and redirect to login
-      console.log(
-        "🔐 User not authenticated - storing quick start intent and redirecting to login"
-      );
       localStorage.setItem("quickStartIntent", "true");
       navigate("/login");
       return;

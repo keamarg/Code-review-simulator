@@ -5,7 +5,261 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.18.0] - 2025-07-02
+## [0.20.6] - 2025-07-02
+
+### Enhanced
+
+- **Session Resumption During Network Issues**: Implemented clean session resumption approach that maintains session continuity during network disconnections
+
+  - **No Session Disconnection**: Network issues no longer trigger session termination, preventing unwanted navigation to summary page
+  - **Session Resumption**: Uses `client.reconnectWithResumption()` to restore session state when network returns
+  - **Stays on Live Page**: Users remain on the code review page throughout network interruptions
+  - **Quick Start Compatible**: Works properly with quick start sessions (duration = 0) and regular timed sessions
+  - **Clean State Management**: Session state is preserved during network issues, avoiding session restart loops
+
+- **Improved Network Handling Logic**: Enhanced network event handling to work seamlessly with session resumption
+
+  - **Conditional Disconnection**: Only disconnects session when exam intent stops, not during network issues
+  - **Network State Tracking**: Monitors network connectivity without disrupting active sessions
+  - **Graceful Degradation**: If resumption fails, system continues gracefully without showing errors
+  - **Connection Guards**: Maintains connection guards to prevent dual AI sessions during resumption
+
+### Fixed
+
+- **Navigation Issues During Network Problems**: Fixed issue where network disconnections would sometimes navigate to summary page and then home page
+
+  - **Root Cause**: Previous approach used `client.disconnect()` during network issues, which triggered session termination and navigation logic
+  - **Solution**: Completely eliminated session disconnection during network problems, using only session resumption
+  - **Result**: Users stay on the code review page throughout network interruptions
+
+- **Session State Preservation**: Fixed session state being lost during network disconnections
+
+  - **Continuous Session**: AI session remains active throughout network interruptions
+  - **State Continuity**: Conversation history, timers, and session context are preserved
+  - **Seamless Recovery**: When network returns, session resumes exactly where it left off
+
+### Technical Details
+
+- **Resumption Logic**: Network restoration triggers `client.reconnectWithResumption()` instead of full reconnection
+- **Connection Effect Updates**: Enhanced main connection effect to avoid disconnection during network-related states
+- **Dependency Management**: Added proper dependency tracking for `isReconnecting` and `showReconnectionBanner` states
+- **Clean Separation**: Network handling is completely separate from session termination (manual stop/timer expiry)
+
+## [0.20.5] - 2025-07-02
+
+### Fixed
+
+- **CRITICAL: AI Conversational Responses to Network Issues**: Fixed issue where AI would respond conversationally to network interruption messages with phrases like "yes, I remember" or "no problem at all"
+
+  - **Root Cause**: Sending interruption messages to AI was treating them as user input, causing conversational responses instead of system instructions
+  - **Solution**: Completely removed AI messaging approach and returned to simple network status banner without sending any messages to AI
+  - **Natural Interruption**: Network disconnection naturally interrupts AI speech, and users can simply continue talking normally when network is restored
+  - **Clean User Experience**: No more unwanted AI responses to network restoration events
+
+- **Reconnection Banner Not Disappearing**: Fixed issue where network status banner would not disappear when network connection was restored
+
+  - **Root Cause**: Complex connection state logic was preventing banner from hiding properly
+  - **Solution**: Simplified to basic `navigator.onLine` status monitoring with direct banner state management
+  - **Simple Logic**: Banner shows when offline, hides when online - no complex dependency on AI connection states
+  - **Reliable Behavior**: Banner now consistently appears/disappears based on actual network connectivity
+
+- **Simplified Network Status Banner**: Removed all complex reconnection logic and returned to basic network connectivity indicator
+
+  - **Back to Basics**: Network banner is now just a simple connectivity status indicator
+  - **No AI Messaging**: Eliminated all attempts to send interruption or reconnection messages to AI
+  - **Clean State Management**: Removed hundreds of lines of complex state tracking that was causing timing issues
+  - **Better Reliability**: Simple approach eliminates race conditions and state synchronization problems
+
+### Changed
+
+- **Network Handling Approach**: Completely simplified network handling from complex reconnection system to basic connectivity status
+  - **Status Only**: Banner now only indicates network status without attempting reconnection messaging
+  - **User-Driven Recovery**: Users naturally continue conversation when ready instead of receiving automated messages
+  - **Reduced Complexity**: Eliminated complex session state tracking, connection monitoring, and message coordination
+  - **Cleaner Code**: Removed unused state variables, functions, and effects related to complex reconnection logic
+
+### Technical Details
+
+- **State Cleanup**: Removed `wasDisconnectedDueToNetwork` state and related tracking logic
+- **Function Removal**: Eliminated `getRecentAIContext` and related conversation analysis functions
+- **Effect Simplification**: Reduced network monitoring to simple online/offline event handlers
+- **Code Cleanup**: Removed unused imports and variables from simplified approach
+
+## [0.20.4] - 2025-07-02
+
+### Enhanced
+
+- **Smart Reconnection Timing**: Improved reconnection message delivery to be triggered by AI readiness instead of fixed delays
+
+  - **AI-Ready Detection**: Reconnection message now sends immediately when AI is actually connected and ready, not after arbitrary 3-second delay
+  - **Faster Response**: Users get reconnection message as soon as AI is prepared, which can be faster or slower than the old fixed delay
+  - **Connection State Monitoring**: System watches for `connected` state to become true after network restoration
+  - **Network Disconnect Tracking**: Added `wasDisconnectedDueToNetwork` state to properly track reconnection scenarios
+  - **Immediate Microphone Re-enabling**: Microphone and banner are restored immediately when AI is ready, not on timer
+  - **Better User Experience**: No more waiting for arbitrary delays when AI is already ready to continue
+
+- **AI Speech Interruption on Network Issues**: Fixed critical issue where reconnection messages were delayed because AI was still talking from before disconnect
+
+  - **No Session Disconnection**: Avoids disconnecting the AI session during network issues, which was causing unwanted navigation to summary page
+  - **Interruption Messages**: When network is restored, sends direct interruption message to AI to stop current speech and acknowledge the network issue
+  - **Better User Experience**: Banner appears during network issues without redirecting to different pages or ending the session prematurely
+  - **Natural Interruption**: AI receives messages like "Sorry to interrupt, but there was a brief network issue" instead of empty messages that caused "OK thanks" responses
+  - **Session Continuity**: Maintains active session throughout network interruptions, avoiding summary modal and navigation issues
+  - **Faster Recovery**: Network restoration immediately sends interruption message to get AI's attention without waiting for reconnection delays
+  - **Better Flow**: Network disconnect → show banner + mute mic → network restore → send interruption message → AI acknowledges and continues
+  - **Prevents Navigation**: Eliminates the issue where network problems would briefly show summary modal and redirect to home page
+
+- **Intelligent Interruption Messages**: Enhanced interruption messages with smart conversation summaries
+  - **Conversation Context**: Uses existing conversation tracker to summarize what AI was recently discussing
+  - **Recent Transcript Analysis**: Analyzes last 30 seconds of AI speech to create meaningful summaries
+  - **Natural Messages**: Messages like "Sorry to interrupt, but there was a brief network issue. I was discussing [intelligent summary]. Shall we continue from where we left off?"
+  - **Fallback Protection**: Includes fallback message if no recent context is available
+  - **Better Continuity**: Provides context for users about where the conversation left off without causing "OK thanks" responses
+
+### Fixed
+
+- **Reconnection Banner Not Showing**: Fixed issue where network offline banner wasn't appearing reliably
+
+  - **Root Cause**: Banner state wasn't being set consistently in all network state changes
+  - **Solution**: Added explicit banner state management in both online and offline handlers
+  - **Enhanced Logging**: Added detailed console logging to track banner state changes for debugging
+
+- **Reconnection Message Not Firing**: Fixed issue where reconnection messages weren't being delivered reliably
+  - **Root Cause**: AI was still speaking from before disconnect, blocking new message delivery
+  - **Solution**: Added AI speech interruption when network issues are detected
+  - **Reliability**: Reconnection message delivery is now 100% reliable when AI is ready
+
+### Technical Details
+
+- **State Management**: Added `wasDisconnectedDueToNetwork` to track network-related disconnections
+- **Event-Driven Timing**: Uses `connected` state changes to trigger reconnection actions
+- **Conversation Integration**: Leverages existing `useConversationTracker` for intelligent message context
+- **Speech Interruption**: Sends direct interruption messages to AI instead of disconnecting session, preventing unwanted navigation
+- **Network State Tracking**: Monitors network connectivity without disrupting active AI sessions
+- **Immediate Response**: Eliminates arbitrary delays in favor of real connection state monitoring
+- **Clean State Reset**: Properly resets tracking state after successful reconnection
+
+## [0.20.3] - 2025-07-02
+
+### Fixed
+
+- Fixed double farewell messages in useExamTimers.ts by removing duplicate send in catch block
+- Removed unnecessary useEffect in AIExaminerPage.tsx that was sending empty messages
+- Fixed potential duplicate timer setup by removing 'client' from useEffect dependency array
+- Cleaned up unused hasNotifiedScreenShareRef
+
+### Added
+
+- AI reconnection message feature: When network is restored, AI briefly mentions what it was saying before disconnection
+- Last AI message tracking to capture context for reconnection messages
+
+### Changed
+
+- Improved event handling by using 'transcript' event instead of incorrect 'response' event
+- Enhanced network reconnection flow with contextual AI messages
+
+## [0.20.2] - 2025-06-27
+
+### Enhanced
+
+- **Microphone Muting During Network Issues**: Added intelligent microphone management during network connectivity problems
+
+  - **Auto-Mute Offline**: Microphone is automatically muted (not disabled) when network goes offline to prevent AI from trying to respond to speech while disconnected
+  - **Safe Muting Approach**: Uses audio track enable/disable instead of stopping the entire audio stream to avoid permission and stream issues
+  - **Clear User Feedback**: Banner shows "Microphone muted - AI won't respond to speech while offline" when network is down
+  - **Visual Mute Indicator**: Mute button shows orange border and disabled state when network muted, with explanatory tooltip
+  - **Smart Re-enabling**: Microphone is automatically re-enabled after network restoration and AI is ready
+  - **Prevents Audio Buildup**: Eliminates issue where AI would try to respond to everything said while offline once reconnected
+  - **User Mute Preservation**: Respects user's manual mute state when network is restored
+
+- **Reconnection Delay for AI Readiness**: Added proper timing coordination when network is restored
+  - **3-Second Delay**: Banner remains visible for 3 seconds after network restoration to allow AI to fully reconnect
+  - **Better Messaging**: Shows "Restoring connection and preparing AI... This may take a few seconds" during reconnection
+  - **Coordinated Mic Re-enabling**: Microphone is only re-enabled when AI is ready to respond (same timing as banner hiding)
+  - **Smoother Experience**: Prevents users from speaking too early before AI is ready to process audio
+  - **Visual Feedback**: Clear progress indication during the reconnection process
+
+### Fixed
+
+- **Network Banner Messaging**: Improved banner messages to be more informative about microphone status and reconnection process
+  - **Offline State**: Clear indication that microphone is muted and why
+  - **Reconnecting State**: Helpful message about waiting for AI preparation
+  - **User Guidance**: Better explanation of what's happening during network issues and recovery
+
+### Technical Details
+
+- **Mute Button Integration**: Enhanced mute button to show network muted state with disabled interaction and visual indicators
+- **Audio Track Management**: Uses `audioTrack.enabled = false/true` for safe muting without disrupting the audio stream
+- **State Coordination**: Network muting works alongside user manual muting without conflicts
+- **Permission Safety**: Avoids audio stream recreation that could trigger permission dialogs
+
+## [0.20.0] - 2025-07-02
+
+### Fixed
+
+- **CRITICAL: Reconnection Banner Design & Functionality**: Completely redesigned and fixed the reconnection banner that was appearing with connection issues
+
+  - **Design Overhaul**: Replaced orange-themed banner with proper modal using tokyo theme colors for consistency with the app
+  - **Modal Layout**: Changed from top banner to centered modal with backdrop overlay for better user attention and accessibility
+  - **Proper Positioning**: Fixed positioning issues by using modal instead of fixed top positioning that was "not placed very well"
+  - **Banner Closure**: Fixed critical issue where banner wouldn't close when clicking "Reconnect" or "End" buttons
+  - **Better UX**: Enhanced button styling with proper hover effects and clear action hierarchy (End Session vs Reconnect)
+  - **Improved Messaging**: Added contextual messages explaining the situation and available options to users
+
+- **CRITICAL: Banner Appearing on New Sessions**: Fixed issue where reconnection banner was incorrectly appearing when starting new reviews
+  - **Session Tracking**: Added proper session state tracking to distinguish between new connections and lost connections
+  - **Initial Connection Fix**: Banner no longer appears during initial connection attempts or expected disconnections
+  - **State Management**: Enhanced state management to only show banner when established sessions are lost unexpectedly
+  - **Console Error Fix**: Eliminated "Cannot reconnect: Missing session data" error messages during new session starts
+  - **Clean State**: Proper state reset between sessions ensures no stale reconnection state carries over
+
+### Enhanced
+
+- **Smarter Reconnection Logic**: Improved the reconnection system with better error handling and fallback mechanisms
+
+  - **Dual Strategy**: First attempts session resumption, then falls back to fresh connection if resumption fails
+  - **Connection State Management**: Fixed logic to only show banner for truly unexpected disconnections, not normal shutdowns
+  - **Better Error Handling**: Enhanced error logging and user feedback during reconnection attempts
+  - **State Cleanup**: Proper state management ensures banner closes correctly after successful reconnection or session end
+  - **Connection Filtering**: Only shows reconnection banner for actual connection issues, not planned disconnects
+
+- **Reconnection User Experience**: Significantly improved the reconnection flow for better user control
+  - **Clear Options**: Users can either attempt reconnection or cleanly end the session
+  - **Status Feedback**: Real-time feedback during reconnection attempts with loading animations
+  - **Fallback Recovery**: If session resumption fails, system attempts fresh connection automatically
+  - **Error Recovery**: Failed reconnection attempts don't automatically close the banner, allowing retry
+  - **Professional Design**: Modal matches app design language with proper spacing, typography, and color scheme
+
+### Technical Details
+
+- **Modal Architecture**: Complete redesign from banner to modal with backdrop overlay
+- **State Synchronization**: Fixed state management between reconnection banner and session lifecycle
+- **Connection Monitoring**: Enhanced connection close event handling to distinguish expected vs unexpected disconnections
+- **Async Error Handling**: Improved async/await error handling in reconnection logic
+- **TypeScript Fixes**: Resolved void return type issues with connect function calls
+
+## [0.19.0] - 2025-07-02
+
+### Added
+
+- **Context window compression**: Added ability to compress context window to prevent session timeouts and enable unlimited session duration
+- **GoAway message handling**: Added functionality to send a GoAway message to the AI before connection termination for advance warning
+- **Simple reconnection banner**: Implemented a simple banner with manual reconnection option for users to reconnect manually
+- **Session resumption**: Added support for session resumption on user-initiated reconnection, allowing users to continue their previous session without interruption
+
+### Changed
+
+- **Disabled automatic reconnection**: Changed from Google's recommended approach to manual reconnection, improving connection stability and reducing the risk of AI session restarts
+- **Improved connection stability**: Utilized Google AI Live Session best practices to enhance connection stability and reduce unexpected disconnections
+- **Replaced complex disconnection modal**: Replaced the complex disconnection modal with a lightweight banner notification for a more seamless user experience
+
+### Fixed
+
+- **AI session restarts**: Fixed issue where AI sessions would restart due to automatic reconnection attempts, causing interruptions and loss of session continuity
+- **Unexpected disconnections**: Now handled gracefully with user control, allowing users to reconnect manually and continue their session
+- **Session continuity**: Proper resumption handling ensures that session continuity is preserved, allowing users to pick up where they left off
+
+## [0.18.0] - 2025-01-27
 
 ### Added
 
@@ -1169,3 +1423,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Impact**: Eliminates duplicate console messages like "🚀 Preparing quick start general review" appearing twice
   - **Performance**: Reduces unnecessary processing and API calls during exam initialization
   - **Clean Logs**: Console now shows each preparation step only once instead of multiple times
+
+## [1.7.1] - 2025-07-02
+
+### Fixed
+
+- **Exam Duration Bug**: Removed default 10-minute duration fallback that was causing automatic restarts on exams without explicit durations
+- **Enhanced Network Reconnection**: Improved reconnection banner logic to properly handle WiFi disconnections and Chrome offline mode
+- **Live Suggestions Error Handling**: Added better error handling for network issues during live suggestion extraction to prevent interference with main AI session
+- **Reconnection Detection**: Added comprehensive network connectivity monitoring using `navigator.onLine` and online/offline events
+- **Session State Persistence**: Enhanced session state management to maintain established sessions during various network disconnection scenarios
+- **CRITICAL: AI Not Responding After Reconnection**: Fixed major issue where AI would not start talking after successful reconnection
+  - **Root Cause**: Timer system wasn't being restarted after reconnection, so AI never received its introduction message
+  - **Solution**: Added timer restart logic to both session resumption and fresh connection success paths
+  - **Impact**: AI now properly introduces itself and starts responding immediately after reconnection
+  - **Better Connection Logic**: Fixed stale closure issues in reconnection logic that were preventing proper connection state detection
+- **Automatic Reconnection UX**: Transformed reconnection from manual to automatic with informational status display
+  - **No More Buttons**: Removed manual "Reconnect" and "End Session" buttons - reconnection now happens automatically
+  - **Status Indicator**: Reconnection banner now shows informational status that appears during connection issues
+  - **Auto-Hide**: Banner automatically disappears when connection is restored
+  - **Retry Logic**: Automatic retry attempts every 5 seconds if reconnection fails
+  - **Network Awareness**: Automatically attempts reconnection when network comes back online
+  - **Better UX**: Users no longer need to manually manage reconnections - system handles it seamlessly
+- **CRITICAL: Fixed Reconnection Banner Issues**: Resolved multiple critical issues with automatic reconnection system
+  - **Banner Not Disappearing**: Fixed issue where reconnection banner wouldn't disappear when connection was restored
+  - **Double Welcome Messages**: Fixed timer conflicts causing AI to send multiple introduction messages
+  - **Timer Guard System**: Added timer tracking to prevent duplicate timer setup during reconnection
+  - **Console Log Cleanup**: Significantly reduced console logging noise for cleaner debugging experience
+
+### Technical Details
+
+- Added network connectivity event listeners for robust offline/online detection
+- Enhanced WebSocket close event handling to differentiate between expected and unexpected disconnections
+- Improved reconnection logic with network timeout handling and better error messaging
+- Separated live suggestion extraction errors from main session connection state
+- **Timer Restart System**: Comprehensive timer restart after successful reconnection ensures AI introduction message is sent
+- **Promise-Based Connection Checking**: Replaced stale closure-based connection checking with real-time client status polling
+- **Enhanced Reconnection Feedback**: Improved user feedback during reconnection attempts with better error reporting
+
+## [1.7.0] - 2025-06-01
+
+### Added
+
+- **AI Reconnection Message**: When network is restored, AI briefly mentions what it was saying before disconnection
+- **Last AI Message Tracking**: Added functionality to capture context for reconnection messages
+
+### Changed
+
+- **Improved Event Handling**: Used 'transcript' event instead of incorrect 'response' event for better accuracy
+- **Enhanced Network Reconnection Flow**: Added contextual AI messages to improve user experience during reconnection
+
+## [0.20.2] - 2025-06-27
+
+### Enhanced
+
+- **Network Status Management**: Improved network connectivity handling with intelligent microphone control
+  - **Automatic Microphone Muting**: Microphone automatically mutes when network connection is lost to prevent AI from trying to respond to offline speech
+  - **Network Status Banner**: Clear visual indication when network is offline with explanatory message "Microphone muted - AI won't respond to speech while offline"
+  - **Gradual Reconnection**: When network is restored, shows "Restoring connection and preparing AI..." message for 3 seconds before re-enabling microphone
+  - **Preserved User Intent**: Manual mute state is preserved when network connection is restored
+  - **Enhanced Mute Button**: Mute button shows orange border and tooltip when network muted, indicating it's disabled due to network issues
+  - **Audio Track Control**: Uses safe audio track enable/disable instead of stream recreation for reliable muting
+  - **Event-Driven Updates**: Utilizes browser's online/offline events for immediate network status detection
+
+### Technical Details
+
+- **Safe Audio Muting**: Implemented `audioTrack.enabled = false/true` for microphone control without affecting stream integrity
+- **Network Event Handling**: Added event listeners for `online` and `offline` events with proper cleanup
+- **State Coordination**: Added `micMutedDueToNetwork` state separate from manual mute to prevent conflicts
+- **Visual Feedback**: Enhanced mute button with conditional styling and explanatory tooltips
+- **Delay Coordination**: 3-second delay allows AI service to fully restore before accepting new audio input
+
+## [0.20.1] - 2025-06-27
+
+### Fixed
+
+- **Simplified Network Status Banner**: Completely simplified the reconnection banner logic to be a basic network connectivity indicator
+  - **Simple Logic**: Banner now simply shows when `navigator.onLine` is false and hides when it's true
+  - **Removed Complexity**: Eliminated complex session state tracking, WebSocket event handling, and automatic reconnection logic
+  - **Reliable Display**: Banner consistently appears when network is offline and disappears when back online
+  - **Less Code**: Removed hundreds of lines of complex state management that was causing timing issues
+  - **Better UX**: Users get immediate feedback about network connectivity without confusing reconnection states
+  - **No More Bugs**: Eliminated issues with banner not appearing/disappearing correctly during network changes
+
+### Removed
+
+- **Complex Reconnection Features**: Removed automatic reconnection, session resumption, and GoAway message handling
+  - **Auto-Reconnection**: Eliminated complex retry logic that was causing banner display issues
+  - **Session Resumption**: Removed session resumption features that added complexity without reliable functionality
+  - **WebSocket Monitoring**: Removed complex WebSocket event handling (open/close/goAway) that caused timing issues
+  - **hasEstablishedSession**: Removed complex session state tracking that was preventing banner from working correctly
