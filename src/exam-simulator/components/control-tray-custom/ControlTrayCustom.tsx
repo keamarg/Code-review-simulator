@@ -75,6 +75,7 @@ function ControlTray({
   const connectButtonRef = useRef<HTMLButtonElement>(null);
   const [buttonIsOn, setButtonIsOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [screenSharingSource, setScreenSharingSource] = useState<string>("");
   const [showStartMic, setShowStartMic] = useState(false);
   const [pendingVideoStream, setPendingVideoStream] =
     useState<MediaStream | null>(null);
@@ -187,6 +188,7 @@ function ControlTray({
         onVideoStreamChange(null);
       }
       setIsScreenSharing(false);
+      setScreenSharingSource("");
     }
   }, [forceStopVideo, isScreenSharing, activeVideoStream, onVideoStreamChange]);
 
@@ -213,6 +215,17 @@ function ControlTray({
 
   const audioVolumeHandler = useCallback((volume: number) => {
     setInVolume(volume);
+  }, []);
+
+  // Simple mute toggle - just enable/disable the audio track
+  const handleMuteToggle = useCallback(() => {
+    if (audioStreamRef.current) {
+      const audioTrack = audioStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setMuted(!audioTrack.enabled);
+      }
+    }
   }, []);
 
   // Track if force stop is already in progress to prevent duplicates
@@ -355,6 +368,7 @@ function ControlTray({
       setActiveVideoStream(videoOnlyStream);
       onVideoStreamChange(videoOnlyStream);
       setIsScreenSharing(true);
+      setScreenSharingSource(getScreenSharingSourceName(videoStream));
 
       // Mark permissions as granted
       setPermissionsGranted(true);
@@ -479,6 +493,7 @@ function ControlTray({
         setActiveVideoStream(videoOnlyStream);
         onVideoStreamChange(videoOnlyStream);
         setIsScreenSharing(true);
+        setScreenSharingSource(getScreenSharingSourceName(videoStream));
 
         // Start audio recording now that we have both permissions
         if (audioStreamRef.current) {
@@ -673,6 +688,7 @@ function ControlTray({
       setActiveVideoStream(videoOnlyStream);
       onVideoStreamChange(videoOnlyStream);
       setIsScreenSharing(true);
+      setScreenSharingSource(getScreenSharingSourceName(videoStream));
 
       // Try to request microphone immediately
       let audioStream: MediaStream | null = null;
@@ -778,6 +794,159 @@ function ControlTray({
     }
   };
 
+  // Helper function to extract screen sharing source name
+  const getScreenSharingSourceName = (videoStream: MediaStream): string => {
+    const videoTrack = videoStream.getVideoTracks()[0];
+    if (!videoTrack) return "Unknown";
+
+    // Extract meaningful name from the track label and settings
+    const label = videoTrack.label || "";
+    const settings = videoTrack.getSettings();
+    const displaySurface = settings.displaySurface;
+
+    // Use displaySurface for accurate classification
+    if (displaySurface === "browser") {
+      // Browser tab sharing
+      return "Browser Tab";
+    }
+
+    if (displaySurface === "window") {
+      // Application window sharing
+      // Extract window ID for distinction if multiple windows
+      const windowMatch = label.match(/window:(\d+)/);
+      if (windowMatch) {
+        const windowId = windowMatch[1];
+        // Note: Browsers don't provide app names for privacy reasons
+        return `Application Window ${windowId}`;
+      }
+      return "Application Window";
+    }
+
+    if (displaySurface === "monitor") {
+      // Full screen sharing
+      const screenMatch = label.match(/screen:(\d+)/);
+      if (screenMatch) {
+        const screenNum = parseInt(screenMatch[1]) + 1; // Convert 0-based to 1-based
+        return `Screen ${screenNum}`;
+      }
+      return "Screen";
+    }
+
+    // Chrome tab sharing - web-contents-media-stream pattern
+    if (label.includes("web-contents-media-stream")) {
+      return "Browser Tab";
+    }
+
+    // Chrome tab sharing - alternative pattern
+    if (label.includes("tab:")) {
+      return "Browser Tab";
+    }
+
+    // Window pattern with ID
+    if (label.includes("window:")) {
+      const windowMatch = label.match(/window:(\d+)/);
+      if (windowMatch) {
+        const windowId = windowMatch[1];
+        return `Application Window ${windowId}`;
+      }
+      return "Application Window";
+    }
+
+    // Application window sharing - single digit fallback
+    if (/^[0-9]$/.test(label.trim())) {
+      return "Application Window";
+    }
+
+    // Screen sharing patterns
+    if (label.includes("screen:")) {
+      const screenMatch = label.match(/screen:(\d+)/);
+      if (screenMatch) {
+        const screenNum = parseInt(screenMatch[1]) + 1;
+        return `Screen ${screenNum}`;
+      }
+    }
+
+    // More flexible screen detection
+    const screenNumMatch = label.match(/(\d+)/);
+    if (
+      screenNumMatch &&
+      (label.toLowerCase().includes("screen") || label.includes("display"))
+    ) {
+      const screenNum = parseInt(screenNumMatch[1]) + 1;
+      return `Screen ${screenNum}`;
+    }
+
+    // Fallback patterns
+    if (label.toLowerCase().includes("screen")) {
+      return "Screen";
+    }
+    if (label.toLowerCase().includes("window")) {
+      return "Application Window";
+    }
+    if (label.toLowerCase().includes("tab")) {
+      return "Browser Tab";
+    }
+    if (label.toLowerCase().includes("display")) {
+      return "Display";
+    }
+
+    // If we have a label but no recognizable pattern, use it directly (truncated)
+    if (label && label.length > 0) {
+      return label.length > 30 ? label.substring(0, 27) + "..." : label;
+    }
+
+    return "Screen";
+  };
+
+  // Function to change screen sharing source during active review
+  const changeScreenShare = async () => {
+    if (!connected || !isScreenSharing) {
+      console.log(
+        "🎛️ ControlTray: Not connected or not screen sharing, cannot change screen"
+      );
+      return;
+    }
+
+    try {
+      console.log("🎛️ ControlTray: Starting screen share change...");
+
+      // Stop current video stream
+      if (activeVideoStream) {
+        activeVideoStream.getTracks().forEach((track) => {
+          track.stop();
+          console.log("🎛️ ControlTray: Stopped video track for screen change");
+        });
+      }
+
+      // Request new screen sharing
+      const newVideoStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+      });
+      console.log("✅ ControlTray: New screen sharing started");
+
+      // Set up new video stream
+      const videoOnlyStream = new MediaStream(newVideoStream.getVideoTracks());
+      setActiveVideoStream(videoOnlyStream);
+      onVideoStreamChange(videoOnlyStream);
+      setScreenSharingSource(getScreenSharingSourceName(newVideoStream));
+
+      console.log("✅ ControlTray: Screen sharing changed successfully");
+    } catch (error) {
+      console.error("❌ ControlTray: Error changing screen share:", error);
+
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        alert(
+          "Screen sharing permission was denied. The current screen will continue to be shared."
+        );
+      } else {
+        alert(
+          "Failed to change screen sharing. The current screen will continue to be shared."
+        );
+      }
+      // Note: We don't clear screenSharingSource here since the current screen continues to be shared
+    }
+  };
+
   return (
     <section className="control-tray flex flex-col items-center">
       <canvas style={{ display: "none" }} ref={renderCanvasRef} />
@@ -805,7 +974,7 @@ function ControlTray({
             <span className="material-symbols-outlined mr-1 text-green-400">
               present_to_all
             </span>
-            Screen sharing active
+            Currently sharing {screenSharingSource || "Screen"}
           </div>
         )}
 
@@ -826,7 +995,7 @@ function ControlTray({
       >
         <button
           className="transition duration-200 ease-in-out focus:outline-none rounded bg-tokyo-bg-lighter border border-tokyo-selection text-tokyo-fg shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center justify-between space-x-1"
-          onClick={() => setMuted(!muted)}
+          onClick={handleMuteToggle}
         >
           <span className="material-symbols-outlined">
             {!muted ? "mic" : "mic_off"}
@@ -860,6 +1029,18 @@ function ControlTray({
           >
             <span className="material-symbols-outlined mr-1">stop</span>
             <span className="text-xs whitespace-nowrap">Stop Code Review</span>
+          </button>
+        )}
+
+        {/* Change Screen Button */}
+        {connected && isScreenSharing && (
+          <button
+            className="transition duration-200 ease-in-out focus:outline-none rounded bg-blue-500 border border-blue-600 text-white shadow-sm hover:bg-blue-600 hover:shadow-lg px-3 py-2 cursor-pointer flex items-center ml-2"
+            onClick={changeScreenShare}
+            title="Change Screen Share"
+          >
+            <span className="material-symbols-outlined mr-1">screen_share</span>
+            <span className="text-xs whitespace-nowrap">Change Screen</span>
           </button>
         )}
 

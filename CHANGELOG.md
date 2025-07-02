@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2025-07-02
+
+### Added
+
+- **Change Screen Sharing During Review**: Added ability to change the shared screen/window during an active code review session
+  - **Dynamic Screen Switching**: New "Change Screen" button appears in the control tray when screen sharing is active
+  - **Seamless Transition**: Users can switch between different screens, windows, or browser tabs without interrupting the ongoing review
+  - **Audio Preservation**: Screen sharing changes maintain the microphone connection and audio recording without disruption
+  - **Error Handling**: Graceful handling of permission denials - if user cancels screen selection, the current screen continues to be shared
+  - **Visual Feedback**: Blue "Change Screen" button with screen share icon positioned next to the "End Review" button
+  - **Non-Disruptive**: Screen sharing changes don't affect the AI conversation, timer, or any other review functionality
+  - **User-Friendly**: Simple one-click operation to open native screen/window selection dialog
+  - **Cross-Platform**: Works with all screen sharing scenarios (full screen, application windows, browser tabs)
+
+### Enhanced
+
+- **Screen Sharing Control**: Improved user control over screen sharing during active review sessions
+
+  - **Better Flexibility**: Users no longer need to end and restart reviews to change what they're sharing
+  - **Improved Workflow**: Supports common scenarios like switching between IDE, browser, and terminal windows
+  - **Professional Experience**: Matches the flexibility expected from professional screen sharing tools
+  - **Context Preservation**: AI maintains full conversation context when screen sharing source changes
+
+- **Screen Sharing Status Display**: Enhanced screen sharing status to show specific source information
+  - **Detailed Status**: Changed from generic "Screen sharing active" to "Currently sharing [Screen Name]"
+  - **Source Identification**: Displays actual screen/window names like "Screen 1", "Application Window", or "Browser Tab"
+  - **Dynamic Updates**: Status automatically updates when switching between different sharing sources using the "Change Screen" button
+  - **Smart Naming**: Intelligent extraction of meaningful names from MediaStream track labels with fallbacks for unknown sources
+  - **Better User Awareness**: Users always know exactly what they're currently sharing during the review
+
+### Fixed
+
+- **Mute Button Functionality**: Fixed the microphone mute button to actually mute the microphone by enabling/disabling the audio track
+  - **Proper Audio Muting**: Mute button now stops audio transmission to the AI while keeping the audio recorder running
+  - **Visual Feedback**: Muted button shows red background and "mic_off" icon for clear visual indication
+  - **State Management**: Muted state is properly reset when review sessions end for clean next session startup
+  - **Tooltip Enhancement**: Added descriptive tooltips showing "Mute microphone" and "Unmute microphone"
+  - **Console Logging**: Added clear logging when microphone is muted/unmuted for debugging purposes
+  - **Seamless Operation**: Audio recording continues in background when muted, allowing instant unmuting without reconnection delays
+
 ## [0.17.41] - 2025-06-30
 
 ### Improved
