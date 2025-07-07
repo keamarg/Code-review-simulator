@@ -96,6 +96,9 @@ function ControlTray({
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
 
+  // New state for pause/resume functionality
+  const [hasEverConnected, setHasEverConnected] = useState(false);
+
   const { client, connected, disconnect, volume } = useGenAILiveContext();
 
   useEffect(() => {
@@ -111,10 +114,19 @@ function ControlTray({
     }
   }, [connected]);
 
+  // Track when we've ever connected for pause/resume logic
+  useEffect(() => {
+    if (connected) {
+      setHasEverConnected(true);
+    }
+  }, [connected]);
+
   // Reset buttonIsOn when force stop is triggered (review ending)
   useEffect(() => {
     if (forceStopAudio || forceStopVideo) {
       setButtonIsOn(false);
+      // Reset session state when review ends completely
+      setHasEverConnected(false);
     }
   }, [forceStopAudio, forceStopVideo]);
 
@@ -271,13 +283,41 @@ function ControlTray({
       return;
     }
 
-    // Check if button should be disabled
+    // Handle different states: Start, Pause, Resume
     if (connected) {
-      return;
-    }
+      // Currently connected - this is a PAUSE
+      console.log("🔄 Pausing session - preserving for resumption");
+      disconnect(); // This preserves session data for resumption
+      setButtonIsOn(false);
+      onButtonClicked(false); // Notify parent that we're pausing
+    } else if (hasEverConnected) {
+      // Not connected but has connected before - this is a RESUME
+      console.log("🔄 Resuming session using session resumption");
+      setButtonIsOn(true);
 
-    // Only handle starting a new review
-    await startUnifiedFlow();
+      try {
+        // Use session resumption to continue from where we left off
+        const resumeSuccess = await client.reconnectWithResumption();
+        if (resumeSuccess) {
+          console.log("✅ Session resumed successfully");
+          onButtonClicked(true); // Notify parent that we're resuming
+        } else {
+          console.error("❌ Session resume failed");
+          setButtonIsOn(false);
+          // Reset and allow fresh start
+          setHasEverConnected(false);
+        }
+      } catch (error) {
+        console.error("❌ Resume error:", error);
+        setButtonIsOn(false);
+        // Reset and allow fresh start
+        setHasEverConnected(false);
+      }
+    } else {
+      // Never connected before - this is a START
+      console.log("🔄 Starting new session");
+      await startUnifiedFlow();
+    }
   };
 
   // Request permissions (microphone and screen sharing)
@@ -596,8 +636,14 @@ function ControlTray({
       return "Firefox Not Supported";
     }
 
-    // For Chrome, use the one-click text
-    return "Share screen & start review";
+    // Dynamic text based on connection state
+    if (connected) {
+      return "Pause";
+    } else if (hasEverConnected) {
+      return "Resume";
+    } else {
+      return "Share screen & start review";
+    }
   };
 
   // Helper function to properly clean up audio stream
@@ -755,22 +801,21 @@ function ControlTray({
     <section className="control-tray flex flex-col items-center">
       <canvas style={{ display: "none" }} ref={renderCanvasRef} />
       <div className="connection-button-container flex flex-col items-center">
-        {/* Only show main button when not connected */}
-        {!connected && (
-          <button
-            ref={connectButtonRef}
-            className={cn(
-              "transition duration-200 ease-in-out focus:outline-none rounded border bg-tokyo-accent text-white shadow-sm hover:bg-tokyo-accent-darker hover:shadow-lg mb-2 py-5 px-8 cursor-pointer",
-              {
-                "opacity-50 cursor-not-allowed": isSafari() || isFirefox(),
-              }
-            )}
-            onClick={handleMainButtonClick}
-            disabled={isRequestingPermissions || isSafari() || isFirefox()} // Only disable for Safari/Firefox or while requesting permissions
-          >
-            {getButtonText()}
-          </button>
-        )}
+        {/* Always show main button - it serves as Start/Pause/Resume */}
+        <button
+          ref={connectButtonRef}
+          className={cn(
+            "transition duration-200 ease-in-out focus:outline-none rounded border bg-tokyo-accent text-white shadow-sm hover:bg-tokyo-accent-darker hover:shadow-lg mb-2 py-5 px-8 cursor-pointer",
+            {
+              "opacity-50 cursor-not-allowed": isSafari() || isFirefox(),
+              "bg-orange-500 hover:bg-orange-600": connected, // Different color when pausing
+            }
+          )}
+          onClick={handleMainButtonClick}
+          disabled={isRequestingPermissions || isSafari() || isFirefox()} // Only disable for Safari/Firefox or while requesting permissions
+        >
+          {getButtonText()}
+        </button>
 
         {/* Status indicators */}
         {isScreenSharing && (

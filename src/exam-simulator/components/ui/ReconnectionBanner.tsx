@@ -6,6 +6,7 @@ interface ReconnectionBannerProps {
   timeLeft?: number;
   onReconnect?: () => void;
   onEndSession?: () => void;
+  showReconnectButton?: boolean;
 }
 
 export const ReconnectionBanner: React.FC<ReconnectionBannerProps> = ({
@@ -55,24 +56,24 @@ export const ReconnectionBanner: React.FC<ReconnectionBannerProps> = ({
                 </h3>
                 <p className="text-sm text-tokyo-fg-dim mt-1">
                   {isReconnecting
-                    ? "Restoring connection and preparing AI... This may take a few seconds."
+                    ? "Restoring session and AI connection... Your conversation will continue from where it left off."
                     : timeLeft
                     ? `Connection will close in ${Math.ceil(
                         timeLeft / 1000
                       )} seconds, then reconnect automatically`
-                    : "Microphone muted - AI won't respond to speech while offline"}
+                    : "Network connection lost. Reconnection will start automatically when network is restored."}
                 </p>
 
                 {!isReconnecting && !timeLeft && (
                   <p className="text-xs text-tokyo-fg-dim mt-2 opacity-75">
-                    Reconnection will start automatically when network is
-                    restored
+                    Waiting for network connection to be restored...
                   </p>
                 )}
 
                 {isReconnecting && (
                   <p className="text-xs text-tokyo-fg-dim mt-2 opacity-75">
-                    Please wait while we prepare the AI for your review...
+                    Please wait while we restore your session with full
+                    conversation context...
                   </p>
                 )}
               </div>

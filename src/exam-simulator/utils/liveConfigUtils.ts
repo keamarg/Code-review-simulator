@@ -68,6 +68,10 @@ export function createLiveConfig(
     systemInstruction: {
       parts: [{ text: promptText }],
     },
+    // Enable session resumption for pause/resume and network reconnection
+    sessionResumption: {
+      // Enable the server to send session resumption handles
+    },
     // Enable context window compression to prevent session timeouts
     // This allows unlimited session duration as recommended by Google
     contextWindowCompression: {

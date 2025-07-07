@@ -57,7 +57,7 @@ export function ExamWorkflow({
   quickStartExam,
   onScreenShareCancelled,
 }: ExamWorkflowProps) {
-  const { client, connected, connect } = useGenAILiveContext();
+  const { client, connected, connect, stopAudio } = useGenAILiveContext();
   const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(
     null
   );
@@ -74,6 +74,8 @@ export function ExamWorkflow({
   const isConnectingRef = useRef(false);
   const activeConnectionRef = useRef(false);
   const hasUsedQuickStartRef = useRef(false); // Track if we've already used quick start data
+  const isReconnectingRef = useRef(false); // Track reconnecting state for timeout
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track reconnection timeout
 
   // New state for summary modal
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -82,20 +84,64 @@ export function ExamWorkflow({
   // New state for network status banner
   const [showReconnectionBanner, setShowReconnectionBanner] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [micMutedDueToNetwork, setMicMutedDueToNetwork] = useState(false);
+  const [showReconnectButton, setShowReconnectButton] = useState(false);
+
+  // Track deliberate pause to avoid showing network banner
+  const [isDeliberatelyPaused, setIsDeliberatelyPaused] = useState(false);
+
+  // Add a trigger to force connection useEffect to re-run
+  const [connectionTrigger, setConnectionTrigger] = useState(0);
+
+  // Track previous pause state for resume detection
+  const previousPauseStateRef = useRef(isDeliberatelyPaused);
 
   // Use conversation tracker hook
-  const { getConversationSummary, clearConversation } = useConversationTracker(
+  const { getConversationSummary, clearConversation, getTranscripts } =
+    useConversationTracker(client, onTranscriptChunk);
+
+  // Debug current network and banner state
+  useEffect(() => {
+    console.log("🔍 ExamWorkflow Debug State:", {
+      examStarted,
+      showReconnectionBanner,
+      showReconnectButton,
+      isReconnecting,
+      isDeliberatelyPaused,
+      navigatorOnline: navigator.onLine,
+      clientConnected: connected,
+      clientExists: !!client,
+    });
+  }, [
+    examStarted,
+    showReconnectionBanner,
+    showReconnectButton,
+    isReconnecting,
+    isDeliberatelyPaused,
+    connected,
     client,
-    onTranscriptChunk
-  );
+  ]);
 
   // Track AI responses to capture last message for reconnection
   useEffect(() => {
     if (client) {
       const handleAITranscript = (event: any) => {
-        // Hide banner immediately when ANY transcript comes through
-        setShowReconnectionBanner(false);
+        // Only hide banner if we're not waiting for a specific reconnection response
+        if (showReconnectionBanner && !isReconnecting) {
+          // We're showing the banner but not actively reconnecting, so this is a normal transcript
+          setShowReconnectionBanner(false);
+        }
+
+        // Always reset the reconnecting flag when AI responds
+        setIsReconnecting(false);
+
+        // Clear reconnection timeout if it exists
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+          console.log(
+            "✅ AI responded - cleared reconnection timeout and reset flags"
+          );
+        }
       };
 
       client.on("transcript", handleAITranscript);
@@ -104,7 +150,27 @@ export function ExamWorkflow({
         client.off("transcript", handleAITranscript);
       };
     }
-  }, [client]);
+  }, [client, showReconnectionBanner, isReconnecting]);
+
+  // Watch for deliberate resume to send "let's continue" prompt
+  useEffect(() => {
+    if (client && connected) {
+      // Check if we just resumed from a deliberate pause
+      if (previousPauseStateRef.current && !isDeliberatelyPaused && connected) {
+        console.log(
+          "🔄 Resume detected - sending 'let's continue' prompt to AI"
+        );
+        client.send([
+          {
+            text: "Let's continue with the code review.",
+          },
+        ]);
+      }
+
+      // Update the ref for next time
+      previousPauseStateRef.current = isDeliberatelyPaused;
+    }
+  }, [client, connected, isDeliberatelyPaused]);
 
   // Only use exam duration if it's explicitly set (> 0), otherwise unlimited session
   const examDurationInMinutes = examSimulator?.duration || 0;
@@ -113,64 +179,130 @@ export function ExamWorkflow({
   // State to track if timers are already active to prevent duplicates
   const timersActiveRef = useRef(false);
 
-  // Network connectivity monitoring - simple status only
+  // Network connectivity monitoring - automatic reconnection with spinner
   useEffect(() => {
-    const handleOnline = () => {
-      if (examStarted) {
-        // Don't hide banner yet - wait for first transcript
-        setMicMutedDueToNetwork(false);
-        setIsReconnecting(false);
+    if (!client) return;
 
-        // Send reconnection message after network is stable
-        if (client && connected) {
-          setTimeout(() => {
-            if (client && connected) {
-              try {
-                client.send([
-                  {
-                    text: "We just experienced a brief network disconnect. Please acknowledge this and briefly summarize what you were just discussing before we continue with the code review.",
-                  },
-                ]);
-              } catch (error) {
-                console.error("Error sending reconnection message:", error);
-              }
-            }
-          }, 1000); // Wait 1 second for network stability
-        }
-      }
-    };
-
+    // Simple offline detection - automatically start reconnection process
     const handleOffline = () => {
-      if (examStarted) {
-        setShowReconnectionBanner(true);
-        setMicMutedDueToNetwork(true);
-        setIsReconnecting(false);
+      console.log("📡 Browser offline event fired");
+      // Only show banner if not deliberately paused and exam is started
+      if (examStarted && !isDeliberatelyPaused) {
+        console.log("🔴 Network offline - showing banner and cutting AI audio");
 
-        // Immediately interrupt AI speech when network goes down
-        if (client && connected) {
-          try {
-            client.emit("interrupted");
-          } catch (error) {
-            console.error("Error interrupting AI on disconnect:", error);
-          }
+        // Cut the AI audio immediately in the browser
+        stopAudio();
+
+        setShowReconnectionBanner(true);
+        setIsReconnecting(false); // Reset reconnecting flag for fresh offline state
+        setShowReconnectButton(false); // No manual button
+
+        // Clear any existing reconnection timeout from previous attempts
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+          console.log("🧹 Cleared previous reconnection timeout");
         }
       }
     };
 
-    // Set initial state based on current network status
-    if (!navigator.onLine && examStarted) {
-      setShowReconnectionBanner(true);
-      setMicMutedDueToNetwork(true);
-    }
+    const handleOnline = () => {
+      console.log("📡 Browser online event fired");
+      // Automatically start reconnection when network comes back
+      if (examStarted && showReconnectionBanner && !isDeliberatelyPaused) {
+        console.log("🟢 Network restored - starting automatic reconnection");
+        handleAutomaticReconnect();
+      }
+    };
 
-    window.addEventListener("online", handleOnline);
+    // Only listen to browser network events - let session resumption handle WebSocket naturally
     window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
 
     return () => {
-      window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
     };
-  }, [examStarted, client, connected]);
+  }, [
+    client,
+    examStarted,
+    showReconnectionBanner,
+    isDeliberatelyPaused,
+    stopAudio,
+  ]);
+
+  // Automatic reconnect handler - starts immediately when network is restored
+  const handleAutomaticReconnect = async () => {
+    console.log(
+      "🔄 Automatic reconnect started - triggering normal connection flow"
+    );
+    setIsReconnecting(true);
+    setShowReconnectButton(false); // No manual button needed
+
+    try {
+      // Instead of using client.reconnectWithResumption(), trigger the normal connection flow
+      // by temporarily resetting the connection guards to allow the normal useEffect to run
+      console.log(
+        "🔄 Resetting connection guards to trigger normal connection flow"
+      );
+
+      // Reset connection guards to allow normal connection
+      isConnectingRef.current = false;
+      activeConnectionRef.current = false;
+
+      // Force the connection useEffect to re-run by changing the trigger
+      setConnectionTrigger((prev) => prev + 1);
+
+      // The normal connection useEffect will now run and establish the connection
+      // This is the same flow that works when the user speaks
+
+      // Set up a timeout to check if connection was successful
+      reconnectTimeoutRef.current = setTimeout(() => {
+        if (connected) {
+          console.log(
+            "✅ Connection established - sending reconnection prompt to AI"
+          );
+
+          // Send introduction message to make AI speak
+          if (client) {
+            console.log("📤 Sending reconnection acknowledgment prompt to AI");
+            client.send([
+              {
+                text: "I notice we had a brief connection interruption, but I'm back now. Let's continue with your code review where we left off.",
+              },
+            ]);
+
+            // Banner will be hidden when AI responds to this prompt (handled by transcript effect)
+            // Don't hide banner here - wait for AI response
+          }
+        } else {
+          console.log("⚠️ Normal connection flow didn't complete - retrying");
+          setIsReconnecting(false);
+          // Retry after 5 seconds
+          setTimeout(() => {
+            if (showReconnectionBanner && !isDeliberatelyPaused) {
+              console.log("🔄 Retrying automatic reconnection...");
+              handleAutomaticReconnect();
+            }
+          }, 5000);
+        }
+      }, 3000); // Give 3 seconds for connection to establish
+
+      // Don't reset isReconnecting here - let the AI response handle it
+      return;
+    } catch (error) {
+      console.error("❌ Automatic reconnection failed:", error);
+      setIsReconnecting(false);
+
+      // Retry after 5 seconds
+      setTimeout(() => {
+        if (showReconnectionBanner && !isDeliberatelyPaused) {
+          console.log("🔄 Retrying automatic reconnection after error...");
+          handleAutomaticReconnect();
+        }
+      }, 5000);
+    }
+  };
 
   // Unified handler for both timer expiration and manual stop
   const handleSessionEnd = useCallback(
@@ -181,6 +313,12 @@ export function ExamWorkflow({
         timerCleanupRef.current = null;
       }
       timersActiveRef.current = false;
+
+      // Clean up reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
 
       // Reset connection guards
       isConnectingRef.current = false;
@@ -220,6 +358,11 @@ export function ExamWorkflow({
       // Reset session tracking
       setExamStarted(false);
       setShowReconnectionBanner(false);
+      setIsReconnecting(false); // Reset reconnecting flag
+      setShowReconnectButton(false); // Reset button flag
+
+      // Reset deliberate pause flag for next session
+      setIsDeliberatelyPaused(false);
 
       // Notify parent components
       if (reason === "timer" && onTimerExpired) {
@@ -258,10 +401,21 @@ export function ExamWorkflow({
         timerCleanupRef.current = null;
       }
 
+      // Clean up reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+
       // Reset connection guards and session tracking
       isConnectingRef.current = false;
       activeConnectionRef.current = false;
       setShowReconnectionBanner(false);
+      setIsReconnecting(false); // Reset reconnecting flag
+      setShowReconnectButton(false); // Reset button flag
+
+      // Reset deliberate pause flag
+      setIsDeliberatelyPaused(false);
 
       // Terminate any active session
       if (client) {
@@ -479,7 +633,8 @@ export function ExamWorkflow({
       liveConfig?.systemInstruction?.parts?.[0]?.text &&
       !connected &&
       !isConnectingRef.current &&
-      !activeConnectionRef.current
+      !activeConnectionRef.current &&
+      !isDeliberatelyPaused // Don't reconnect if user deliberately paused
     ) {
       isConnectingRef.current = true;
 
@@ -511,7 +666,14 @@ export function ExamWorkflow({
               const timerConfig = getTimerConfig();
               const introTimer = setTimeout(() => {
                 if (client) {
+                  console.log(
+                    "📤 Sending introduction message for fresh session"
+                  );
                   client.send([{ text: prompts.timerMessages.introduction }]);
+                } else {
+                  console.error(
+                    "❌ No client available for introduction message"
+                  );
                 }
               }, timerConfig.introductionDelay + 500);
 
@@ -553,6 +715,8 @@ export function ExamWorkflow({
     client,
     isReconnecting,
     showReconnectionBanner,
+    connectionTrigger, // Add the trigger to the dependency array
+    isDeliberatelyPaused, // Add this to the dependency array
   ]);
 
   // Notify parent of loading state changes
@@ -561,6 +725,34 @@ export function ExamWorkflow({
       onLoadingStateChange(isLoadingPrompt);
     }
   }, [isLoadingPrompt, onLoadingStateChange]);
+
+  // Update ref when state changes
+  useEffect(() => {
+    isReconnectingRef.current = isReconnecting;
+  }, [isReconnecting]);
+
+  // Wrapped onButtonClicked to track deliberate pause actions
+  const handleButtonClicked = (isButtonOn: boolean) => {
+    if (connected && !isButtonOn) {
+      // Button is being turned off while connected - this is a deliberate pause
+      console.log("🔄 Deliberate pause detected");
+      setIsDeliberatelyPaused(true);
+      setShowReconnectionBanner(false); // Hide any network banner
+    } else if (!connected && isButtonOn && isDeliberatelyPaused) {
+      // Button is being turned on while not connected and we were paused - this is a resume
+      console.log("🔄 Deliberate resume detected");
+      setIsDeliberatelyPaused(false);
+    } else if (!connected && isButtonOn && !isDeliberatelyPaused) {
+      // Button is being turned on while not connected and we weren't paused - this is a fresh start
+      console.log("🔄 Fresh start detected");
+      setIsDeliberatelyPaused(false);
+    }
+
+    // Call the original handler
+    if (onButtonClicked) {
+      onButtonClicked(isButtonOn);
+    }
+  };
 
   if (
     !examSimulator ||
@@ -647,11 +839,12 @@ export function ExamWorkflow({
 
       {/* Network Status Banner */}
       <ReconnectionBanner
-        isVisible={showReconnectionBanner}
+        isVisible={showReconnectionBanner && !isDeliberatelyPaused}
         isReconnecting={isReconnecting}
         timeLeft={undefined}
-        onReconnect={() => {}}
+        onReconnect={undefined} // No manual reconnect button needed - automatic reconnection
         onEndSession={() => {}}
+        showReconnectButton={false} // Always false - no manual button needed
       />
 
       {/* ControlTrayCustom is rendered here, with direct handler */}
@@ -661,12 +854,11 @@ export function ExamWorkflow({
           videoRef={videoRef}
           supportsVideo={supportsVideo}
           onVideoStreamChange={onVideoStreamChange}
-          onButtonClicked={onButtonClicked}
+          onButtonClicked={handleButtonClicked}
           forceStopAudio={forceStopAudio}
           forceStopVideo={forceStopVideo}
           onButtonReady={onButtonReady}
           onScreenShareCancelled={onScreenShareCancelled}
-          networkMuted={micMutedDueToNetwork}
         />
       )}
     </div>

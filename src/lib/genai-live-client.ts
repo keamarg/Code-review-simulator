@@ -88,7 +88,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
   private sessionResumptionHandle: string | undefined = "";
   private reconnectionAttempts: number = 0;
-  private readonly maxReconnectionAttempts: number = 0; // Disable automatic reconnection - use Google's recommended approach
+  private readonly maxReconnectionAttempts: number = 1; // Enable automatic reconnection with session resumption
   private manualDisconnect: boolean = false;
 
   private _session: Session | null = null;
@@ -211,22 +211,38 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
   // Add manual reconnection method for user-initiated reconnection
   public async reconnectWithResumption(): Promise<boolean> {
-    if (!this.sessionResumptionHandle || !this.config || !this._model) {
-      console.log("❌ Cannot reconnect: Missing session data");
+    if (!this.config || !this._model) {
+      console.log("❌ Cannot reconnect: Missing config or model");
       return false;
     }
 
     console.log("🔄 Manual reconnection with session resumption...");
 
-    const resumptionConfig = {
-      ...this.config,
-      sessionResumption: { handle: this.sessionResumptionHandle },
-    };
+    // Use session resumption if we have a handle, just like automatic reconnection does
+    const resumptionConfig = this.sessionResumptionHandle
+      ? {
+          ...this.config,
+          sessionResumption: { handle: this.sessionResumptionHandle },
+        }
+      : { ...this.config };
+
+    console.log(
+      this.sessionResumptionHandle
+        ? `🔄 Resuming with session handle: ${this.sessionResumptionHandle?.substring(
+            0,
+            20
+          )}...`
+        : "⚠️ No session handle available, starting fresh session"
+    );
 
     try {
       const success = await this.connect(this._model, resumptionConfig);
       if (success) {
-        console.log("✅ Manual reconnection successful");
+        console.log(
+          this.sessionResumptionHandle
+            ? "✅ Session resumption successful - conversation context preserved"
+            : "✅ Fresh session created successfully"
+        );
       }
       return success;
     } catch (error) {
@@ -263,6 +279,19 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       manualDisconnect: this.manualDisconnect,
     });
 
+    // Only clear session data if it was a manual disconnect
+    // For all other disconnections (network issues, server errors), preserve session data for manual reconnection
+    if (this.manualDisconnect) {
+      console.log(
+        "🔄 Manual disconnect - session data preserved for potential reconnection"
+      );
+    } else {
+      console.log(
+        "🔄 Unexpected disconnect - preserving session data for manual reconnection"
+      );
+    }
+
+    // Try automatic reconnection only for specific error codes
     if (
       e.code === 1011 &&
       this.sessionResumptionHandle &&
@@ -306,6 +335,10 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
           this.reconnectionAttempts >= this.maxReconnectionAttempts,
         wasManualDisconnect: this.manualDisconnect,
       });
+
+      // IMPORTANT: Don't clear session data here!
+      // Even if automatic reconnection is skipped, we want to preserve session data for manual reconnection
+      console.log("🔄 Session data preserved for manual reconnection");
     }
 
     this.log(
@@ -336,9 +369,13 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       if ("newHandle" in message.sessionResumptionUpdate) {
         this.sessionResumptionHandle =
           message.sessionResumptionUpdate.newHandle;
-        // Removed console.log and this.log() to minimize interference with audio stream
-        // The session resumption handle is stored silently to prevent any potential
-        // timing conflicts with ongoing AI speech
+        this.log(
+          "session.resumption",
+          `Handle received: ${this.sessionResumptionHandle?.substring(
+            0,
+            20
+          )}...`
+        );
       }
       return; // Important: return here to prevent falling through to "unmatched message"
     }

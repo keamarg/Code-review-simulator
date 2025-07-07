@@ -28,6 +28,7 @@ export type UseGenAILiveResults = {
   connected: boolean;
   connect: (model: string, config: LiveConnectConfig) => Promise<void>;
   disconnect: () => Promise<void>;
+  stopAudio: () => void; // Add stopAudio function
   volume: number;
   status: "connected" | "disconnected" | "connecting";
 };
@@ -105,11 +106,17 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
     client.disconnect();
   }, [client]);
 
+  const stopAudio = useCallback(() => {
+    // Stop audio streamer immediately to cut off AI voice
+    audioStreamerRef.current?.stop();
+  }, []);
+
   return {
     client,
     connected,
     connect,
     disconnect,
+    stopAudio, // Add stopAudio to return values
     volume,
     status: client.status,
   };
