@@ -5,6 +5,119 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.12] - 2025-07-09
+
+### Fixed
+
+- **CRITICAL: Microphone Audio Input Regression in Quick Start Mode**: Fixed critical regression where the previous microphone fix for custom mode broke audio input in quick start mode.
+  - **Root Cause**: The previous fix applied deferred audio recorder startup globally to both quick start and custom modes, but quick start mode has different audio setup requirements
+  - **Mode Differences**: Quick start mode already has video streams set up through mediaStreamService, while custom mode needs to request permissions and set up streams
+  - **Solution**: Implemented mode-specific audio recorder startup logic:
+    - **Quick Start Mode**: Detects existing video streams and immediately requests audio permissions, starts recording when connection is established
+    - **Custom Mode**: Uses deferred startup pattern, waiting for GenAI connection before starting audio recorder
+  - **Detection Logic**: Added `isQuickStartMode` state that detects when video streams are already present (indicating quick start mode)
+  - **Impact**: Both quick start and custom GitHub repository modes now properly capture and process user audio input without timing issues
+
+## [1.2.11] - 2025-07-09
+
+### Fixed
+
+- **CRITICAL: Microphone Audio Input in Custom GitHub Repository Mode**: Fixed critical issue where microphone was not working in custom GitHub repository mode, preventing user voice input during code reviews.
+  - **Root Cause**: Audio recorder was being started immediately before the GenAI connection was established, causing audio data to be sent to a non-connected client
+  - **Timing Issue**: The `startUnifiedFlow` function started the audio recorder synchronously, but the GenAI connection is established asynchronously after `onButtonClicked(true)` is called
+  - **Solution**: Implemented deferred audio recorder startup using a `shouldStartAudioRecorder` flag that triggers audio recording only after the GenAI connection is established
+  - **Technical Changes**: Added `useEffect` hook that monitors connection state and starts audio recorder when both connection is ready and audio stream is available
+  - **Impact**: Custom GitHub repository mode now properly captures and processes user voice input, enabling full interactive code review functionality identical to quick-start mode
+
+## [1.2.10] - 2025-07-09
+
+### Fixed
+
+- **CRITICAL: Custom GitHub Repository Mode Data Flow**: Fixed critical issue where custom GitHub repository reviews were not receiving repository data from user input.
+  - **Root Cause**: Repository URL and fullScan options from the user modal were not being properly merged with the main exam data loaded from the database
+  - **Data Flow Issue**: The `customRepoUrl` was stored separately from the `examSimulator` object, causing the AI examiner to not receive the repository information
+  - **Solution**: Modified `handleCustomStartReview` to create a unified exam object that merges stored exam data with user selections (repository URL and fullScan options)
+  - **Impact**: Custom GitHub repository reviews now properly receive and process the selected repository data
+
+## [1.2.9] - 2025-07-09
+
+### Fixed
+
+- **TypeScript Compilation Error**: Fixed critical TypeScript compilation error in ExamEditor.tsx preventing the application from building.
+  - **Root Cause**: The `type` state variable was defined as generic `string` but the ExamSimulator type now expects specific union types ("Standard" | "Github Repo" | "live-code")
+  - **Solution**: Updated the state type annotation and form handler to use proper type casting for the union type
+  - **Impact**: Application now compiles successfully without TypeScript errors
+
+## [1.2.8] - 2025-07-09
+
+### Fixed
+
+- **Change Screen Button Stability**: Prevented code review interruption when changing the shared screen.
+  - **Root Cause**: The old logic terminated the current stream before a replacement was active. If the user cancelled the dialog (or there was a brief timing gap) the session lost its video and the Control Tray vanished.
+  - **Solution**: We now (1) obtain the new `getDisplayMedia` stream, (2) immediately swap it into the UI, **then** (3) stop the old tracks. This guarantees there is never a moment without an active stream. Cancelling keeps the original stream running.
+
+## [1.2.7] - 2025-07-09
+
+### Added
+
+- **Full Repository Scan Option**: Added the ability to scan entire repositories including all subdirectories and files, not just the root directory.
+
+  - **UI Toggle**: Added a toggle switch in both QuickStartModal and ReviewSetupModal to enable/disable full repository scanning
+  - **Recursive Directory Traversal**: Implemented recursive scanning that explores all subdirectories up to a configurable depth (default: 3 levels)
+  - **Intelligent File Limits**:
+    - Root-only mode: Maximum 5 files (API efficient)
+    - Full scan mode: Maximum 20 files (more comprehensive)
+  - **API Usage Transparency**: Clear warnings about increased API usage with full scanning (10-30 API calls vs 2-7 for root-only)
+  - **Enhanced Error Messages**: Improved error handling for repositories with only folders, suggesting full scan mode when appropriate
+  - **Graceful Degradation**: Individual directory or file failures don't stop the entire scanning process
+  - **Depth Control**: Configurable maximum depth to prevent infinite recursion and control API usage
+
+### Technical Implementation
+
+- **New Function**: `getRepoFilesRecursive()` for recursive directory traversal
+- **Options Parameter**: Enhanced `getRepoFiles()` and `getRepoQuestions()` to accept scanning options
+- **UI Components**: Updated both modal components with toggle switches and usage warnings
+- **State Management**: Added fullScan parameter to all relevant state and navigation flows
+- **Error Handling**: Comprehensive error handling for network issues, malformed responses, and directory access failures
+
+### Fixed
+
+- **CRITICAL: GitHub Repository Network Error Handling**: Fixed "Failed to fetch" errors when processing repositories with only folders or unusual structures.
+
+  - **Root Cause**: The fetch() calls themselves were failing with network errors before reaching HTTP status code checking, causing generic "Failed to fetch" errors that weren't properly handled.
+  - **Network Error Handling**: Added comprehensive try-catch blocks around all fetch() operations to distinguish between network errors and HTTP errors.
+  - **Specific Error Messages**: Now provides detailed error messages for different failure scenarios:
+    - Network connectivity issues
+    - GitHub API temporary unavailability
+    - CORS or browser security restrictions
+    - Repository structure problems
+    - JSON parsing errors
+  - **Repository Structure Detection**: Enhanced logic to differentiate between:
+    - Completely empty repositories
+    - Repositories with only folders (no files)
+    - Repositories with files but no code files
+    - Repositories with unusual permissions or structure
+  - **Graceful Degradation**: Individual file fetch failures no longer stop the entire process - they're logged and skipped.
+  - **Better Debugging**: Added detailed console logging for each failure type to help diagnose issues.
+
+### Technical Improvements
+
+- **Fetch Error Handling**: All fetch() calls now wrapped in try-catch blocks to handle network-level failures
+- **JSON Parsing Safety**: Added error handling for malformed JSON responses from GitHub API
+- **Response Validation**: Validates that repository contents are in expected array format
+- **File Processing Resilience**: Individual file download failures are handled gracefully without stopping the entire process
+- **Enhanced Error Messages**: User-friendly error messages that explain the likely cause and suggest solutions
+
+## [1.2.6] - 2025-07-09
+
+### Changed
+
+- **Pause Button Position**: Moved the pause button on the live screen down by 24px to improve visual spacing and prevent overlapping with description text.
+
+### Added
+
+- **Description Text Gradient**: Added a gradient overlay at the bottom of the description text area to indicate when there's more content to scroll through.
+
 ## [1.2.5] - 2025-07-09
 
 ### Added
@@ -2019,327 +2132,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Chrome Error Resolution**: Fixed "Cannot close a closed AudioContext" error by adding proper state checking before closure
 
 - **Firefox and Safari Hanging During Media Initialization**: Fixed critical issue where browsers would hang on "Getting MediaStream..." step
-  - **Root Cause**: Old `useScreenCapture` and `useWebcam` hooks were calling `getUserMedia`/`getDisplayMedia` in separate contexts, interfering with direct audio initialization
-  - **Solution**: Removed dependency on media hooks and implemented direct `getDisplayMedia` call in button handler
-  - **User Gesture Context**: All media initialization now happens directly in response to button click, ensuring proper browser permissions
-  - **Performance**: Eliminated race conditions and multiple simultaneous media requests that caused browser confusion
-
-### Changed
-
-- AudioRecorder now creates AudioContext without sample rate specification (lets browser choose optimal rate)
-- AudioRecorder constrains MediaStream to match AudioContext's actual sample rate instead of forcing 16kHz
-- ControlTray dynamically sends correct sample rate to API based on AudioContext's actual rate
-- Added proper AudioContext state checking before closure to prevent "already closed" errors
-- Enhanced error handling with try-catch blocks for AudioContext operations
-- Improved logging to show actual sample rates being used
-- **Removed dependency on `useScreenCapture` and `useWebcam` hooks** to eliminate media request conflicts
-- **Integrated screen sharing directly into button handler** using `getDisplayMedia` for better cross-browser compatibility
-- **Enhanced logging** for screen sharing and audio initialization steps to aid debugging
-
-## [0.17.3] - 2025-06-06
-
-### Fixed
-
-- Firefox audio recording now works by using shared AudioContext across GenAI Live and AudioRecorder
-- Resolved MediaStreamGraph isolation issue that was causing "Connecting AudioNodes from AudioContexts with different sample-rate" error
-- AudioRecorder and GenAI Live API now share the same MediaStreamGraph instance, eliminating graph conflicts in Firefox
-
-### Changed
-
-- AudioRecorder now uses shared audioContext utility instead of creating fresh AudioContext instances
-- Both audio components now use consistent 24kHz sample rate through shared context
-- Removed Firefox-specific AudioContext closing logic in favor of shared context approach
-
-## [0.17.2] - 2025-06-06
-
-### Fixed
-
-- AudioContext sample rate conflicts by using separate contexts for recording vs playback
-- AudioRecorder now detects MediaStream's native sample rate and creates matching AudioContext
-- Prevents "Connecting AudioNodes from AudioContexts with different sample-rate" errors in Firefox
-- Improved worklet registry management to prevent duplicate registrations
-
-### Changed
-
-- AudioRecorder no longer uses shared audioContext utility, creates dedicated context instead
-- Added proper cleanup of recording AudioContext on stop/error
-
-## [0.17.1] - 2025-06-06
-
-### Fixed
-
-- AudioContext sample rate mismatch errors preventing audio recording
-- Coordinated all audio systems to use consistent 24kHz sample rate
-- Implemented shared AudioContext strategy with proper worklet registry management
-- Resolved "An AudioWorkletProcessor with name is already registered" errors
-
-### Changed
-
-- Updated AudioRecorder to use shared audioContext utility
-- Modified worklet registration to check registry before adding modules
-- Enhanced error handling and cleanup procedures
-
-## [0.17.0] - 2025-06-06
-
-### Added
-
-- Audio recording functionality with AudioRecorder class
-- AudioWorklet-based audio processing for microphone input
-- Volume meter (VU meter) worklet for audio level monitoring
-- AudioContext utilities for managing audio contexts
-- Worklet registry system for managing AudioWorklet modules
-
-### Changed
-
-- Enhanced GenAI Live integration with proper audio streaming
-- Improved audio system architecture with coordinated sample rates
-- Updated control tray to handle audio recording states
-
-### Fixed
-
-- Audio streaming issues with proper buffer management
-- Cross-browser compatibility for audio recording
-- Memory leaks in audio processing pipeline
-
-## [0.16.0] - 2025-06-05
-
-### Added
-
-- Real-time voice communication with Gemini Live API
-- Audio streaming capabilities with AudioStreamer class
-- GenAI Live client for WebSocket-based communication
-- Volume controls and audio level monitoring
-- Live conversation state management
-
-### Changed
-
-- Enhanced exam simulator with voice interaction capabilities
-- Improved UI for real-time communication controls
-- Updated component architecture for audio integration
-
-## [0.15.0] - 2025-06-04
-
-### Added
-
-- AI-powered code review simulation system
-- Interactive exam simulator with real-time feedback
-- Support for multiple programming languages
-- Comprehensive test scenarios and evaluation metrics
-
-### Changed
-
-- Restructured project architecture for better maintainability
-- Enhanced user interface with modern React components
-- Improved error handling and user experience
-
-### Fixed
-
-- Performance optimizations for large code reviews
-- Cross-browser compatibility issues
-- Memory management improvements
-
-## [0.14.9] - 2025-06-02
-
-### Fixed
-
-- **REVERTED COMPLEX CONNECTION MANAGEMENT**: User was absolutely right - went back to simple, working state by removing all the aggressive connection guards and cleanup logic that was breaking everything
-
-  - **Root Cause**: My "fixes" for the dual AI sessions created more problems than they solved
-  - **Simple is Better**: Removed all complex connection tracking (`isConnectingRef`, `activeConnectionRef`, `isTerminatingRef`, `isCleaningUpRef`)
-  - **Back to Basics**: Restored simple connection logic that just connects when needed and disconnects when done
-  - **Removed Transcript Fragmentation Fix**: Simplified transcript handling back to basic concatenation without "smart reconstruction"
-  - **Simplified Manual Stop**: Removed complex guard logic and made manual stop immediate and simple
-  - **Clean Code**: Eliminated hundreds of lines of complex state management that was causing race conditions
-
-- **Stop Button Performance**: Fixed 1.4-second delay when clicking stop button by making summary generation non-blocking
-
-  - **Root Cause**: Summary generation was blocking the UI thread for 1.4 seconds during the click handler
-  - **Non-Blocking Summary**: Summary now generates in background after UI has already responded
-  - **Immediate Feedback**: Modal appears instantly with loading animation while summary generates
-  - **Better UX**: Users get immediate visual feedback that stop was successful instead of waiting
-
-- **Live Feed Should Work Again**: By removing the aggressive connection guards that were preventing legitimate connections
-- **Stop Button Should Be Fast Again**: By removing the complex cleanup logic that was causing delays
-- **No More Word Fragmentation**: Simplified transcript buffering should handle text properly
-
-### Technical Changes
-
-- **ExamWorkflow.tsx**: Removed all connection guards and complex cleanup logic - back to simple connect/disconnect
-- **AIExaminerPage.tsx**: Simplified manual stop to just trigger the stop without complex state management
-- **useConversationTracker.ts**: Simplified transcript handling to basic text concatenation with 10-second buffering
-- **Clean Architecture**: Removed ~200 lines of complex state management and guards that were causing problems
-
-### User Feedback Incorporated
-
-- **"I think we have to go back it is all f... up now"** - User was 100% correct
-- **Sometimes simple solutions work better than complex ones**
-- **Reverted to known good state before attempting any "improvements"**
-
-## [0.14.8] - 2025-06-02
-
-### Fixed
-
-- **CRITICAL: Reverted Overly Aggressive Connection Guards**: Fixed issues caused by too-restrictive connection management from v0.14.6
-
-  - **Root Cause**: The dual AI session fix introduced overly aggressive connection guards that broke normal operation
-  - **Simplified Logic**: Removed complex connection tracking and termination guards that were preventing legitimate connections
-  - **Basic Protection**: Kept only essential duplicate connection prevention with simple `isConnectingRef` guard
-  - **Restored Functionality**: Live feed and session management now work as they did before the dual AI fix
-  - **Clean Sessions**: Maintained essential cleanup logic while removing blocking restrictions
-
-- **Simplified Manual Stop**: Restored original manual stop behavior for better reliability
-  - **Removed Force Stop**: Eliminated immediate force stop of audio/video that was causing conflicts
-  - **Standard Timing**: Restored 100ms delay for trigger reset instead of 50ms aggressive timing
-  - **Clean Flow**: Manual stop now follows standard cleanup path without aggressive interruption
-
-### Technical Details
-
-- **Connection Management**: Removed `activeConnectionRef`, `isTerminatingRef`, and complex guard logic
-- **Session Cleanup**: Simplified cleanup process to only prevent duplicate cleanup, not connections
-- **Manual Stop**: Restored to trigger-based approach without forced audio/video termination
-- **Debug Logging**: Cleaned up connection state debugging to remove references to removed guards
-
-## [0.14.7] - 2025-06-02
-
-### Fixed
-
-- **CRITICAL: Live Feed Transcript Fragmentation**: Fixed major issue where AI speech transcripts were fragmented with spaces between every character
-
-  - **Root Cause**: GenAI Live API sends word fragments like "Hel", "lo!", "I'", "m r" that need intelligent reconstruction
-  - **Smart Reconstruction**: Implemented intelligent word boundary detection to properly join fragments
-  - **Word Continuation Logic**: Detects when fragments are parts of the same word vs separate words
-  - **Punctuation Handling**: Proper spacing around punctuation marks and sentence boundaries
-  - **Impact**: Transcripts now read as "Hello! I'm ready to review your code" instead of "Hel lo! I' m r ead y t o r evi ew you r c ode"
-  - **Live Suggestions Fixed**: OpenAI suggestion extraction now works properly with readable transcript text
-  - **Better User Experience**: Code review summaries now contain meaningful, readable content
-
-- **Slow Session Termination**: Fixed issue where stopping code reviews took too long due to rapid reconnection attempts
-
-  - **Termination Guard**: Added `isTerminatingRef` to prevent reconnections during session termination
-  - **Connection Prevention**: Connection effect now checks termination guard before attempting to connect
-  - **Extended Guard Period**: Termination flag stays active for 2 seconds after cleanup to prevent immediate reconnections
-  - **Faster Stops**: Manual stop and timer expiration now complete cleanly without connection loops
-  - **Better Debug Logging**: Enhanced connection state debugging to show termination status
-
-- **Improved Stop Button Responsiveness**: Made manual stop more immediate and responsive
-  - **Immediate Force Stop**: Stop button now immediately forces audio and video to stop for better user feedback
-  - **Reduced Delays**: Shortened trigger reset from 100ms to 50ms for faster response
-  - **Parallel Cleanup**: Audio/video stopping happens in parallel with session termination for faster results
-  - **Better User Feedback**: Users see immediate stopping action rather than waiting for backend cleanup
-
-### Enhanced
-
-- **More Aggressive Suggestion Extraction**: Improved live suggestion system to capture more code review suggestions
-
-  - **Faster Processing**: Reduced processing interval from 10 seconds to 5 seconds for more frequent suggestion updates
-  - **Liberal Extraction**: Updated prompts to be more liberal in extracting any improvement suggestions
-  - **Better Pattern Recognition**: Enhanced OpenAI prompts to catch implied suggestions and best practices mentions
-  - **Increased Length**: Raised suggestion length limit from 25 to 30 words for more descriptive suggestions
-  - **Varied Suggestions**: More permissive duplicate detection allows valuable variations and elaborations
-
-- **Improved Connection State Management**: Enhanced connection tracking system for more reliable session control
-  - **Multiple Guards**: Connection attempts now check for cleanup, termination, and existing connections
-  - **Better Debug Info**: Connection state logging now includes termination status for easier troubleshooting
-  - **Clean Unmount**: Component unmount now properly sets termination guard to prevent ghost connections
-  - **Session Isolation**: Each session termination is now properly isolated from new session starts
-
-### Technical Details
-
-- **Transcript Processing**: Implemented smart word boundary detection with lowercase continuation logic
-- **Fragment Analysis**: Logic detects 3-character or shorter fragments as potential word continuations
-- **Punctuation Spacing**: Proper handling of punctuation boundaries and existing spaces
-- **Connection Guards**: Added termination guard checks in connection effect and session end handler
-- **State Coordination**: Enhanced cleanup sequence with proper flag management and timeouts
-- **Memory Management**: Improved cleanup of connection tracking and session state during termination
-
-## [0.14.6] - 2025-06-02
-
-### Fixed
-
-- **CRITICAL: Dual AI Sessions Bug**: Fixed major issue where two AI voices were talking simultaneously with one being uninterruptible
-
-  - **Root Cause**: Multiple concurrent connections were being established due to race conditions in connection logic
-  - **Connection Tracking**: Added `isConnectingRef` and `activeConnectionRef` to prevent concurrent connection attempts
-  - **Duplicate Prevention**: Connection effect now checks for existing connections before attempting new ones
-  - **Session Termination**: Enhanced session cleanup to properly terminate all connections and reset tracking flags
-  - **Automatic Reconnection Control**: Added comprehensive debugging to track and prevent unwanted automatic reconnections
-  - **Component Cleanup**: Enhanced unmount cleanup to ensure all sessions are properly terminated
-  - **State Synchronization**: Fixed race conditions where multiple useEffect dependencies could trigger simultaneous connections
-
-- **CRITICAL: Stop Button Crash**: Fixed UI shifting and crashes when pressing the stop review button
-  - **Race Condition Fix**: Added cleanup guard (`isCleaningUpRef`) to prevent multiple simultaneous cleanup processes
-  - **Atomic Cleanup**: Made cleanup process atomic with proper try/finally blocks to ensure completion
-  - **State Order**: Reordered cleanup sequence to generate summary before notifying parent components
-  - **Duplicate Prevention**: All cleanup effects now check if cleanup is already in progress before executing
-  - **Error Recovery**: Cleanup flag is always reset even if errors occur during cleanup process
-  - **UI Stability**: Eliminated competing state changes that caused UI shifting back and forth
-  - **Simplified Flow**: Removed cascading parent callbacks that were causing race conditions between components
-  - **Single Responsibility**: ExamWorkflow now handles its own state management without relying on parent callbacks
-  - **State Guard**: Added `isManualStopInProgress` guard in parent component to prevent duplicate stop requests
-
-### Enhanced
-
-- **Connection State Management**: Comprehensive connection tracking system to ensure single active session
-
-  - **Connection Guards**: Prevents multiple simultaneous connect/resume calls
-  - **State Tracking**: Real-time monitoring of connection states with detailed debug logging
-  - **Cleanup Coordination**: Proper cleanup of timers, connections, and tracking flags during session end
-  - **Debug Information**: Enhanced logging shows connection attempts, success/failure, and cleanup status
-  - **Race Condition Prevention**: Eliminated timing issues that could create overlapping AI sessions
-
-## [0.16.0] - 2025-06-02
-
-### Added
-
-- **Live Suggestions Popup Window**: Implemented a new pop-up window for displaying live AI-generated code review suggestions during an active review session.
-  - **Dedicated View**: Suggestions now appear in a separate window, allowing users to position them freely for better visibility alongside their code/screen share.
-  - **Dynamic Sizing**: Popup window defaults to two-thirds of the screen height and a responsive width.
-  - **Window Management**: Includes robust handling for window opening, closing, and lifecycle management via a reusable `PopupWindow.tsx` component.
-  - **Style Porting**: Stylesheets from the main application are copied to the popup to maintain visual consistency (with graceful error handling for external fonts like Google Fonts).
-
-### Changed
-
-- **Live Suggestions Panel UI/UX Overhaul**: Significantly redesigned the `LiveSuggestionsPanel.tsx` component for enhanced readability and user experience within the new popup.
-  - **Modern Aesthetics**: Updated styling with a focus on clarity, using theme variables (`--tokyo-` prefixed) for colors, backgrounds, and borders.
-  - **Newest First**: Suggestions are displayed with the latest one at the top, with auto-scroll to the newest suggestion.
-  - **Visual Hierarchy for Latest Suggestion**: The most recent suggestion is prominently highlighted with a distinct gradient background (`--tokyo-accent` to `--tokyo-accent-hover`) and a stronger box shadow.
-  - **Fading Older Suggestions**: Older suggestions gradually decrease in opacity to emphasize newer ones, while becoming fully opaque on hover for easy reading.
-  - **Improved Spacing**: Increased vertical spacing between suggestion items and enhanced internal padding for better readability and a less cluttered look.
-  - **Refined Timestamp & Badge**: Timestamp formatting improved; "Latest" badge styled for better contrast and visual appeal.
-  - **Removed Visual Clutter**: Unnecessary icons/bullets and item borders removed for a cleaner interface.
-
-### Fixed
-
-- **Popup Window Title**: Resolved issue where the popup window title would sometimes incorrectly display "about:blank" by ensuring the document title is set at multiple stages of the popup creation lifecycle.
-- **Popup Stability**: Addressed an issue where the popup window might close prematurely when new suggestions were added by memoizing the `onClose` handler in the parent component (`AIExaminerPage.tsx`) using `useCallback`.
-
-## [0.16.1] - 2025-06-02
-
-### Fixed
-
-- Resolved critical styling issues in the live suggestions popup window:
-  - Ensured consistent application of margins and padding for suggestion items by using `setAttribute('style', ...)` instead of relying solely on React's `style` prop for portaled components, fixing spacing and scrolling problems.
-  - Re-enabled stylesheet copying from the main application to the popup, allowing CSS variables and global styles to function correctly within the popup.
-  - Verified that theme-consistent styling (backgrounds, text colors, shadows, hover effects) applies correctly to all suggestion items and panel elements within the popup.
-- Removed diagnostic code (manual test divs and temporary style overrides) from `PopupWindow.tsx`
-
-## [1.2.6] - 2025-07-09
-
-### Fixed
-
-- **Navigation Guard Double-Prompt & Blocker Crash**: Resolved an issue where pressing "OK" on the leave-session confirmation dialog would immediately show the dialog again and crash with `Invalid blocker state transition: unblocked -> proceeding`.
-  - Added a `cleanupAfterProceedRef` guard to ensure `blocker.proceed()` is invoked only once per navigation event.
-  - Cleanup (`shutdownSession`) now runs only after the router reports the blocker state as `unblocked`, guaranteeing a safe state transition.
-  - Removes the previous `setTimeout` workaround that could still race in some browsers.
-
-### Changed
-
-- Minor refactor of `AIExaminerPage.tsx` blocker effect for clarity and robustness.
-
-## [1.2.7] - 2025-07-09
-
-### Fixed
-
-- **Microphone Still Live After Navigating Away**: Ensured that the user's microphone stream is fully stopped when leaving or reloading the page.
-  - Added a cleanup `useEffect` in `ControlTrayCustom.tsx` that stops and releases all audio tracks on component unmount.
-  - This complements the existing screen-share cleanup so both video and audio resources are freed.
+  - **Root Cause**: Old `useScreenCapture` and `useWebcam` hooks were calling `getUserMedia`

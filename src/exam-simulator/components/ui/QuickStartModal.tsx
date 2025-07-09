@@ -8,7 +8,8 @@ interface QuickStartModalProps {
   onStartReview: (
     type: string,
     developerLevel: string,
-    repoUrl?: string
+    repoUrl?: string,
+    fullScan?: boolean
   ) => void;
   fixedType?: string;
   fixedDeveloperLevel?: string;
@@ -33,6 +34,7 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
   );
   const [repoUrl, setRepoUrl] = useState("");
   const [repoUrlError, setRepoUrlError] = useState("");
+  const [fullScan, setFullScan] = useState(false);
 
   const getRepoUrlError = (url: string): string => {
     if (!url.trim()) {
@@ -85,7 +87,12 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
   const handleStartReview = () => {
     if (type === "Github Repo" && !repoValid) return;
 
-    onStartReview(type, developerLevel, type === "Github Repo" ? repoUrl : "");
+    onStartReview(
+      type,
+      developerLevel,
+      type === "Github Repo" ? repoUrl : "",
+      fullScan
+    );
   };
 
   const handleTypeChange = (newType: string) => {
@@ -223,47 +230,118 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
 
               {/* GitHub Repository URL Input - CONDITIONALLY RENDERED */}
               {type === "Github Repo" && (
-                <div className="mb-6">
-                  <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
-                    <div className="flex items-center">
-                      <svg
-                        className="h-4 w-4 mr-2 text-tokyo-comment"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                        />
-                      </svg>
-                      GitHub Repository URL
+                <div className="mb-6 space-y-4">
+                  <div>
+                    <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
+                      <div className="flex items-center">
+                        <svg
+                          className="h-4 w-4 mr-2 text-tokyo-comment"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          />
+                        </svg>
+                        GitHub Repository URL
+                      </div>
+                    </label>
+                    <input
+                      type="text"
+                      value={repoUrl}
+                      onChange={handleRepoUrlChange}
+                      placeholder="https://github.com/user/repository or user/repository"
+                      className={`w-full px-4 py-2 border bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors ${
+                        repoUrlError
+                          ? "border-red-500"
+                          : "border-tokyo-selection"
+                      }`}
+                    />
+                    {repoUrlError && (
+                      <div className="mt-2 text-sm text-red-400 whitespace-pre-line">
+                        {repoUrlError}
+                      </div>
+                    )}
+                    <div className="mt-2 text-xs text-tokyo-comment">
+                      <p className="font-medium">Supported formats:</p>
+                      <ul className="ml-4 mt-1 space-y-1">
+                        <li>• https://github.com/owner/repo</li>
+                        <li>• owner/repo</li>
+                        <li>• git@github.com:owner/repo.git</li>
+                        <li>• https://api.github.com/repos/owner/repo</li>
+                      </ul>
                     </div>
-                  </label>
-                  <input
-                    type="text"
-                    value={repoUrl}
-                    onChange={handleRepoUrlChange}
-                    placeholder="https://github.com/user/repository or user/repository"
-                    className={`w-full px-4 py-2 border bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors ${
-                      repoUrlError ? "border-red-500" : "border-tokyo-selection"
-                    }`}
-                  />
-                  {repoUrlError && (
-                    <div className="mt-2 text-sm text-red-400 whitespace-pre-line">
-                      {repoUrlError}
+                  </div>
+
+                  {/* Full Scan Toggle */}
+                  <div className="bg-tokyo-bg-darker p-4 rounded-lg border border-tokyo-selection">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="block text-tokyo-fg-bright text-sm font-medium mb-1">
+                          Full Repository Scan
+                        </label>
+                        <p className="text-tokyo-fg text-xs">
+                          {fullScan
+                            ? "Scans all files in all subdirectories (uses more API calls)"
+                            : "Scans only files in the root directory (API efficient)"}
+                        </p>
+                      </div>
+                      <div className="ml-4">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={fullScan}
+                            onChange={(e) => setFullScan(e.target.checked)}
+                            className="sr-only"
+                          />
+                          <div
+                            className={`w-11 h-6 rounded-full border-2 transition-colors ${
+                              fullScan
+                                ? "bg-tokyo-accent border-tokyo-accent"
+                                : "bg-tokyo-bg border-tokyo-selection"
+                            }`}
+                          >
+                            <div
+                              className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                                fullScan ? "translate-x-5" : "translate-x-0"
+                              }`}
+                            ></div>
+                          </div>
+                        </label>
+                      </div>
                     </div>
-                  )}
-                  <div className="mt-2 text-xs text-tokyo-comment">
-                    <p className="font-medium">Supported formats:</p>
-                    <ul className="ml-4 mt-1 space-y-1">
-                      <li>• https://github.com/owner/repo</li>
-                      <li>• owner/repo</li>
-                      <li>• git@github.com:owner/repo.git</li>
-                      <li>• https://api.github.com/repos/owner/repo</li>
-                    </ul>
+
+                    {fullScan && (
+                      <div className="mt-3 p-3 bg-tokyo-bg rounded border border-tokyo-selection">
+                        <div className="flex items-center text-tokyo-fg-bright text-xs">
+                          <svg
+                            className="w-4 h-4 mr-2 text-yellow-500"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                            />
+                          </svg>
+                          <span>
+                            Full scan may use 10-30 API calls vs 2-7 for
+                            root-only
+                          </span>
+                        </div>
+                        <div className="mt-2 text-tokyo-fg text-xs">
+                          <strong>Limits:</strong> Max 20 files, up to 3
+                          directories deep
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

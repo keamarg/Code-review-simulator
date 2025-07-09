@@ -40,7 +40,9 @@ export default function ExamEditor() {
   const [developerLevel, setDeveloperLevel] = useState("intermediate");
   const [duration, setDuration] = useState<number>(10);
   const [description, setDescription] = useState("");
-  const [type, setType] = useState("Standard");
+  const [type, setType] = useState<"Standard" | "Github Repo" | "live-code">(
+    "Standard"
+  );
   const [is_public, setIsPublic] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [isToastVisible, setIsToastVisible] = useState(false);
@@ -54,7 +56,9 @@ export default function ExamEditor() {
       setDeveloperLevel(exam.learning_goals || "intermediate");
       setDuration(!isNaN(Number(exam.duration)) ? Number(exam.duration) : 10);
       setDescription(exam.description || "");
-      setType(exam.type || "Standard");
+      setType(
+        (exam.type as "Standard" | "Github Repo" | "live-code") || "Standard"
+      );
       setIsPublic(exam.is_public || false);
     }
   }, [exam]);
@@ -336,7 +340,11 @@ export default function ExamEditor() {
                 </label>
                 <select
                   value={type}
-                  onChange={(e) => setType(e.target.value)}
+                  onChange={(e) =>
+                    setType(
+                      e.target.value as "Standard" | "Github Repo" | "live-code"
+                    )
+                  }
                   className="w-full px-4 py-2 border border-neutral-30 bg-neutral-20 text-neutral-90 rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
                 >
                   <option value="Standard">Standard</option>

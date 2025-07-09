@@ -62,7 +62,8 @@ const LandingPage: React.FC = () => {
   const handleQuickStart = (
     type: string,
     developerLevel: string,
-    repoUrl?: string
+    repoUrl?: string,
+    fullScan?: boolean
   ) => {
     // Navigate to live page with quick start parameters and auto-start flag
     navigate("/live", {
@@ -72,6 +73,7 @@ const LandingPage: React.FC = () => {
         type,
         developerLevel,
         repoUrl, // Pass the repo URL if provided
+        fullScan, // Pass the fullScan option if provided
       },
     });
   };

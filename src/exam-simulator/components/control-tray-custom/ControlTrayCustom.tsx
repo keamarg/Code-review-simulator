@@ -108,9 +108,16 @@ function ControlTray({
   // New state for pause/resume functionality
   const [hasEverConnected, setHasEverConnected] = useState(false);
 
+  // Track if audio recorder should be started when connection is established
+  const [shouldStartAudioRecorder, setShouldStartAudioRecorder] =
+    useState(false);
+
+  // Track if this is a quick start mode (where streams are already set up)
+  const [isQuickStartMode, setIsQuickStartMode] = useState(false);
+
   const { client, connected, disconnect, volume } = useGenAILiveContext();
 
-  // Effect to restore screen sharing state on component remount
+  // Effect to restore screen sharing state on component remount and detect quick start mode
   useEffect(() => {
     const videoElement = videoRef.current;
     if (videoElement && videoElement.srcObject) {
@@ -122,6 +129,34 @@ function ControlTray({
         setActiveVideoStream(stream);
         setIsScreenSharing(true);
         setScreenSharingSource(getScreenSharingSourceName(stream));
+
+        // This indicates we're in quick start mode where streams are already set up
+        setIsQuickStartMode(true);
+
+        // For quick start mode, we need to get the audio stream and start recording immediately
+        // when the connection is established, not wait for user interaction
+        navigator.mediaDevices
+          .getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+            },
+          })
+          .then((audioStream) => {
+            console.log(
+              "🎤 Quick start mode: Got audio stream, storing for recording"
+            );
+            audioStreamRef.current = audioStream;
+            setShouldStartAudioRecorder(true);
+          })
+          .catch((error) => {
+            console.error(
+              "❌ Quick start mode: Failed to get audio stream:",
+              error
+            );
+          });
       }
     }
   }, []); // Empty dependency array ensures this runs only on mount
@@ -305,6 +340,39 @@ function ControlTray({
     };
   }, [connected, activeVideoStream, client, videoRef]);
 
+  // Start audio recorder when connection is established
+  useEffect(() => {
+    const startAudioRecorderWhenConnected = async () => {
+      if (connected && shouldStartAudioRecorder && audioStreamRef.current) {
+        try {
+          // Only start if not already started
+          if (!audioRecorder.recording) {
+            console.log(
+              `🎤 Starting audio recorder after connection established (${
+                isQuickStartMode ? "Quick Start" : "Custom"
+              } mode)`
+            );
+            await audioRecorder.start(audioStreamRef.current);
+            audioRecorder.on("data", audioDataHandler);
+            audioRecorder.on("volume", audioVolumeHandler);
+          }
+        } catch (error) {
+          console.error("❌ Failed to start audio recorder:", error);
+        }
+        setShouldStartAudioRecorder(false);
+      }
+    };
+
+    startAudioRecorderWhenConnected();
+  }, [
+    connected,
+    shouldStartAudioRecorder,
+    audioRecorder,
+    audioDataHandler,
+    audioVolumeHandler,
+    isQuickStartMode,
+  ]);
+
   // Ensure microphone stream is stopped when component unmounts (e.g., navigation away)
   useEffect(() => {
     return () => {
@@ -450,13 +518,26 @@ function ControlTray({
     setButtonIsOn(true);
 
     try {
-      // Start the review first, then start audio recording after connection is established
-      onButtonClicked(true);
+      // For custom mode, set flag to start audio recorder when connection is established
+      if (!isQuickStartMode) {
+        setShouldStartAudioRecorder(true);
+      } else {
+        // For quick start mode, start audio recorder immediately
+        try {
+          await audioRecorder.start(audioStreamRef.current);
+          audioRecorder.on("data", audioDataHandler);
+          audioRecorder.on("volume", audioVolumeHandler);
+        } catch (audioError) {
+          setButtonIsOn(false);
+          alert(
+            "Failed to start microphone. Please check permissions and try again."
+          );
+          return;
+        }
+      }
 
-      // Start audio recording after the review/connection is established
-      await audioRecorder.start(audioStreamRef.current);
-      audioRecorder.on("data", audioDataHandler);
-      audioRecorder.on("volume", audioVolumeHandler);
+      // Start the review
+      onButtonClicked(true);
     } catch (error) {
       setButtonIsOn(false);
       alert("Failed to start the code review. Please try again.");
@@ -487,16 +568,23 @@ function ControlTray({
         setIsScreenSharing(true);
         setScreenSharingSource(getScreenSharingSourceName(videoStream));
 
-        // Start audio recording now that we have both permissions
+        // For custom mode, set flag to start audio recorder when connection is established
         if (audioStreamRef.current) {
-          try {
-            await audioRecorder.start(audioStreamRef.current);
-          } catch (audioError) {
-            setButtonIsOn(false);
-            alert(
-              "Failed to start microphone. Please check permissions and try again."
-            );
-            return;
+          if (!isQuickStartMode) {
+            setShouldStartAudioRecorder(true);
+          } else {
+            // For quick start mode, start audio recorder immediately
+            try {
+              await audioRecorder.start(audioStreamRef.current);
+              audioRecorder.on("data", audioDataHandler);
+              audioRecorder.on("volume", audioVolumeHandler);
+            } catch (audioError) {
+              setButtonIsOn(false);
+              alert(
+                "Failed to start microphone. Please check permissions and try again."
+              );
+              return;
+            }
           }
         }
 
@@ -553,10 +641,23 @@ function ControlTray({
       // Store audio stream for cleanup
       audioStreamRef.current = audioStream;
 
-      // Start audio recording from audio stream
-      await audioRecorder.start(audioStream);
-      audioRecorder.on("data", audioDataHandler);
-      audioRecorder.on("volume", audioVolumeHandler);
+      // For custom mode, set flag to start audio recorder when connection is established
+      if (!isQuickStartMode) {
+        setShouldStartAudioRecorder(true);
+      } else {
+        // For quick start mode, start audio recorder immediately
+        try {
+          await audioRecorder.start(audioStream);
+          audioRecorder.on("data", audioDataHandler);
+          audioRecorder.on("volume", audioVolumeHandler);
+        } catch (audioError) {
+          setButtonIsOn(false);
+          alert(
+            "Failed to start microphone. Please check permissions and try again."
+          );
+          return;
+        }
+      }
 
       // Start the review
       try {
@@ -634,20 +735,26 @@ function ControlTray({
         // Store audio stream for cleanup
         audioStreamRef.current = audioStream;
 
-        // Start audio recording using only the audio stream
-        try {
-          await audioRecorder.start(audioStream);
-          audioRecorder.on("data", audioDataHandler);
-          audioRecorder.on("volume", audioVolumeHandler);
-        } catch (audioError) {
-          setButtonIsOn(false);
-          alert(
-            "Failed to start microphone. Please check permissions and try again."
-          );
-          return;
+        // For custom mode, set flag to start audio recorder when connection is established
+        // For quick start mode, audio recorder should already be set up
+        if (!isQuickStartMode) {
+          setShouldStartAudioRecorder(true);
+        } else {
+          // For quick start mode, start audio recorder immediately
+          try {
+            await audioRecorder.start(audioStream);
+            audioRecorder.on("data", audioDataHandler);
+            audioRecorder.on("volume", audioVolumeHandler);
+          } catch (audioError) {
+            setButtonIsOn(false);
+            alert(
+              "Failed to start microphone. Please check permissions and try again."
+            );
+            return;
+          }
         }
 
-        // Start the review after both screen sharing and audio are set up
+        // Start the review
         try {
           onButtonClicked(true);
         } catch (error) {
@@ -809,21 +916,19 @@ function ControlTray({
     }
 
     try {
-      // Stop current video stream
-      activeVideoStream.getTracks().forEach((track) => {
-        track.stop();
-      });
-
-      // Request new screen sharing
+      // Ask the user for a new screen (tab / window / monitor)
       const newVideoStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
       });
 
-      // Set up new video stream
+      // Replace the current stream on the video element *before* stopping the old one
       const videoOnlyStream = new MediaStream(newVideoStream.getVideoTracks());
       setActiveVideoStream(videoOnlyStream);
       onVideoStreamChange(videoOnlyStream);
       setScreenSharingSource(getScreenSharingSourceName(newVideoStream));
+
+      // Now that the replacement is active we can safely stop the old tracks
+      activeVideoStream.getTracks().forEach((track) => track.stop());
     } catch (error) {
       if (error instanceof DOMException && error.name === "NotAllowedError") {
         alert(

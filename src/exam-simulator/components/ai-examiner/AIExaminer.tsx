@@ -60,6 +60,8 @@ function AIExaminerDisplayComponent({
       }}
     >
       <ReactMarkdown>{studentTask}</ReactMarkdown>
+      {/* Gradient overlay to indicate more content below */}
+      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-neutral-15 to-transparent pointer-events-none rounded-b-md"></div>
     </div>
   );
 }

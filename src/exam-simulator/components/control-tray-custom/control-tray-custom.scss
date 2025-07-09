@@ -42,12 +42,15 @@
   }
 
   .connection-container {
-
     .connection-button-container {
       border-radius: 27px;
       border: 1px solid var(--Neutral-30);
       padding: 10px;
     }
+  }
+
+  .connection-button-container {
+    margin-top: 24px;
 
     .text-indicator {
       font-size: 11px;

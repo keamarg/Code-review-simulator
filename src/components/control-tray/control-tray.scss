@@ -127,6 +127,7 @@
     justify-content: center;
     align-items: center;
     gap: 4px;
+    margin-top: 24px;
 
     .connection-button-container {
       border-radius: 27px;
@@ -161,7 +162,7 @@
 
   transition: all 0.6s ease-in;
 
-  &>* {
+  & > * {
     display: flex;
     align-items: center;
     flex-direction: column;

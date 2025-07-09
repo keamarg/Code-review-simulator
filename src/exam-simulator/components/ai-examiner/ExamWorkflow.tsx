@@ -336,6 +336,39 @@ export function ExamWorkflow({
     handleAutomaticReconnect, // Add handleAutomaticReconnect to dependencies
   ]);
 
+  // ------------------------------------------------------------
+  // Handle unexpected websocket close (e.g. during Change-Screen)
+  useEffect(() => {
+    if (!client) return;
+
+    const handleClose = () => {
+      console.log(
+        "🔴 GenAI Live connection closed – enabling reconnection flow"
+      );
+      // Mark connection as inactive so the normal connection effect can run again
+      activeConnectionRef.current = false;
+      isConnectingRef.current = false;
+
+      // If the user hasn’t deliberately paused, show the banner and let the
+      // existing automatic-reconnect logic kick in.
+      if (examIntentStarted && !isDeliberatelyPaused) {
+        setShowReconnectionBanner(true);
+        handleAutomaticReconnect();
+      }
+    };
+
+    client.on("close", handleClose);
+    return () => {
+      client.off("close", handleClose);
+    };
+  }, [
+    client,
+    examIntentStarted,
+    isDeliberatelyPaused,
+    handleAutomaticReconnect,
+  ]);
+  // ------------------------------------------------------------
+
   // Unified handler for both timer expiration and manual stop
   const handleSessionEnd = useCallback(
     async (reason: "timer" | "manual") => {
@@ -491,6 +524,25 @@ export function ExamWorkflow({
     fetchExamSimulator();
   }, [examId, quickStartExam]);
 
+  // This effect will merge the `fullScan` property into the `examSimulator`
+  // when it's provided via the `quickStartExam` prop in a custom flow.
+  useEffect(() => {
+    if (
+      examSimulator &&
+      !quickStartExam?.type && // This is a custom flow, not a quick-start exam
+      quickStartExam?.fullScan !== undefined &&
+      examSimulator.fullScan !== quickStartExam.fullScan
+    ) {
+      setExamSimulator(
+        (prev) =>
+          ({
+            ...prev,
+            fullScan: quickStartExam.fullScan,
+          } as ExamSimulator)
+      );
+    }
+  }, [quickStartExam?.fullScan, examSimulator]);
+
   // Initialize repo URL from quick start exam data if available
   useEffect(() => {
     if (quickStartExam?.repoUrl && quickStartExam.type === "Github Repo") {
@@ -507,7 +559,7 @@ export function ExamWorkflow({
 
   // Prepare exam content (questions, prompt)
   const prepareExamContent = useCallback(async () => {
-    if (!examSimulator || isPreparingContentRef.current) return;
+    if (isPreparingContentRef.current || !examSimulator) return;
 
     isPreparingContentRef.current = true;
     setIsLoadingPrompt(true);
@@ -530,7 +582,14 @@ export function ExamWorkflow({
 
         const githubQuestionsResult = await getRepoQuestions(
           repoUrl,
-          examSimulator.learning_goals
+          examSimulator.learning_goals,
+          examSimulator?.fullScan
+            ? {
+                fullScan: examSimulator.fullScan,
+                maxFiles: examSimulator.fullScan ? 20 : 5,
+                maxDepth: 3,
+              }
+            : undefined
         );
         setGithubQuestions(githubQuestionsResult);
 

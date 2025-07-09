@@ -174,6 +174,7 @@ export default function LivePage() {
     type?: string;
     developerLevel?: string;
     repoUrl?: string;
+    fullScan?: boolean;
   } | null;
 
   // Generate a temporary ID for quick start
@@ -232,6 +233,11 @@ export default function LivePage() {
 
   // Store client reference for session termination
   const [genaiClient, setGenaiClient] = useState<any>(null);
+  const genaiClientRef = useRef(genaiClient);
+  genaiClientRef.current = genaiClient;
+
+  const videoStreamRef = useRef(videoStream);
+  videoStreamRef.current = videoStream;
 
   // Track task loading state
   const [isTaskLoading, setIsTaskLoading] = useState(false);
@@ -306,6 +312,7 @@ export default function LivePage() {
         created_at: new Date().toISOString(),
         user_id: "quickstart",
         repoUrl: quickStartData.repoUrl, // Add repo URL for GitHub type
+        fullScan: quickStartData.fullScan, // Add fullScan option
       };
       setQuickStartExam(tempExam);
     }
@@ -348,19 +355,19 @@ export default function LivePage() {
   // This is the one true cleanup function.
   const shutdownSession = useCallback(() => {
     // Stop all media tracks
-    if (videoStream) {
-      videoStream.getTracks().forEach((track) => track.stop());
+    if (videoStreamRef.current) {
+      videoStreamRef.current.getTracks().forEach((track) => track.stop());
       setVideoStream(null);
     }
     // Terminate the AI session
-    if (genaiClient) {
-      genaiClient.terminateSession();
+    if (genaiClientRef.current) {
+      genaiClientRef.current.terminateSession();
     }
     // Update global state
     sessionService.stopReview();
     // Reset component state
     setExamIntentStarted(false);
-  }, [genaiClient, videoStream, setVideoStream]);
+  }, [setVideoStream]);
 
   const handleEndReview = () => {
     // This function is now just a wrapper for UI state changes.
@@ -550,10 +557,21 @@ export default function LivePage() {
   const handleCustomStartReview = (
     reviewType: string,
     developerLevel: string,
-    repoUrl?: string
+    repoUrl?: string,
+    fullScan?: boolean
   ) => {
     // store repo url for ExamWorkflow usage
     setCustomRepoUrl(repoUrl);
+
+    // Create a unified exam object that merges the stored exam data with user selections
+    if (customExam) {
+      const unifiedExam = {
+        ...customExam,
+        repoUrl: repoUrl,
+        fullScan: fullScan,
+      };
+      setQuickStartExam(unifiedExam);
+    }
 
     // Trigger automatic start just like quick-start flow
     shouldAutoTriggerRef.current = true;
