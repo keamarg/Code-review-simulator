@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import twoScreenSetupImage from "../../../two-screen-setup.jpg";
+import { ExamSimulator } from "../../../types/ExamSimulator";
+import { getExaminerQuestions } from "../../utils/getExaminerQuestions";
+import getRepoQuestions from "../../utils/getGithubRepoFiles.js";
 
 interface QuickStartModalProps {
   isOpen: boolean;
@@ -9,33 +12,93 @@ interface QuickStartModalProps {
     developerLevel: string,
     repoUrl?: string
   ) => void;
+  fixedType?: string;
+  fixedDeveloperLevel?: string;
+  examDescription?: string;
+  examTitle?: string;
 }
 
 export const QuickStartModal: React.FC<QuickStartModalProps> = ({
   isOpen,
   onClose,
   onStartReview,
+  fixedType,
+  fixedDeveloperLevel,
+  examDescription,
+  examTitle,
 }) => {
-  const [type, setType] = useState("Standard");
-  const [developerLevel, setDeveloperLevel] = useState("intermediate");
+  const isCustomMode = !!fixedType;
+
+  const [type, setType] = useState(fixedType || "Standard");
+  const [developerLevel, setDeveloperLevel] = useState(
+    fixedDeveloperLevel || "intermediate"
+  );
   const [repoUrl, setRepoUrl] = useState("");
+  const [repoUrlError, setRepoUrlError] = useState("");
+
+  const getRepoUrlError = (url: string): string => {
+    if (!url.trim()) {
+      return "Please enter a GitHub repository URL";
+    }
+
+    try {
+      const cleanUrl = url.trim().replace(/\/$/, "");
+      const patterns = [
+        /^https?:\/\/github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
+        /^https?:\/\/api\.github\.com\/repos\/([^/]+)\/([^/]+)(?:\/.*)?$/,
+        /^git@github\.com:([^/]+)\/([^/]+)(?:\.git)?$/,
+        /^([^/\s]+)\/([^/\s]+)$/,
+      ];
+
+      const hasValidFormat = patterns.some((pattern) =>
+        cleanUrl.match(pattern)
+      );
+      if (!hasValidFormat) {
+        return (
+          "Invalid GitHub repository URL format. Please use one of these formats:\n" +
+          "• https://github.com/owner/repo\n" +
+          "• https://api.github.com/repos/owner/repo\n" +
+          "• git@github.com:owner/repo.git\n" +
+          "• owner/repo"
+        );
+      }
+      return ""; // No error
+    } catch (error) {
+      return "Invalid repository URL format";
+    }
+  };
+
+  useEffect(() => {
+    if (type === "Github Repo") {
+      const error = getRepoUrlError(repoUrl);
+      setRepoUrlError(error);
+    } else {
+      setRepoUrlError("");
+    }
+  }, [repoUrl, type]);
+
+  // Valid GitHub URL
+  const repoValid = useMemo(() => {
+    if (type !== "Github Repo") return true;
+    if (!repoUrl.trim()) return false;
+    return getRepoUrlError(repoUrl) === "";
+  }, [type, repoUrl]);
 
   const handleStartReview = () => {
-    // Validate GitHub repo URL if needed
-    if (type === "Github Repo" && !repoUrl.trim()) {
-      alert("Please enter a GitHub repository URL before starting.");
-      return;
-    }
+    if (type === "Github Repo" && !repoValid) return;
 
     onStartReview(type, developerLevel, type === "Github Repo" ? repoUrl : "");
   };
 
   const handleTypeChange = (newType: string) => {
     setType(newType);
-    // Reset repo URL when switching away from GitHub type
     if (newType !== "Github Repo") {
       setRepoUrl("");
     }
+  };
+
+  const handleRepoUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRepoUrl(e.target.value);
   };
 
   if (!isOpen) return null;
@@ -46,21 +109,7 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
         {/* Header */}
         <div className="bg-tokyo-bg-darker rounded-t-lg px-6 py-4 border-b border-tokyo-selection">
           <h2 className="text-xl font-bold text-tokyo-fg-bright flex items-center">
-            <svg
-              className="h-6 w-6 mr-3"
-              style={{ color: "var(--tokyo-accent)" }}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
-            </svg>
-            Quick Start Code Review
+            {isCustomMode ? "Custom Code Review" : "Quick Start Code Review"}
           </h2>
           <p className="text-tokyo-comment mt-1">
             Set up your code review preferences and start immediately
@@ -71,71 +120,108 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
         <div className="p-6">
           <div className="flex gap-6">
             {/* Left Side - Form Fields */}
-            <div className="flex-1">
-              {/* Developer Experience Dropdown - MOVED TO FIRST */}
-              <div className="mb-6">
-                <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
-                  <div className="flex items-center">
-                    <svg
-                      className="h-4 w-4 mr-2 text-tokyo-comment"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                      />
-                    </svg>
-                    Developer Experience Level
-                  </div>
-                </label>
-                <select
-                  value={developerLevel}
-                  onChange={(e) => setDeveloperLevel(e.target.value)}
-                  className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
-                >
-                  <option value="junior">Junior Developer</option>
-                  <option value="intermediate">Intermediate Developer</option>
-                  <option value="senior">Senior Developer</option>
-                </select>
-                <p className="text-xs text-tokyo-comment mt-1">
-                  This will determine the depth and style of feedback provided
-                  during the code review.
-                </p>
-              </div>
+            <div
+              className="flex-1 flex flex-col pr-2"
+              style={{ maxHeight: "70vh" }}
+            >
+              {isCustomMode && (
+                <div className="mb-4 text-sm space-y-1">
+                  <p>
+                    <span className="font-medium">Title:</span> {examTitle}
+                  </p>
+                  <p>
+                    <span className="font-medium">Type:</span> {fixedType}
+                  </p>
+                  <p>
+                    <span className="font-medium">Level:</span>{" "}
+                    {fixedDeveloperLevel}
+                  </p>
+                </div>
+              )}
 
-              {/* Code Review Type Dropdown - MOVED TO SECOND */}
-              <div className="mb-6">
-                <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
-                  <div className="flex items-center">
-                    <svg
-                      className="h-4 w-4 mr-2 text-tokyo-comment"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                    Code review type
+              {!isCustomMode && (
+                <div className="mb-6">
+                  <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
+                    <div className="flex items-center">
+                      <svg
+                        className="h-4 w-4 mr-2 text-tokyo-comment"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                        />
+                      </svg>
+                      Developer Experience Level
+                    </div>
+                  </label>
+                  <select
+                    value={developerLevel}
+                    onChange={(e) => setDeveloperLevel(e.target.value)}
+                    className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
+                    disabled={!!fixedDeveloperLevel}
+                  >
+                    <option value="junior">Junior Developer</option>
+                    <option value="intermediate">Intermediate Developer</option>
+                    <option value="senior">Senior Developer</option>
+                  </select>
+                  <p className="text-xs text-tokyo-comment mt-1">
+                    This will determine the depth and style of feedback provided
+                    during the code review.
+                  </p>
+                </div>
+              )}
+
+              {isCustomMode && examDescription && (
+                <div className="mb-6 flex-grow flex flex-col overflow-hidden">
+                  <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
+                    Description
+                  </label>
+                  <div className="relative flex-grow overflow-y-auto pr-2">
+                    <p className="text-tokyo-fg whitespace-pre-wrap">
+                      {examDescription}
+                    </p>
+                    <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-tokyo-bg-lighter to-transparent pointer-events-none"></div>
                   </div>
-                </label>
-                <select
-                  value={type}
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                  className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
-                >
-                  <option value="Standard">Standard</option>
-                  <option value="Github Repo">Github Repo</option>
-                </select>
-              </div>
+                </div>
+              )}
+
+              {/* Code Review Type Dropdown */}
+              {!isCustomMode && (
+                <div className="mb-6">
+                  <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
+                    <div className="flex items-center">
+                      <svg
+                        className="h-4 w-4 mr-2 text-tokyo-comment"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      Code review type
+                    </div>
+                  </label>
+                  <select
+                    value={type}
+                    onChange={(e) => handleTypeChange(e.target.value)}
+                    className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
+                    disabled={isCustomMode}
+                  >
+                    <option value="Standard">Standard</option>
+                    <option value="Github Repo">Github Repo</option>
+                  </select>
+                </div>
+              )}
 
               {/* GitHub Repository URL Input - CONDITIONALLY RENDERED */}
               {type === "Github Repo" && (
@@ -161,18 +247,31 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
                   <input
                     type="text"
                     value={repoUrl}
-                    onChange={(e) => setRepoUrl(e.target.value)}
-                    placeholder="https://github.com/user/repository"
-                    className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
+                    onChange={handleRepoUrlChange}
+                    placeholder="https://github.com/user/repository or user/repository"
+                    className={`w-full px-4 py-2 border bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors ${
+                      repoUrlError ? "border-red-500" : "border-tokyo-selection"
+                    }`}
                   />
-                  <p className="text-xs text-tokyo-comment mt-1">
-                    Enter the full GitHub repository URL you want to review
-                  </p>
+                  {repoUrlError && (
+                    <div className="mt-2 text-sm text-red-400 whitespace-pre-line">
+                      {repoUrlError}
+                    </div>
+                  )}
+                  <div className="mt-2 text-xs text-tokyo-comment">
+                    <p className="font-medium">Supported formats:</p>
+                    <ul className="ml-4 mt-1 space-y-1">
+                      <li>• https://github.com/owner/repo</li>
+                      <li>• owner/repo</li>
+                      <li>• git@github.com:owner/repo.git</li>
+                      <li>• https://api.github.com/repos/owner/repo</li>
+                    </ul>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Right Side - Two-Screen Setup Recommendation */}
+            {/* Right Side - Two-Screen Setup Recommendation (always) */}
             <div className="flex-1">
               <div className="bg-tokyo-bg-darker rounded-lg p-4 border border-tokyo-selection h-full flex flex-col">
                 <h3 className="text-tokyo-fg-bright text-sm font-medium mb-3 flex items-center">
@@ -198,14 +297,10 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
                     className="w-full h-auto rounded-md border border-tokyo-selection"
                   />
                 </div>
-                <p className="text-xs text-tokyo-comment leading-relaxed">
-                  For the best experience, use{" "}
-                  <span className="text-tokyo-fg-bright font-medium">
-                    two screens
-                  </span>
-                  : keep the AI code reviewer on one screen while your code
-                  editor is on the other. This allows for seamless interaction
-                  during the review session.
+                <p className="text-tokyo-comment text-xs mb-4">
+                  For the best experience, we recommend using a two-screen setup
+                  so you can share your code on one screen while viewing the AI
+                  suggestions on the other.
                 </p>
               </div>
             </div>
@@ -239,6 +334,7 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
             style={{
               background: "linear-gradient(to right, #f97316, #ea580c)",
             }}
+            disabled={type === "Github Repo" && !repoValid}
           >
             <svg
               className="h-6 w-6 mr-2"

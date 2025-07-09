@@ -54,7 +54,7 @@ export function createLiveConfig(
         VAD_CONFIG.endOfSpeechSensitivity as keyof typeof EndSensitivity
       ];
 
-  // The main LiveConnectConfig object with session resumption enabled
+  // The main LiveConnectConfig object
   const liveConfig: LiveConnectConfig = {
     // Flattened config structure to avoid deprecation warning
     responseModalities: [Modality.AUDIO], // Audio-only for stability
@@ -68,10 +68,17 @@ export function createLiveConfig(
     systemInstruction: {
       parts: [{ text: promptText }],
     },
+    // Enable session resumption for pause/resume and network reconnection
+    sessionResumption: {
+      // Enable the server to send session resumption handles
+    },
+    // Enable context window compression to prevent session timeouts
+    // This allows unlimited session duration as recommended by Google
+    contextWindowCompression: {
+      slidingWindow: {},
+    },
     // Enable output audio transcription to capture AI speech as text
     outputAudioTranscription: true, // Re-enabled since disabling didn't fix the cutoff issue
-    // Enable session resumption based on centralized config
-    ...(AI_CONFIG.SESSION_RESUMPTION_ENABLED ? { sessionResumption: {} } : {}),
     // Configure Voice Activity Detection using centralized config values
     // These settings prevent the AI from cutting itself off mid-sentence
     realtimeInputConfig: {

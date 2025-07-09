@@ -39,44 +39,70 @@ function getLevelSpecificGuidance(level) {
   }
 }
 
-// Function to detect the project type and main code directory
-async function detectProjectStructure(owner, repoName) {
-  // Only check the root directory
-  // const candidatePaths = [
-  //   "app/src/main/java",
-  //   "app/src/main/kotlin",
-  //   "src/main/java",
-  //   "src/main/kotlin",
-  //   "src",
-  //   "lib",
-  //   "app",
-  //   "cmd",
-  //   "pkg",
-  //   "internal",
-  //   "components",
-  //   "pages",
-  // ];
+// New function to normalize GitHub URLs and extract repo info
+function parseGitHubUrl(url) {
+  // Remove trailing slash and whitespace
+  const cleanUrl = url.trim().replace(/\/$/, "");
 
-  // Always check the root
-  try {
-    const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/contents/`;
-    const response = await fetch(apiUrl);
-    if (response.ok) {
-      const items = await response.json();
-      const hasCodeFiles = items.some(
-        (item) => item.type === "file" && isCodeFile(item.name)
-      );
-      if (hasCodeFiles || items.some((item) => item.type === "dir")) {
-        return ".";
-      }
+  // Handle different GitHub URL formats
+  const patterns = [
+    // Standard web URLs
+    /^https?:\/\/github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
+    // API URLs
+    /^https?:\/\/api\.github\.com\/repos\/([^/]+)\/([^/]+)(?:\/.*)?$/,
+    // SSH URLs
+    /^git@github\.com:([^/]+)\/([^/]+)(?:\.git)?$/,
+    // Short format (owner/repo)
+    /^([^/\s]+)\/([^/\s]+)$/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = cleanUrl.match(pattern);
+    if (match) {
+      const owner = match[1];
+      let repoName = match[2];
+
+      // Remove common suffixes
+      repoName = repoName.replace(/\.git$/, "");
+      repoName = repoName.replace(/\/.*$/, ""); // Remove path after repo name
+
+      return { owner, repoName };
     }
-  } catch (error) {
-    // If even the root fails, just return "." as a last resort
-    return ".";
   }
 
-  // If no specific structure found, return root
-  return ".";
+  throw new Error(
+    "Invalid GitHub repository URL format. Please use one of these formats:\n" +
+      "• https://github.com/owner/repo\n" +
+      "• https://api.github.com/repos/owner/repo\n" +
+      "• git@github.com:owner/repo.git\n" +
+      "• owner/repo"
+  );
+}
+
+// Enhanced function to check for rate limit errors
+function isRateLimitError(response) {
+  if (response.status === 403) {
+    // Check for rate limit in response headers or body
+    const remainingHeader = response.headers.get("X-RateLimit-Remaining");
+    const resetHeader = response.headers.get("X-RateLimit-Reset");
+
+    if (remainingHeader === "0" || resetHeader) {
+      return true;
+    }
+  }
+  return response.status === 429; // Too Many Requests
+}
+
+// Enhanced function to get human-readable reset time
+function getRateLimitResetTime(response) {
+  const resetHeader = response.headers.get("X-RateLimit-Reset");
+  if (resetHeader) {
+    const resetTime = new Date(parseInt(resetHeader) * 1000);
+    const now = new Date();
+    const minutesUntilReset = Math.ceil((resetTime - now) / 60000);
+    return minutesUntilReset > 0 ? minutesUntilReset : 1;
+  }
+  return 60; // Default to 60 minutes if can't determine
 }
 
 // Function to check if a file is a code file
@@ -132,122 +158,160 @@ function isCodeFile(filename) {
 }
 
 async function getRepoFiles(repoUrl) {
-  // Extract the owner and repo name from the URL.
-  const regex = /github\.com\/([^/]+)\/([^/]+)/;
-  const match = repoUrl.match(regex);
-  if (!match) {
-    throw new Error("Invalid GitHub repository URL");
-  }
-  const owner = match[1];
-  const repoName = match[2].replace(/\.git$/, ""); // Remove .git suffix if present
+  console.log(`🚀 GitHub repo processing: ${repoUrl}`);
 
-  // Detect the project structure automatically
-  const basePath = await detectProjectStructure(owner, repoName);
+  try {
+    // Parse and normalize the URL
+    const { owner, repoName } = parseGitHubUrl(repoUrl);
 
-  let result = "";
-  // Set delay in milliseconds
-  const delayMs = 1500;
-  const maxFiles = 20; // Limit to prevent overwhelming the AI
-  let fileCount = 0;
+    // Simple approach: try once, fail cleanly
+    console.log(`🔍 Checking repository '${owner}/${repoName}'...`);
 
-  // Helper function to delay execution
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  // Recursive function to process directories
-  async function processDirectory(path, depth = 0) {
-    // Limit recursion depth to prevent infinite loops
-    if (depth > 5 || fileCount >= maxFiles) {
-      return;
-    }
-
-    const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
-    const response = await fetch(apiUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${apiUrl}: ${response.status}`);
-    }
-    const items = await response.json();
-
-    // Sort items to process files first, then directories
-    const sortedItems = items.sort((a, b) => {
-      if (a.type === "file" && b.type === "dir") return -1;
-      if (a.type === "dir" && b.type === "file") return 1;
-      return 0;
-    });
-
-    for (const item of sortedItems) {
-      if (fileCount >= maxFiles) {
-        break;
-      }
-
-      // Delay before processing each item
-      await delay(delayMs);
-
-      if (item.type === "dir") {
-        // Skip common non-code directories
-        const skipDirs = [
-          "node_modules",
-          ".git",
-          "target",
-          "build",
-          "dist",
-          ".gradle",
-          "vendor",
-          "__pycache__",
-        ];
-        if (!skipDirs.includes(item.name)) {
-          await processDirectory(item.path, depth + 1);
-        }
-      } else if (item.type === "file" && isCodeFile(item.name)) {
-        // Only process code files
-        try {
-          const fileResponse = await fetch(item.download_url);
-          if (!fileResponse.ok) {
-            console.warn(`Failed to fetch file ${item.path}`);
-            continue;
-          }
-          let content = await fileResponse.text();
-
-          // Limit file size to prevent overwhelming the AI
-          if (content.length > 5000) {
-            content =
-              content.substring(0, 5000) + "\n... (file truncated for brevity)";
-          }
-
-          // Remove import/include lines to reduce noise
-          content = content
-            .split("\n")
-            .filter((line) => {
-              const trimmed = line.trim();
-              return (
-                (!trimmed.startsWith("import ") &&
-                  !trimmed.startsWith("#include") &&
-                  !trimmed.startsWith("using ") &&
-                  !trimmed.startsWith("require(") &&
-                  !trimmed.startsWith("from ")) ||
-                trimmed.startsWith("from typing")
-              );
-            })
-            .join("\n");
-
-          // Append the formatted string for this file
-          result += "```\n" + item.path + "\n```\n" + content + "\n```\n\n";
-          fileCount++;
-        } catch (error) {
-          console.warn(`Error processing file ${item.path}:`, error);
-        }
-      }
-    }
-  }
-
-  await processDirectory(basePath);
-
-  if (result.trim() === "") {
-    throw new Error(
-      "No code files found in the repository. Please check if the repository URL is correct and contains source code."
+    // Test repository access
+    const testResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repoName}`
     );
-  }
 
-  return result;
+    // Check for rate limit
+    if (isRateLimitError(testResponse)) {
+      const resetMinutes = getRateLimitResetTime(testResponse);
+      throw new Error(
+        `🚨 GitHub API rate limit exceeded.\n\n` +
+          `Please try again in ${resetMinutes} minutes.\n\n` +
+          `GitHub allows 60 requests per hour for unauthenticated users.`
+      );
+    }
+
+    // Check for other errors
+    if (!testResponse.ok) {
+      if (testResponse.status === 404) {
+        throw new Error(
+          `❌ Repository '${owner}/${repoName}' not found.\n\n` +
+            `Please check:\n` +
+            `• Repository name is spelled correctly\n` +
+            `• Repository exists and is public\n` +
+            `• You have permission to access it`
+        );
+      } else if (testResponse.status === 403) {
+        throw new Error(
+          `❌ Repository '${owner}/${repoName}' is private or access denied.\n\n` +
+            `This tool only works with public repositories.`
+        );
+      } else {
+        throw new Error(
+          `❌ Failed to access repository (HTTP ${testResponse.status}).\n\n` +
+            `Please try again later.`
+        );
+      }
+    }
+
+    console.log(`✅ Repository accessible, getting files...`);
+
+    // Get root directory contents
+    const rootResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repoName}/contents/`
+    );
+
+    // Check for rate limit on second call
+    if (isRateLimitError(rootResponse)) {
+      const resetMinutes = getRateLimitResetTime(rootResponse);
+      throw new Error(
+        `🚨 GitHub API rate limit exceeded.\n\n` +
+          `Please try again in ${resetMinutes} minutes.`
+      );
+    }
+
+    if (!rootResponse.ok) {
+      throw new Error(
+        `❌ Failed to access repository contents (HTTP ${rootResponse.status}).\n\n` +
+          `Please try again later.`
+      );
+    }
+
+    const items = await rootResponse.json();
+
+    // Process only root directory files
+    const codeFiles = items
+      .filter((item) => item.type === "file" && isCodeFile(item.name))
+      .slice(0, 5); // Max 5 files
+
+    if (codeFiles.length === 0) {
+      throw new Error(
+        `❌ No code files found in the root directory of '${owner}/${repoName}'.\n\n` +
+          `This tool only checks the root directory to minimize API usage.\n\n` +
+          `Please try a repository that has code files in the root folder.`
+      );
+    }
+
+    console.log(`📄 Processing ${codeFiles.length} files...`);
+
+    let result = "";
+    for (const item of codeFiles) {
+      try {
+        const fileResponse = await fetch(item.download_url);
+
+        if (isRateLimitError(fileResponse)) {
+          const resetMinutes = getRateLimitResetTime(fileResponse);
+          throw new Error(
+            `🚨 GitHub API rate limit exceeded.\n\n` +
+              `Please try again in ${resetMinutes} minutes.`
+          );
+        }
+
+        if (!fileResponse.ok) {
+          console.warn(
+            `⚠️ Skipping ${item.name} (HTTP ${fileResponse.status})`
+          );
+          continue;
+        }
+
+        let content = await fileResponse.text();
+
+        // Limit file size
+        if (content.length > 3000) {
+          content = content.substring(0, 3000) + "\n... (file truncated)";
+        }
+
+        // Remove imports to reduce noise
+        content = content
+          .split("\n")
+          .filter((line) => {
+            const trimmed = line.trim();
+            return (
+              (!trimmed.startsWith("import ") &&
+                !trimmed.startsWith("#include") &&
+                !trimmed.startsWith("using ") &&
+                !trimmed.startsWith("require(") &&
+                !trimmed.startsWith("from ")) ||
+              trimmed.startsWith("from typing")
+            );
+          })
+          .join("\n");
+
+        result += "```\n" + item.path + "\n```\n" + content + "\n```\n\n";
+        console.log(`✅ Processed ${item.name}`);
+      } catch (error) {
+        if (error.message.includes("rate limit")) {
+          throw error; // Stop on rate limit
+        }
+        console.warn(`⚠️ Error processing ${item.name}:`, error.message);
+      }
+    }
+
+    if (result.trim() === "") {
+      throw new Error(
+        `❌ No files could be processed from '${owner}/${repoName}'.\n\n` +
+          `Please try again later or use a different repository.`
+      );
+    }
+
+    console.log(`🎯 Successfully processed repository`);
+    result += `\n\n📋 **Processing Summary**: Processed ${codeFiles.length} files from root directory.\n`;
+    return result;
+  } catch (error) {
+    console.log(`💥 Repository processing failed: ${error.message}`);
+    throw new Error(`Repository Processing Error: ${error.message}`);
+  }
 }
 
 // Function to get exam questions based on repoContents and developer level

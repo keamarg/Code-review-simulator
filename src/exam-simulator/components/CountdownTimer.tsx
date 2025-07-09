@@ -5,7 +5,10 @@ interface CountdownTimerProps {
   autoStart?: boolean;
   startTrigger?: boolean;
   pauseTrigger?: boolean;
+  isDeliberatePause?: boolean; // New prop to distinguish deliberate pause from network issues
   onTimeUp?: () => void;
+  onIntroduction?: () => void; // New callback for introduction message
+  onFarewell?: () => void; // New callback for farewell message
 }
 
 export const CountdownTimer: React.FC<CountdownTimerProps> = ({
@@ -13,17 +16,36 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   autoStart = false,
   startTrigger = false,
   pauseTrigger = false,
+  isDeliberatePause = false, // Default to false
   onTimeUp,
+  onIntroduction,
+  onFarewell,
 }) => {
   const [timeLeft, setTimeLeft] = useState<number>(totalMs);
   const [running, setRunning] = useState<boolean>(autoStart);
   const onTimeUpRef = useRef(onTimeUp);
+  const onIntroductionRef = useRef(onIntroduction);
+  const onFarewellRef = useRef(onFarewell);
   const hasCalledOnTimeUp = useRef(false);
+  const hasCalledIntroduction = useRef(false);
+  const hasCalledFarewell = useRef(false);
 
-  // Update ref when onTimeUp changes
+  // Update refs when callbacks change
   useEffect(() => {
     onTimeUpRef.current = onTimeUp;
-  }, [onTimeUp]);
+    onIntroductionRef.current = onIntroduction;
+    onFarewellRef.current = onFarewell;
+  }, [onTimeUp, onIntroduction, onFarewell]);
+
+  // Reset flags when timer restarts (new session)
+  useEffect(() => {
+    if (timeLeft === totalMs) {
+      // Timer was reset to full duration - new session
+      hasCalledIntroduction.current = false;
+      hasCalledFarewell.current = false;
+      hasCalledOnTimeUp.current = false;
+    }
+  }, [timeLeft, totalMs]);
 
   // Calculate percentage of time remaining for circle timer
   const timePercentage = Math.max(0, Math.min(100, (timeLeft / totalMs) * 100));
@@ -46,6 +68,33 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       onTimeUpRef.current();
     }
   }, [timeLeft]);
+
+  // Handle timed message triggers based on countdown time
+  useEffect(() => {
+    if (!running) return; // Don't fire messages when not running
+
+    // Introduction message - trigger after 1.5 seconds of countdown
+    if (
+      timeLeft <= totalMs - 1500 &&
+      !hasCalledIntroduction.current &&
+      onIntroductionRef.current
+    ) {
+      hasCalledIntroduction.current = true;
+      console.log("🎯 CountdownTimer: Triggering introduction message");
+      onIntroductionRef.current();
+    }
+
+    // Farewell message - trigger when 7 seconds remain
+    if (
+      timeLeft <= 7000 &&
+      !hasCalledFarewell.current &&
+      onFarewellRef.current
+    ) {
+      hasCalledFarewell.current = true;
+      console.log("🎯 CountdownTimer: Triggering farewell message");
+      onFarewellRef.current();
+    }
+  }, [timeLeft, totalMs, running]);
 
   useEffect(() => {
     if (!running || pauseTrigger) return;
@@ -108,8 +157,8 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
             transform="rotate(-90 50 50)"
           />
         </svg>
-        {/* Pause indicator overlay */}
-        {pauseTrigger && running && (
+        {/* Pause indicator overlay - only show for deliberate pauses */}
+        {pauseTrigger && running && isDeliberatePause && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-tokyo-fg-bright text-xs bg-tokyo-bg-darker bg-opacity-80 rounded px-1">
               PAUSED

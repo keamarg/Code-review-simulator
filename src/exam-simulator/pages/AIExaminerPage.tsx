@@ -6,6 +6,9 @@ import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCust
 import { ExamWorkflow } from "../components/ai-examiner/ExamWorkflow";
 import { useGenAILiveContext } from "../../contexts/GenAILiveContext";
 import { GenAILiveProvider } from "../../contexts/GenAILiveContext";
+import { QuickStartModal } from "../components/ui/QuickStartModal";
+import { ExamSimulator } from "../../types/ExamSimulator";
+import { supabase } from "../config/supabaseClient";
 import {
   useLiveSuggestionExtractor,
   Suggestion,
@@ -13,6 +16,7 @@ import {
 import { LiveSuggestionsPanel } from "../components/ui/LiveSuggestionsPanel";
 import { LoadingAnimation } from "../components/ui/LoadingAnimation";
 import cn from "classnames";
+import { mediaStreamService } from "../lib/mediaStreamService";
 // supabase might not be needed here anymore if ExamWorkflow handles all supabase interactions
 // import { supabase } from "../config/supabaseClient";
 
@@ -36,6 +40,8 @@ interface ExamPageContentProps {
   quickStartExam: any;
   onButtonReady: (triggerButton: () => void) => void;
   onScreenShareCancelled?: () => void;
+  initialRepoUrl?: string;
+  isReadyForAutoTrigger?: boolean;
 }
 
 function ExamPageContent({
@@ -58,6 +64,8 @@ function ExamPageContent({
   quickStartExam,
   onButtonReady,
   onScreenShareCancelled,
+  initialRepoUrl,
+  isReadyForAutoTrigger,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
   const [isConnecting, setIsConnecting] = useState(false);
@@ -109,6 +117,9 @@ function ExamPageContent({
           quickStartExam={quickStartExam}
           onButtonReady={onButtonReady}
           onScreenShareCancelled={onScreenShareCancelled}
+          hideMainButton={!examIntentStarted}
+          initialRepoUrl={initialRepoUrl}
+          isReadyForAutoTrigger={isReadyForAutoTrigger}
         />
 
         {/* Live Suggestions Panel - Now shown inline when review is active */}
@@ -166,9 +177,30 @@ export default function LivePage() {
     examId ||
     (quickStartData?.quickStart ? `quickstart-${Date.now()}` : undefined);
 
+  // Get video stream from navigation state if it exists (for quick start)
+  const passedVideoStream = location.state?.videoStream as MediaStream | null;
+
   const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
   const [isLoadingKey, setIsLoadingKey] = useState(true);
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+
+  // Initialize videoStream state with the stream from the service
+  useEffect(() => {
+    const stream = mediaStreamService.getStream();
+    if (stream && !videoStream) {
+      console.log(
+        "🚀 AIExaminerPage: Received video stream from media stream service."
+      );
+      setVideoStream(stream);
+    }
+  }, [videoStream]);
+
+  // This effect ensures the video element's srcObject is updated when videoStream changes.
+  useEffect(() => {
+    if (videoRef.current && videoRef.current.srcObject !== videoStream) {
+      videoRef.current.srcObject = videoStream;
+    }
+  }, [videoStream, videoRef]);
 
   // examIntentStarted is controlled by the ControlTrayCustom button
   const [examIntentStarted, setExamIntentStarted] = useState(false);
@@ -202,6 +234,29 @@ export default function LivePage() {
 
   // Store quick start exam data
   const [quickStartExam, setQuickStartExam] = useState<any>(null);
+
+  // State for custom exam modal
+  const [customExam, setCustomExam] = useState<ExamSimulator | null>(null);
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [isReadyForAutoTrigger, setIsReadyForAutoTrigger] = useState(false);
+
+  const [customRepoUrl, setCustomRepoUrl] = useState<string | undefined>();
+
+  // Helper to queue a fallback that flips examIntentStarted after 2s if auto-trigger fails
+  const queueAutoStartFallback = () => {
+    if (autoTriggerTimeoutRef.current) {
+      clearTimeout(autoTriggerTimeoutRef.current);
+    }
+
+    autoTriggerTimeoutRef.current = setTimeout(() => {
+      if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
+        // Show the tray to the user by starting the exam, but DO NOT clear the
+        // auto-trigger flag; this ensures that once the tray mounts it will
+        // still auto-click the hidden button to request permissions.
+        setExamIntentStarted(true);
+      }
+    }, 2000);
+  };
 
   // Track if we should auto-trigger the button when it becomes available
   const shouldAutoTriggerRef = useRef(false);
@@ -244,6 +299,7 @@ export default function LivePage() {
       !hasAutoTriggeredRef.current
     ) {
       shouldAutoTriggerRef.current = true;
+      setIsReadyForAutoTrigger(true);
 
       // Set a timeout to trigger if the button doesn't become available quickly
       autoTriggerTimeoutRef.current = setTimeout(() => {
@@ -269,7 +325,7 @@ export default function LivePage() {
   }, [examIntentStarted]);
 
   const handleEndReview = () => {
-    shouldAutoTriggerRef.current = false;
+    // Clear any pending auto-trigger
     if (autoTriggerTimeoutRef.current) {
       clearTimeout(autoTriggerTimeoutRef.current);
       autoTriggerTimeoutRef.current = null;
@@ -348,8 +404,13 @@ export default function LivePage() {
 
   // Handle screen sharing cancellation in quick start - navigate back to landing page
   const handleScreenShareCancelled = useCallback(() => {
+    // For quick start, go back to landing page and offer to reopen modal
     if (quickStartData?.quickStart) {
       navigate("/", { state: { reopenQuickStart: true } });
+    }
+    // For custom reviews, just reopen the setup modal on the same page
+    else {
+      setShowSetupModal(true);
     }
   }, [quickStartData?.quickStart, navigate]);
 
@@ -424,6 +485,46 @@ export default function LivePage() {
     }
   };
 
+  // Fetch exam data when in custom mode (not quick start)
+  useEffect(() => {
+    if (!quickStartData?.quickStart && id) {
+      const fetchExam = async () => {
+        const { data, error } = await supabase
+          .from("exams")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (!error && data) {
+          setCustomExam(data as ExamSimulator);
+          // Only open modal if we are not already in autoStart flow or exam started
+          if (!quickStartData?.autoStart && !examIntentStarted) {
+            setShowSetupModal(true);
+          }
+        }
+      };
+      fetchExam();
+    }
+  }, [quickStartData?.quickStart, id, examIntentStarted]);
+
+  // Handler for custom modal start
+  const handleCustomStartReview = (
+    reviewType: string,
+    developerLevel: string,
+    repoUrl?: string
+  ) => {
+    // store repo url for ExamWorkflow usage
+    setCustomRepoUrl(repoUrl);
+
+    // Trigger automatic start just like quick-start flow
+    shouldAutoTriggerRef.current = true;
+    setIsReadyForAutoTrigger(true);
+    queueAutoStartFallback();
+
+    // Close the modal
+    setShowSetupModal(false);
+  };
+
   if (isLoadingKey) {
     return (
       <Layout>
@@ -472,6 +573,21 @@ export default function LivePage() {
   return (
     <Layout>
       <GenAILiveProvider apiKey={geminiApiKey}>
+        {/* Custom exam setup modal */}
+        {showSetupModal && customExam && (
+          <QuickStartModal
+            isOpen={showSetupModal}
+            onClose={() => {
+              setShowSetupModal(false);
+              navigate("/");
+            }}
+            onStartReview={handleCustomStartReview}
+            fixedType={customExam.type}
+            fixedDeveloperLevel={customExam.learning_goals}
+            examTitle={customExam.title}
+            examDescription={customExam.description}
+          />
+        )}
         <ExamPageContent
           id={id}
           videoRef={videoRef}
@@ -492,6 +608,8 @@ export default function LivePage() {
           quickStartExam={quickStartExam}
           onButtonReady={handleButtonReady}
           onScreenShareCancelled={handleScreenShareCancelled}
+          initialRepoUrl={quickStartData?.repoUrl || customRepoUrl}
+          isReadyForAutoTrigger={isReadyForAutoTrigger}
         />
       </GenAILiveProvider>
     </Layout>

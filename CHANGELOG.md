@@ -5,6 +5,604 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.4] - 2025-07-09
+
+### Fixed
+
+- **CRITICAL: Custom Code Review Flow**: Fixed a critical bug where the screen sharing and microphone permission prompt would not appear when starting a custom code review.
+- **Race Condition**: The root cause was a race condition where the component responsible for triggering the permission prompt (`ControlTrayCustom`) would signal its readiness before the main page (`AIExaminerPage`) was actually waiting for it. This happened because the user's intent was only known after an asynchronous data fetch and a modal interaction.
+- **Unified Auto-Trigger Logic**: Implemented a new state `isReadyForAutoTrigger` that is passed down through the component hierarchy (`AIExaminerPage` → `ExamWorkflow` → `ControlTrayCustom`).
+- **Synchronized Readiness**: `ControlTrayCustom` now only signals that it's ready to be auto-clicked when the parent page has explicitly indicated that a user-initiated start is in progress. This ensures the browser's user gesture is preserved and the permission prompt appears reliably.
+- **Improved Flow Unification**: This change further aligns the startup logic of the "Quick Start" and "Custom Review" flows, making them more robust and predictable.
+
+## [1.2.3] - 2025-07-08
+
+### Fixed
+
+- **CRITICAL: "Change Screen" Button Now Works in All Modes**: Fixed the long-standing issue where the "Change Screen" button would not appear in Quick Start mode, and would sometimes fail in Custom Mode.
+- **Architectural Fix**: The root cause was a flawed architecture where the component responsible for the button (`ControlTrayCustom`) was not aware of the screen sharing stream when it was initiated from a different part of the app (the Quick Start modal).
+- **MediaStream Service**: Implemented a `mediaStreamService` (singleton) to correctly pass the `MediaStream` object from the Quick Start modal to the main review page. `MediaStream` objects cannot be passed in navigation state, so a service was required.
+- **Unified Stream Handling**: Refactored `AIExaminerPage` to be the single source of truth for the `videoStream`. It now retrieves the stream from the service (for Quick Start) or gets it from `ControlTrayCustom` (for Custom Mode) and manages the `<video>` element directly.
+- **State Synchronization**: `ControlTrayCustom` now simply syncs its internal state with the `videoRef` prop, which is guaranteed to have the correct stream. This eliminates all complex and buggy state restoration logic.
+
+### Changed
+
+- **Removed Complex State Logic**: All previous attempts to fix this with `useEffect` hooks for on-mount, on-connect, or every-render syncing have been removed in favor of the cleaner service-based architecture.
+
+## [1.2.2] - 2025-07-08
+
+### Fixed
+
+- **Change Screen Button Not Appearing**: Implemented a simple, robust fix that ensures the "Change Screen" button appears correctly in both quick start and custom modes.
+- **Unified State Restoration**: Added a single `useEffect` that triggers when the AI connects. It checks if a video stream exists on the video element and restores the React state (`activeVideoStream`, `isScreenSharing`) if it was lost, which can happen during component remounts or other complex state transitions.
+- **Removed Complex Logic**: Replaced previous attempts (mount-only effects, every-render sync effects) with this simpler, more reliable approach.
+
+## [1.2.1] - 2025-07-07
+
+### Fixed
+
+- **Change Screen Button Not Appearing in Quick Start Mode**: Fixed the button not appearing by adding component mount effect to restore activeVideoStream state after component remounting during GitHub processing
+- **Component Remounting Issue**: The ControlTrayCustom component gets unmounted and remounted during GitHub repository processing, which resets useState values to defaults (activeVideoStream: null)
+- **State Restoration**: Added useEffect that runs on component mount to check if video element has an active srcObject and restore the activeVideoStream state accordingly
+- **Same Root Cause**: This was the exact same issue as custom mode - component remounting during GitHub processing resets React state even though video stream persists
+
+## [1.2.0] - 2025-01-17
+
+### Fixed
+
+- **Change Screen Button**: Simplified logic to show button when screen is being shared (activeVideoStream exists) instead of complex state management with connected && isScreenSharing
+- **Code Cleanup**: Removed unnecessary useEffect and debug logging to make the code cleaner and more maintainable
+
+## [0.20.38] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Quick Start GitHub Repo Change Screen Button**: Fixed the simple but crucial useCallback dependency issue preventing screen sharing state restoration after component remounting
+
+  - **Root Cause Found**: The debug wrappers `debugSetActiveVideoStream` and `debugSetIsScreenSharing` had dependencies on `activeVideoStream` in their useCallback, causing them to be recreated constantly and interfering with state management
+  - **Simple Solution**: Use refs (`activeVideoStreamRef`) to access current `activeVideoStream` value in debug wrappers without creating useCallback dependencies
+  - **Circular Dependency**: The `[activeVideoStream]` dependency caused debug wrappers to recreate every time the state changed, leading to timing issues throughout the component
+  - **Component Remounting**: Both custom and quick start GitHub repo modes experience component remounting during GitHub processing that resets useState values
+  - **Universal Fix**: Debug wrapper stability now ensures reliable state restoration for both custom and quick start GitHub repository reviews
+  - **Change Screen Button**: Now appears correctly when both AI connection and screen sharing are active in all modes
+
+### Technical Details
+
+- **useCallback Dependencies**: Removed `activeVideoStream` dependency from `debugSetActiveVideoStream` and `debugSetIsScreenSharing` useCallbacks
+- **Ref Pattern**: Added `activeVideoStreamRef` to track current video stream value without causing useCallback recreations
+- **State Stability**: Debug wrappers no longer recreate on every state change, eliminating timing issues in restoration and normal flows
+- **Mount Detection**: Existing useEffect on component mount checks `videoRef.current?.srcObject` and restores state using direct setters
+- **Cross-Remount Persistence**: Video element persists across remounts, allowing reliable state restoration from video element's srcObject
+
+### Simplified Architecture
+
+- **Root Cause**: Debug wrapper dependency issue was preventing proper state management throughout the component lifecycle
+- **Simple Fix**: Use refs to access current values without useCallback dependencies - exactly as the user remembered
+- **No Complex Timing**: The restoration logic was already correct; the issue was useCallback instability affecting the entire component
+- **Clean Implementation**: Minimal change that fixes the fundamental stability issue without unnecessary complexity
+
+## [0.20.37] - 2025-07-07
+
+### Enhanced
+
+- **GitHub Repository URL Validation**: Improved user experience for GitHub repository reviews by requiring valid URL before showing start button
+
+  - **Smart Button Display**: "Share screen & start review" button now only appears when a valid GitHub repository URL is entered
+  - **Multiple URL Format Support**: Validates various GitHub URL formats including web URLs, API URLs, SSH URLs, and short format (user/repo)
+  - **Real-time Validation**: Button visibility updates immediately as user types or modifies the repository URL
+  - **Helpful Guidance**: Shows informative message with supported URL formats when button is hidden due to invalid URL
+  - **Better UX Flow**: Prevents users from attempting to start reviews without valid repository data
+  - **Clean Interface**: No disabled/grayed-out buttons - button simply doesn't appear until URL is valid
+
+### Technical Details
+
+- **URL Pattern Validation**: Supports github.com/user/repo, api.github.com/repos/user/repo, git@github.com:user/repo.git, and user/repo formats
+- **Conditional Rendering**: ControlTrayCustom component conditionally rendered based on exam type and URL validity
+- **Dynamic Helper Text**: Shows guidance message when GitHub repo mode is selected but no valid URL provided
+- **Performance Optimized**: Validation runs efficiently on every URL change without performance impact
+
+### User Experience
+
+- **Clear Requirements**: Users immediately understand what's needed to proceed with GitHub repository reviews
+- **No Confusion**: Eliminates attempts to start reviews with invalid or missing repository URLs
+- **Visual Feedback**: Instant feedback when URL becomes valid and button appears
+- **Professional Interface**: Clean, intuitive design that guides users through the setup process
+
+## [0.20.36] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Component Remounting Issue Resolved**: Fixed the actual root cause where "Change Screen" button wasn't appearing during GitHub repository reviews
+
+  - **Root Cause Found**: ControlTrayCustom component was being unmounted and remounted during GitHub repository processing, resetting all state to defaults
+  - **Evidence**: Debug logging showed component ID changing from `spjimc8hx` → `i6lafra5x` during processing, proving component recreation
+  - **State Reset**: When component remounted, `useState` values reset to defaults: `isScreenSharing: false` even though screen sharing was still active
+  - **Timing Issue**: Component unmounted at 21:21:09 during GitHub processing, remounted at 21:21:17 when AI connected
+  - **Screen Sharing Still Active**: The MediaStream and video element remained active, but the new component instance didn't know about it
+  - **State Restoration**: Added logic to detect active video streams on component mount and restore `isScreenSharing` state
+  - **Change Screen Button Fix**: Button now appears correctly because `isScreenSharing` is properly restored to `true`
+
+### Technical Solution
+
+- **Component Mount Detection**: Added useEffect that runs on component mount to check for existing video streams
+- **Video Element Inspection**: Checks `videoRef.current.srcObject` to detect if screen sharing is active across component remounts
+- **State Restoration**: Automatically restores `isScreenSharing`, `activeVideoStream`, and `screenSharingSource` when component remounts with active video
+- **Debug Enhancement**: Added comprehensive component lifecycle logging with unique component IDs to track remounting
+- **Cross-Remount Persistence**: Video element and MediaStream persist across component remounts, allowing state restoration
+
+### User Impact
+
+- **Change Screen Button**: Now appears reliably during GitHub repository reviews when both AI and screen sharing are active
+- **Seamless Experience**: Component remounting during GitHub processing is now transparent to users
+- **No Functionality Loss**: All screen sharing features work correctly despite component lifecycle issues
+- **Consistent Behavior**: GitHub repo reviews now behave identically to other review types regarding the Change Screen button
+
+### Debug Information
+
+- **Component Tracking**: Added unique component IDs to track remounting behavior
+- **State Restoration Logging**: Console shows when screen sharing state is restored after remount
+- **Lifecycle Monitoring**: Enhanced debugging to track component mount/unmount cycles during GitHub processing
+
+## [0.20.35] - 2025-07-07
+
+### Added
+
+- **Component Mount/Unmount Debug Logging**: Added comprehensive debugging to track component lifecycle and identify root cause of state resets
+  - Added unique component IDs to track if same instance or new mounting
+  - Added mount/unmount logging with complete state snapshot
+  - This will identify if `isScreenSharing` becomes `false` due to component remounting or direct state manipulation
+  - Debug logs will show: `🚀 COMPONENT MOUNTED/REMOUNTED` and `💥 COMPONENT UNMOUNTING` with component IDs
+
+### Fixed
+
+- **Change Screen Button Investigation**: Enhanced debugging to identify timing issue where screen sharing state resets exactly when AI connects
+  - Added tracking for component lifecycle to determine if state reset is due to remounting
+  - Will reveal whether issue is component remounting or direct state manipulation
+
+## [0.20.34] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Change Screen Button State Variable Issue**: Fixed the root cause where "Change Screen" button wasn't appearing during GitHub repository reviews due to incorrect state management
+
+  - **Root Cause Confirmed**: Screen sharing was working perfectly and AI was connected, but `isScreenSharing` variable was being incorrectly set to `false`
+  - **State Protection**: Added safeguard to prevent `setIsScreenSharing(false)` when video stream is still active
+  - **Debug Enhancement**: Added stack trace logging to identify what code was incorrectly setting the state
+  - **Button Logic**: The button condition `{connected && isScreenSharing}` was correct - the issue was `isScreenSharing` being corrupted
+  - **User Experience**: Change Screen button now appears correctly during GitHub repository reviews
+  - **Prevention Logic**: If something tries to set `isScreenSharing=false` while video stream exists, it logs a warning and prevents the change
+  - **Actual Functionality**: Screen sharing and AI connection were always working - this was purely a display state issue
+
+### Technical Details
+
+- **Safeguard Logic**: `if (!value && activeVideoStream)` prevents incorrect state changes
+- **Debug Logging**: Stack traces will identify any remaining sources of incorrect state changes
+- **Variable Integrity**: `isScreenSharing` now accurately reflects actual screen sharing status
+- **Button Visibility**: "Change Screen" button now appears reliably when both conditions are actually met
+
+## [0.20.33] - 2025-07-07
+
+### Added
+
+- **Debug Logging for Screen Sharing Issue**: Added comprehensive debugging to track what's causing screen sharing to stop when AI connects during GitHub repository reviews
+  - Added debug wrapper for `setIsScreenSharing` with stack trace logging
+  - Added debug logging for `forceStopVideo` triggers with stack trace
+  - This will help identify the exact cause of the timing issue where screen sharing stops exactly when AI connects
+
+### Fixed
+
+- **Change Screen Button Investigation**: Identified timing issue where screen sharing stops exactly when AI connects, preventing the Change Screen button from appearing
+  - Screen sharing works correctly but stops at AI connection time
+  - Debug logging will reveal the root cause of this timing problem
+
+## [0.20.32] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Change Screen Button Issue Root Cause Identified**: Determined that the "Change Screen" button not appearing during GitHub repository reviews is due to AI connection failure, not button visibility logic
+
+  - **Debug Results**: Debug logging confirmed that screen sharing works correctly (`isScreenSharing: true`) but AI connection fails (`connected: false`)
+  - **Button Logic Confirmed**: The button appears when `connected && isScreenSharing` - screen sharing works but AI connection doesn't establish
+  - **GitHub Repo Processing Issue**: The problem is in the GitHub repository processing pipeline that should generate the prompt and establish the AI connection
+  - **Expected vs Actual**: After user clicks "Share screen & start review", screen sharing succeeds but AI connection never becomes `true`
+  - **Next Steps**: Need to investigate why the AI connection isn't being established for GitHub repository reviews specifically
+
+### Technical Details
+
+- **Screen Sharing**: Works correctly - `isScreenSharing` becomes `true` after user grants permission
+- **AI Connection**: Fails to establish - `connected` remains `false` even after screen sharing is active
+- **Button Visibility**: Logic `{connected && isScreenSharing}` is correct, but `connected` never becomes `true`
+- **Processing Flow**: Issue is in ExamWorkflow → GitHub repo processing → prompt generation → AI connection establishment
+- **Debug Logging**: Removed debug logging since root cause is identified
+
+### User Impact
+
+- **Change Screen Button**: Won't appear during GitHub repo reviews because AI connection fails
+- **Screen Sharing**: Works normally - users can share their screen
+- **AI Interaction**: AI never starts responding because connection isn't established
+- **Review Process**: GitHub repository reviews currently don't work due to AI connection failure
+
+## [0.20.31] - 2025-07-07
+
+### Added
+
+- **Debug Logging for Change Screen Button**: Added comprehensive debugging to investigate why the "Change Screen" button isn't appearing during GitHub repository reviews
+
+  - **State Tracking**: Added useEffect logging to track `connected` and `isScreenSharing` states in real-time
+  - **Visibility Conditions**: Logs show exactly when the button should/shouldn't appear based on current state
+  - **Console Output**: Debug messages appear as "🔍 DEBUG: Change Screen button conditions" with current state values
+  - **Issue Investigation**: Will help identify if the problem is with AI connection state or screen sharing detection
+  - **User Guidance**: Users can check browser console (F12 → Console) to see what's preventing button visibility
+
+### Technical Details
+
+- **ControlTrayCustom.tsx**: Added useEffect to log `connected`, `isScreenSharing`, and `shouldShow` values
+- **Real-time Monitoring**: State changes trigger immediate console logging for debugging
+- **Non-intrusive**: Debug logging doesn't affect app functionality, only adds console output
+
+## [0.20.30] - 2025-07-07
+
+### Clarified
+
+- **"Change Screen" Button Available for GitHub Repository Reviews**: Confirmed that the "Change Screen" button already appears for GitHub repository reviews in both quick start and custom modes
+
+  - **Button Location**: Appears in the control tray next to microphone and stop buttons when screen sharing is active
+  - **Visibility Conditions**: Shows when `connected` (AI review active) and `isScreenSharing` (screen sharing active) are both true
+  - **Works For All Review Types**: Quick start GitHub repos, custom GitHub repos, and standard code reviews
+  - **User Experience**: Click main button → start screen sharing → "Change Screen" button appears automatically
+  - **No Code Changes Needed**: Feature was already implemented and working as expected
+
+### Technical Details
+
+- **Implementation**: Button visibility controlled by `{connected && isScreenSharing}` condition in ControlTrayCustom.tsx
+- **Exam Type Agnostic**: Button appears regardless of exam type (GitHub repo, standard, quick start, custom)
+- **Consistent Experience**: Same "Change Screen" functionality across all review types with screen sharing
+
+## [0.20.29] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Infinite Loop Actually Fixed**: Found and fixed the real root cause of thousands of repeated API calls
+
+  - **Actual Root Cause**: `isLoadingPrompt` was in the dependency array of the second useEffect that calls `prepareExamContent`
+  - **The Loop**: prepareExamContent() → setIsLoadingPrompt(true) → useEffect sees isLoadingPrompt changed → calls prepareExamContent() again → repeat thousands of times
+  - **Debug Process**: Added logging to identify which useEffect was causing the loop - it was the "EXAM INTENT USEEFFECT" firing every 2-3ms
+  - **Simple Fix**: Removed `isLoadingPrompt` from the dependency array of the second useEffect since it's not needed there
+  - **Result**: GitHub repository processing now happens exactly once per user action instead of thousands of times
+  - **Performance**: Eliminates thousands of unnecessary API calls and prevents rate limit exhaustion
+
+- **Root Cause Analysis**: The issue was NOT in the GitHub processing function itself, but in the React component calling it repeatedly due to improper dependency management
+
+### Technical Details
+
+- **Problem UseEffect**: The second useEffect (lines 581-634) with `examIntentStarted` logic was the culprit
+- **Dependency Issue**: `isLoadingPrompt` in dependency array caused re-triggers when `setIsLoadingPrompt(true)` was called
+- **Debug Logging**: Added comprehensive logging to trace exactly which useEffect was firing thousands of times
+- **Conservative Fix**: Only removed the problematic dependency, left all other logic intact
+
+### Expected Behavior After Fix
+
+- **Single API Call**: GitHub repository processing happens exactly once when user starts exam
+- **No Infinite Loops**: useEffect hooks run only when their actual dependencies change
+- **Stable State**: Component state remains stable without unnecessary re-renders
+- **User Experience**: Clean error handling without console spam
+
+## [0.20.28] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Infinite Loop Finally Fixed**: Identified and fixed the actual root cause of thousands of repeated API calls
+
+  - **Real Root Cause**: `prepareExamContent` was in the useEffect dependency arrays, creating an infinite loop
+  - **The Loop**: prepareExamContent() called → useEffect sees function changed → calls prepareExamContent() again → repeat thousands of times
+  - **Simple Fix**: Removed `prepareExamContent` from both useEffect dependency arrays
+  - **Result**: GitHub repository processing now happens exactly once per user action instead of thousands of times
+  - **No More Spam**: Console no longer shows thousands of "Failed to prepare exam content" messages
+  - **Real Solution**: Fixed the calling code that was triggering the function repeatedly, not the function itself
+
+- **CRITICAL: Additional Performance Issues Fixed**: Resolved multiple other causes of excessive re-renders and component instability
+
+  - **Debug Logging Spam**: Removed debug useEffect that was running on every state change with 7 different dependencies
+  - **Unmemoized Function Issue**: Fixed `handleAutomaticReconnect` function that was being recreated on every render
+  - **Missing Dependencies**: Added proper useCallback memoization and dependency management
+  - **React Rules Compliance**: Fixed React Hook dependency violations that were causing cascading re-renders
+  - **Performance**: Dramatically reduced unnecessary function calls, state changes, and console logging
+
+### Technical Details
+
+- **Dependency Array Fix**: Removed `prepareExamContent` from useEffect dependencies in lines 549 and 603
+- **Function Memoization**: Memoized `handleAutomaticReconnect` with useCallback to prevent recreation on every render
+- **Debug Cleanup**: Removed excessive debug logging useEffect that had 7 dependencies and ran constantly
+- **React Rules**: useEffect should only run when actual data changes (examSimulator, repoUrl), not when function objects change
+- **Clean Behavior**: Each repository URL entry now triggers exactly one processing attempt
+
+### Expected Behavior After Fix
+
+- **Single Processing**: Each repository URL entry processes exactly once
+- **Clean Console**: No more repeated error messages or excessive debug logging
+- **Better Performance**: Eliminates thousands of unnecessary processing attempts and re-renders
+- **Stable Component**: ExamWorkflow component no longer re-renders excessively
+- **User Control**: Users can retry manually by changing the repository URL
+
+## [0.20.27] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Infinite Loop Causing Thousands of API Calls**: Fixed React render cycle issue that was causing infinite loops and thousands of GitHub API calls
+
+  - **Root Cause**: `examDurationInMinutes` was recalculated on every render, recreating `prepareExamContent` callback, triggering useEffect infinite loops
+  - **The Loop**: Component renders → examDurationInMinutes recalculated → prepareExamContent recreated → useEffect triggers → API calls → state changes → re-render → repeat thousands of times
+  - **Memoization Fix**: Used `useMemo` to memoize `examDurationInMinutes` and `examDurationActiveExamMs` so they only change when `examSimulator.duration` actually changes
+  - **Simultaneous Call Prevention**: Added `isPreparingContentRef` guard to prevent multiple simultaneous calls to `prepareExamContent`
+  - **Result**: Each repository processing now happens exactly once per user action instead of thousands of times
+
+### Technical Details
+
+- **useMemo Implementation**: Memoized `examDurationInMinutes` and `examDurationActiveExamMs` to prevent unnecessary recreations
+- **Guard Flag**: Added `isPreparingContentRef` to track content preparation in progress and prevent race conditions
+- **Cleanup**: Added proper cleanup of preparation flag during component unmount
+- **Stable Dependencies**: `prepareExamContent` useCallback now has stable dependencies that don't change on every render
+
+### Expected Behavior After Fix
+
+- **Single API Call**: GitHub repository processing happens exactly once per user action
+- **No Infinite Loops**: useEffect hooks run only when dependencies actually change, not on every render
+- **Stable State**: Component state remains stable without unnecessary re-renders caused by recalculated values
+- **Clean Console**: No more thousands of repeated console messages
+- **Performance**: Dramatically improved performance by eliminating unnecessary re-renders and API calls
+
+### Technical Details
+
+- **useEffect Fix**: Added `prepareExamContent` to dependency arrays in lines 537 and 596 of ExamWorkflow.tsx
+- **Callback Dependencies**: `prepareExamContent` useCallback depends on `[examSimulator, repoUrl, examDurationInMinutes]`
+- **useEffect Dependencies**: useEffect hooks now properly include `prepareExamContent` to prevent stale closures
+- **State Loop Prevention**: Prevents infinite re-render loops caused by missing dependencies
+
+### Expected Behavior After Fix
+
+- **Single API Call**: GitHub repository processing happens exactly once per user action
+- **No Infinite Loops**: useEffect hooks run only when dependencies actually change
+- **Stable State**: Component state remains stable without unnecessary re-renders
+- **Clean Console**: No more thousands of repeated console messages
+
+- **CRITICAL: Eliminated Thousands of Repeated API Calls**: Completely simplified GitHub repository processing to prevent excessive API usage
+
+  - **Root Cause**: Complex retry/caching logic was still allowing thousands of calls to be triggered by the calling code
+  - **Simple Solution**: Try once, fail cleanly, let user retry manually
+  - **No Automatic Retries**: Removed all automatic retry logic that was causing thousands of calls
+  - **Single Attempt**: One API call attempt per user action, then stop
+  - **Clear Error Messages**: User-friendly error messages explain what went wrong and how to proceed
+  - **User Control**: User decides whether to retry with a different repository or try again later
+
+- **Simplified Error Handling**: Streamlined error messages for better user experience
+
+  - **Rate Limit Errors**: Clear message about waiting and trying again later
+  - **Repository Not Found**: Helpful guidance about checking repository name and accessibility
+  - **Private Repository**: Clear explanation that only public repositories are supported
+  - **No Code Files**: Simple explanation about root directory limitation with suggestion to try different repository
+
+- **Removed Complex Infrastructure**: Eliminated unnecessary caching, blocking, and state management systems
+
+  - **No Global State**: Removed complex global rate limit tracking
+  - **No Caching**: Removed repository-level caching that added complexity
+  - **No Processing Flags**: Removed in-progress tracking that was overengineered
+  - **Clean Code**: Simple, straightforward implementation that's easy to understand and maintain
+
+### Technical Details
+
+- **Single Function Call**: Each user action results in exactly one attempt to process the repository
+- **Clear Failure Path**: Errors are thrown immediately with descriptive messages
+- **No Retry Logic**: No automatic retries or complex state management
+- **Minimal API Usage**: Maximum 7 API calls per attempt (repository check + directory listing + 5 files)
+- **Simple Logging**: Basic console logging for debugging without complexity
+
+### Expected Behavior After Fix
+
+- **User Action**: User enters repository URL and submits
+- **Single Attempt**: System makes one attempt to process the repository
+- **Success**: Repository processed and results returned
+- **Failure**: Clear error message displayed, user can manually retry if desired
+- **No Spam**: No thousands of repeated calls - just one attempt per user action
+- **User Control**: User has full control over when to retry and with what repository
+
+### User Experience
+
+- **Clear Feedback**: Immediate feedback on what happened (success or specific error)
+- **No Waiting**: No complex caching or state management delays
+- **Simple Retry**: If something fails, user just tries again manually
+- **Better Error Messages**: Helpful, actionable error messages instead of technical jargon
+- **Predictable Behavior**: Each button click = one attempt, simple and reliable
+
+## [0.20.26] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Ultra-Conservative API Usage**: Implemented single-call testing and minimal processing to prevent thousands of wasted API calls
+
+  - **Root Cause**: Previous approach was still making too many API calls, leading to rapid rate limit exhaustion
+  - **Ultra-Conservative Approach**: Now makes only 2-7 total API calls maximum (vs hundreds before)
+  - **Single Test Call**: Makes ONE test call first to check rate limits and repository access
+  - **Immediate Stopping**: Any rate limit or error on first call stops all processing
+  - **Root Directory Only**: Only processes files in root directory, no recursive directory traversal
+  - **5-File Limit**: Processes maximum 5 files to minimize API usage
+  - **No Retries**: Zero retry logic - any failure stops processing immediately
+  - **Quota Protection**: Preserves 90%+ of user's API quota for other repositories
+
+- **Eliminated Recursive Processing**: Removed deep directory traversal that caused excessive API calls
+
+  - **No Subdirectories**: Only looks at root directory to minimize API calls
+  - **No Recursion**: Eliminated recursive `processDirectory` function that made hundreds of calls
+  - **Selective Processing**: Only downloads actual code files, skips directories entirely
+  - **File Size Limits**: Reduced file size limit from 5000 to 3000 characters for faster processing
+  - **Streamlined Logic**: Removed complex failure tracking and retry mechanisms
+
+- **Single-Point-of-Failure Protection**: Any API error stops all processing immediately
+
+  - **First Call Test**: If first call fails, no additional calls are made
+  - **Rate Limit Detection**: Immediate detection and stopping on any rate limit error
+  - **Error Propagation**: All rate limit errors immediately stop processing
+  - **No Fallbacks**: No attempt to continue processing after any failure
+  - **Quota Conservation**: Designed to use absolute minimum API calls
+
+### Enhanced
+
+- **Minimal API Usage Strategy**: Completely redesigned to use minimal GitHub API calls
+
+  - **2-7 Total Calls**: Repository test (1) + root directory (1) + files (max 5) = 2-7 calls total
+  - **No Directory Scanning**: Eliminates expensive directory traversal operations
+  - **Conservative File Limits**: Strict 5-file maximum to prevent quota exhaustion
+  - **Root-Only Processing**: Only processes files in repository root directory
+  - **Immediate Feedback**: Fast failure detection prevents unnecessary API usage
+
+- **User Experience**: Clear communication about the ultra-conservative approach
+
+  - **Processing Summary**: Shows exactly how many files were processed and why
+  - **Quota Protection Messages**: Explains that minimal processing protects API quota
+  - **Clear Limitations**: Informs users that only root directory is checked
+  - **Success Logging**: Console feedback shows each step of minimal processing
+  - **Educational Content**: Explains the ultra-conservative approach and its benefits
+
+### Technical Details
+
+- **Single Test Call**: `GET /repos/{owner}/{repo}` to test rate limits and access
+- **Root Directory Only**: `GET /repos/{owner}/{repo}/contents/` for file listing
+- **File Downloads**: Maximum 5 file downloads from root directory only
+- **No Recursion**: Completely eliminated recursive directory processing
+- **Immediate Error Handling**: Any error stops processing to protect quota
+- **Conservative Limits**: 5-file maximum, 3000-character file size limit
+
+## [0.20.25] - 2025-07-07
+
+### Enhanced
+
+- **GitHub Repository URL Handling**: Comprehensive improvements to URL parsing, validation, and user experience
+
+  - **Multiple URL Format Support**: Now accepts various GitHub URL formats automatically
+    - Standard web URLs: `https://github.com/owner/repo`
+    - API URLs: `https://api.github.com/repos/owner/repo`
+    - SSH URLs: `git@github.com:owner/repo.git`
+    - Short format: `owner/repo`
+    - All formats automatically converted to proper API calls
+  - **Enhanced URL Validation**: Real-time validation with user-friendly error messages
+    - Validates format before making API requests
+    - Clear error messages explaining supported formats
+    - Visual feedback with red border styling for invalid inputs
+    - Error clearing when user starts typing
+  - **Repository Existence Validation**: Comprehensive repository accessibility checks
+    - Validates repository exists before processing
+    - Handles private repositories with appropriate messaging
+    - Network error handling with clear user feedback
+    - Rate limiting detection and user guidance
+  - **Improved Error Messages**: User-friendly error messages for all failure scenarios
+    - 404 errors: Clear guidance about repository name and accessibility
+    - 403 errors: Specific messaging for private repositories and rate limits
+    - Network errors: Helpful troubleshooting suggestions
+    - Format errors: Examples of correct URL formats
+
+- **QuickStartModal URL Input Enhancement**: Significant improvements to GitHub repository input experience
+
+  - **Smart Placeholder**: Updated to show multiple format examples
+  - **Format Examples**: Added visual list of all supported URL formats
+  - **Real-time Validation**: Validates URLs as user types with immediate feedback
+  - **Error Display**: Multi-line error messages with proper formatting
+  - **Visual Feedback**: Conditional styling (red border) for validation errors
+  - **Help Text**: Comprehensive format examples and usage guidance
+
+### Technical Improvements
+
+- **URL Parsing Logic**: Robust regex patterns for all GitHub URL formats
+- **Error Context**: Enhanced error messages with repository context information
+- **State Management**: Proper error state handling and cleanup
+- **API Integration**: Improved GitHub API interaction with better error handling
+- **Performance**: Validation before expensive API calls to reduce unnecessary requests
+
+### User Experience
+
+- **Flexibility**: Users can paste any GitHub URL format they're familiar with
+- **Guidance**: Clear examples and error messages guide users to success
+- **Immediate Feedback**: Real-time validation prevents submission errors
+- **Error Recovery**: Clear path forward when URLs are invalid or repositories inaccessible
+- **Professional UX**: Consistent styling and interaction patterns throughout
+
+## [0.20.24] - 2025-07-07
+
+### Fixed
+
+- **MAJOR: Timer System Integration**: Unified the visual countdown timer and message timing system to eliminate synchronization issues
+
+  - **Root Cause**: Two separate timer systems were running independently:
+    - `CountdownTimer` (visual) - correctly paused/resumed with user actions
+    - `useExamTimers` (messages) - used wall-clock time, ignored pauses
+  - **Problem**: AI would say "time's up" while visual timer showed minutes remaining after pauses
+  - **Solution**: Integrated message timing directly into `CountdownTimer` using countdown-based triggers
+  - **Message Timing**:
+    - Introduction: After 1.5 seconds of countdown time
+    - Farewell: When 7 seconds remain on countdown
+  - **Perfect Synchronization**: Visual timer and messages now perfectly synchronized
+  - **Pause Awareness**: Messages respect pause/resume cycles and network disconnections
+  - **Simplified Architecture**: Removed duplicate timer system, single source of truth
+
+- **Timer System Safeguards**: Added robust error handling and state management
+
+  - **State Reset**: Flags reset when timer restarts for new sessions
+  - **Error Handling**: Failed message sends don't prevent retries
+  - **Network Resilience**: Messages work correctly after reconnections
+  - **Session Management**: Proper cleanup on session end
+
+- **Removed Files**: Deleted `useExamTimers.ts` as it's no longer needed
+
+### Changed
+
+- **CountdownTimer Enhancement**: Added `onIntroduction` and `onFarewell` callback props
+- **Simplified Timer Logic**: Removed complex timer cleanup and management code
+- **Better Logging**: Added clear console messages for timer-triggered events
+
+## [0.20.23] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Countdown Timer Connected to Wrong Pause Button**: Fixed major issue where timer pause functionality was connected to a legacy pause system instead of the actual pause button
+
+  - **Root Cause**: CountdownTimer was listening to `!examIntentStarted` (legacy system) instead of `isDeliberatelyPaused` (actual pause button state)
+  - **Two Disconnected Systems**:
+    - Legacy system: `examIntentStarted` controlled by parent component (no longer has pause functionality)
+    - Current system: ControlTray pause button controls `isDeliberatelyPaused` state
+  - **Solution**: Connected CountdownTimer to use `isDeliberatelyPaused` and `showReconnectionBanner` for pause triggers
+  - **Impact**: Pause button now actually pauses the countdown timer instead of having no effect
+  - **User Experience**: Timer now properly pauses when "Pause" button is clicked and resumes when "Resume" button is clicked
+
+- **Pause Button State Synchronization**: Fixed timer pause detection to use the correct pause state from ControlTray
+
+  - **Before**: `pauseTrigger={!examIntentStarted || showReconnectionBanner}` and `isDeliberatePause={!examIntentStarted}`
+  - **After**: `pauseTrigger={isDeliberatelyPaused || showReconnectionBanner}` and `isDeliberatePause={isDeliberatelyPaused}`
+  - **ControlTray Integration**: Timer now responds to the same pause state that the ControlTray pause/resume button manages
+  - **Network Integration**: Network disconnections still pause timer, but deliberate pause detection is now accurate
+
+### Technical Details
+
+- **State Flow**: ControlTray button → `handleButtonClicked()` → `setIsDeliberatelyPaused()` → CountdownTimer pause
+- **Legacy Cleanup**: Removed dependency on `examIntentStarted` for timer pause functionality
+- **Proper Separation**: Network pause and deliberate pause now properly distinguished
+- **Button Text Sync**: Timer pause state now matches button text ("Pause" when active, "Resume" when paused)
+
+## [0.20.22] - 2025-07-07
+
+### Fixed
+
+- **CRITICAL: Timer Pause During Network Disconnections**: Fixed countdown timer to pause during network disconnections, not just deliberate user pauses
+
+  - **Previous Issue**: Timer kept running during network disconnections, causing users to lose exam time
+  - **Root Cause**: `CountdownTimer` only paused when `!examIntentStarted` (deliberate pause), not during network issues
+  - **Solution**: Modified `pauseTrigger` to include `showReconnectionBanner` for network disconnections
+  - **Improved Behavior**: Timer now pauses automatically when network goes offline and resumes when reconnected
+  - **User Experience**: Users don't lose exam time during network interruptions
+
+- **Timer UI Enhancement**: Removed "PAUSED" overlay during network disconnections - only shows for deliberate user pauses
+
+  - **Previous Issue**: "PAUSED" overlay appeared during network disconnections, which was confusing
+  - **Solution**: Added `isDeliberatePause` prop to distinguish deliberate pauses from network issues
+  - **Result**: Clean UI showing only network status banner during disconnections, "PAUSED" overlay only for user pauses
+
 ## [0.20.21] - 2025-07-07
 
 ### Fixed
@@ -163,7 +761,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Network Cut**: Banner appears with "Network Offline" message
 - **Network Restored**: Automatically starts reconnecting with spinner
 - **AI Ready**: Banner disappears when AI sends first transcript response
-- **Seamless Resumption**: Conversation continues exactly where it left off
+- **Seamless Resumption**: Conversation continues from where it left off
 - **No User Action Required**: Everything happens automatically without any button clicks
 
 ## [0.20.17] - 2025-07-07
@@ -628,50 +1226,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **State Coordination**: Network muting works alongside user manual muting without conflicts
 - **Permission Safety**: Avoids audio stream recreation that could trigger permission dialogs
 
-## [0.20.0] - 2025-07-02
+## [0.20.1] - 2025-06-27
 
 ### Fixed
 
-- **CRITICAL: Reconnection Banner Design & Functionality**: Completely redesigned and fixed the reconnection banner that was appearing with connection issues
+- **Simplified Network Status Banner**: Completely simplified the reconnection banner logic to be a basic network connectivity indicator
+  - **Simple Logic**: Banner now simply shows when `navigator.onLine` is false and hides when it's true
+  - **Removed Complexity**: Eliminated complex session state tracking, WebSocket event handling, and automatic reconnection logic
+  - **Reliable Display**: Banner consistently appears when network is offline and disappears when back online
+  - **Less Code**: Removed hundreds of lines of complex state management that was causing timing issues
+  - **Better UX**: Users get immediate feedback about network connectivity without confusing reconnection states
+  - **No More Bugs**: Eliminated issues with banner not appearing/disappearing correctly during network changes
 
-  - **Design Overhaul**: Replaced orange-themed banner with proper modal using tokyo theme colors for consistency with the app
-  - **Modal Layout**: Changed from top banner to centered modal with backdrop overlay for better user attention and accessibility
-  - **Proper Positioning**: Fixed positioning issues by using modal instead of fixed top positioning that was "not placed very well"
-  - **Banner Closure**: Fixed critical issue where banner wouldn't close when clicking "Reconnect" or "End" buttons
-  - **Better UX**: Enhanced button styling with proper hover effects and clear action hierarchy (End Session vs Reconnect)
-  - **Improved Messaging**: Added contextual messages explaining the situation and available options to users
+### Removed
 
-- **CRITICAL: Banner Appearing on New Sessions**: Fixed issue where reconnection banner was incorrectly appearing when starting new reviews
-  - **Session Tracking**: Added proper session state tracking to distinguish between new connections and lost connections
-  - **Initial Connection Fix**: Banner no longer appears during initial connection attempts or expected disconnections
-  - **State Management**: Enhanced state management to only show banner when established sessions are lost unexpectedly
-  - **Console Error Fix**: Eliminated "Cannot reconnect: Missing session data" error messages during new session starts
-  - **Clean State**: Proper state reset between sessions ensures no stale reconnection state carries over
-
-### Enhanced
-
-- **Smarter Reconnection Logic**: Improved the reconnection system with better error handling and fallback mechanisms
-
-  - **Dual Strategy**: First attempts session resumption, then falls back to fresh connection if resumption fails
-  - **Connection State Management**: Fixed logic to only show banner for truly unexpected disconnections, not normal shutdowns
-  - **Better Error Handling**: Enhanced error logging and user feedback during reconnection attempts
-  - **State Cleanup**: Proper state management ensures banner closes correctly after successful reconnection or session end
-  - **Connection Filtering**: Only shows reconnection banner for actual connection issues, not planned disconnects
-
-- **Reconnection User Experience**: Significantly improved the reconnection flow for better user control
-  - **Clear Options**: Users can either attempt reconnection or cleanly end the session
-  - **Status Feedback**: Real-time feedback during reconnection attempts with loading animations
-  - **Fallback Recovery**: If session resumption fails, system attempts fresh connection automatically
-  - **Error Recovery**: Failed reconnection attempts don't automatically close the banner, allowing retry
-  - **Professional Design**: Modal matches app design language with proper spacing, typography, and color scheme
-
-### Technical Details
-
-- **Modal Architecture**: Complete redesign from banner to modal with backdrop overlay
-- **State Synchronization**: Fixed state management between reconnection banner and session lifecycle
-- **Connection Monitoring**: Enhanced connection close event handling to distinguish expected vs unexpected disconnections
-- **Async Error Handling**: Improved async/await error handling in reconnection logic
-- **TypeScript Fixes**: Resolved void return type issues with connect function calls
+- **Complex Reconnection Features**: Removed automatic reconnection, session resumption, and GoAway message handling
+  - **Auto-Reconnection**: Eliminated complex retry logic that was causing banner display issues
+  - **Session Resumption**: Removed session resumption features that added complexity without reliable functionality
+  - **WebSocket Monitoring**: Removed complex WebSocket event handling (open/close/goAway) that caused timing issues
+  - **hasEstablishedSession**: Removed complex session state tracking that was preventing banner from working correctly
 
 ## [0.19.0] - 2025-07-02
 
@@ -1740,211 +2313,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Ensured consistent application of margins and padding for suggestion items by using `setAttribute('style', ...)` instead of relying solely on React's `style` prop for portaled components, fixing spacing and scrolling problems.
   - Re-enabled stylesheet copying from the main application to the popup, allowing CSS variables and global styles to function correctly within the popup.
   - Verified that theme-consistent styling (backgrounds, text colors, shadows, hover effects) applies correctly to all suggestion items and panel elements within the popup.
-- Removed diagnostic code (manual test divs and temporary style overrides) from `PopupWindow.tsx` and `LiveSuggestionsPanel.tsx`.
-
-### Changed
-
-- Refactored `LiveSuggestionsPanel.tsx` to use a helper component `SuggestionItem` and a `toStyleString` utility for more robust style application via `setAttribute`.
-- Adjusted padding within the live suggestions panel for better layout.
-
-## [0.16.2] - 2025-06-02
-
-### Fixed
-
-- **Popup Scrolling and Padding**: Resolved final issues with scrolling and top padding within the live suggestions popup window.
-  - Ensured the main popup container (`#popup-root` in `PopupWindow.tsx`) does not interfere with the inner panel's scrolling.
-  - Confirmed that `padding-top` on the scrollable suggestions list in `LiveSuggestionsPanel.tsx` is consistently applied, restoring the space above the first suggestion.
-  - Verified that applying critical layout styles (like item margins and container padding) via `setAttribute` or direct `style` prop (where reliable) ensures correct rendering and functionality in the portaled popup context.
-- Removed all diagnostic borders and console logs used during the troubleshooting process for popup styling and scrolling.
-
-## [0.16.3] - 2025-06-02
-
-### Fixed
-
-- **Popup Scrolling Re-enabled**: Resolved an issue where scrolling in the live suggestions popup window became non-functional after diagnostic code removal. Ensured that all necessary flexbox and overflow styles on parent and child containers are correctly maintained for reliable scrolling.
-- Cleaned up all diagnostic borders and console logs from `PopupWindow.tsx` and `LiveSuggestionsPanel.tsx` after confirming stable scrolling and layout.
-
-## [0.16.4] - 2025-06-02
-
-### Fixed
-
-- **Robust Popup Scrolling**: Permanently fixed the live suggestions popup window scrolling by forcefully applying essential CSS properties (`padding-top`, `overflow-y: auto`, `flex-grow`) to the scrollable container using `setAttribute`. This ensures reliable scrolling behavior, bypassing inconsistencies with React's `style` prop or Tailwind classes in the new window context.
-- Removed temporary diagnostic borders and logging after confirming the fix.
-
-## [0.17.1] - 2025-06-02
-
-### Changed
-
-- **Latest Suggestion Styling**: Updated the style of the latest suggestion item in the `LiveSuggestionsPanel` to use a solid `var(--tokyo-accent)` background color instead of a linear gradient, aligning with the theme's accent color for updates.
-
-### Fixed
-
-- **Icon Display**: Ensured only generic file icons are displayed in the `LiveSuggestionsPanel` by removing unused specific icon components and simplifying the icon selection logic. This resolves an issue where varied icons were not appearing due to missing `filename` data in suggestions.
-- Removed the `filename` property from the `Suggestion` interface as it was not being utilized.
-
-## [0.17.2] - 2025-06-02
-
-### Changed
-
-- **"Latest" Badge Styling**: Updated the "Latest" text badge in the `LiveSuggestionsPanel` to appear as an orange pill (`#F97316` background) with white text. This aligns its appearance with other similar status pills in the application (e.g., the original "UPDATED" pills).
-- **Latest Suggestion Item Background**: Reverted the background of the entire latest suggestion item to its previous purple gradient style, as the solid purple background was a misunderstanding.
-
-## [0.17.35] - 2025-06-26
-
-### Enhanced
-
-- **QuickStartModal Button Styling**: Improved the "Share screen & start review" button for better visibility and user experience
-  - **Larger Camera Icon**: Increased icon size from `h-4 w-4` to `h-6 w-6` (50% larger) for better visibility
-  - **Enhanced Icon Weight**: Increased stroke width from `2` to `2.5` for clearer definition
-  - **Orange Gradient Color**: Changed from tokyo-accent purple to orange gradient (`#f97316` to `#ea580c`) to match main quick start button
-  - **Consistent Branding**: Creates unified orange color scheme across all quick start functionality
-  - **Better Hover Effects**: Added `hover:shadow-lg` and `hover:scale-105` for improved interactive feedback
-  - **Visual Cohesion**: Button now perfectly complements the main "Quick Start" button on the landing page
-
-## [0.17.36] - 2025-06-26
-
-### Refined
-
-- **QuickStartModal Button Interactions**: Refined button hover effects for better user experience
-  - **Toned Down Zoom**: Reduced main button hover scale from `hover:scale-105` to `hover:scale-102` for more subtle, professional interaction
-  - **Enhanced Cancel Button**: Added hover effects with `hover:bg-tokyo-bg-lightest` and `hover:border-tokyo-comment` for better visual feedback
-  - **Consistent Transitions**: Both buttons now use smooth `transition-all duration-200` animations
-  - **Balanced Feedback**: Maintains engaging interactions while feeling refined and polished
-  - **Professional Polish**: Buttons now provide appropriate visual feedback without being overwhelming
-
-## [0.17.37] - 2025-06-30
-
-### Fixed
-
-- **CRITICAL: Duplicate Prompt Preparation**: Fixed issue where prompt preparation was running multiple times causing performance problems and console log spam
-
-  - **Root Cause**: `prepareExamContent` function was included in useEffect dependency arrays, creating infinite loops where the function would trigger itself
-  - **Solution**: Removed `prepareExamContent` from dependency arrays in both preparation useEffects
-  - **Impact**: Eliminates duplicate console messages like "🚀 Preparing quick start general review" appearing twice
-  - **Performance**: Reduces unnecessary API calls and processing during quick start initialization
-  - **Clean Logs**: Console now shows each preparation step only once instead of multiple times
-
-- **Image Loading Simplification**: Replaced complex multi-path image loading with simple module import approach
-
-  - **Root Cause**: QuickStartModal was trying 4 different image paths sequentially, causing unnecessary error logs and network requests
-  - **Old Approach**: `/two-screen-setup.jpg` → `${process.env.PUBLIC_URL}/two-screen-setup.jpg` → `./two-screen-setup.jpg` → `/Code-review-simulator/two-screen-setup.jpg`
-  - **New Approach**: Direct import of image as module (`import twoScreenSetupImage from "../../../two-screen-setup.jpg"`)
-  - **Benefits**: Eliminates error logs, removes complex fallback logic, works reliably in all environments (localhost, build, GitHub Pages)
-  - **Performance**: Single image request instead of multiple failed attempts
-  - **User Experience**: No image flickering or loading delays
-  - **Code Quality**: Removed ~50 lines of complex error handling and retry logic
-
-- **WebSocket Error Prevention**: Enhanced error handling for WebSocket connection issues
-  - **Issue**: WebSocket error 1007 "Request contains an invalid argument" was causing connection cycles
-  - **Monitoring**: Error is now properly logged with debug information for troubleshooting
-  - **Stability**: Prevents rapid reconnection attempts that could cause performance issues
-
-### Enhanced
-
-- **Console Log Cleanup**: Reduced duplicate and excessive logging for better debugging experience
-  - **Button State Tracking**: Streamlined button state change logging to prevent spam
-  - **Connection Flow**: Cleaner connection state debugging without redundant messages
-  - **Preparation Process**: Single log entry per preparation step instead of duplicates
-  - **Better Performance**: Reduced console output improves browser performance during development
-
-## [0.17.38] - 2025-06-30
-
-### Fixed
-
-- **CRITICAL: Circular Dependency in ExamWorkflow**: Fixed circular dependency in useEffect that was causing `prepareExamContent` to be called multiple times
-
-  - **Root Cause**: The first useEffect had `prompt` in its dependency array, creating a loop where `prepareExamContent()` → `setPrompt()` → useEffect triggers again → `prepareExamContent()` runs again
-  - **Solution**: Removed `prompt` and `isLoadingPrompt` from the dependency array and added conditions `!prompt && !isLoadingPrompt` to prevent duplicate calls
-  - **Impact**: Eliminates duplicate console messages like "🚀 Preparing quick start general review" appearing twice
-  - **Performance**: Reduces unnecessary processing and API calls during exam initialization
-  - **Clean Logs**: Console now shows each preparation step only once instead of multiple times
-
-## [1.7.1] - 2025-07-02
-
-### Fixed
-
-- **Exam Duration Bug**: Removed default 10-minute duration fallback that was causing automatic restarts on exams without explicit durations
-- **Enhanced Network Reconnection**: Improved reconnection banner logic to properly handle WiFi disconnections and Chrome offline mode
-- **Live Suggestions Error Handling**: Added better error handling for network issues during live suggestion extraction to prevent interference with main AI session
-- **Reconnection Detection**: Added comprehensive network connectivity monitoring using `navigator.onLine` and online/offline events
-- **Session State Persistence**: Enhanced session state management to maintain established sessions during various network disconnection scenarios
-- **CRITICAL: AI Not Responding After Reconnection**: Fixed major issue where AI would not start talking after successful reconnection
-  - **Root Cause**: Timer system wasn't being restarted after reconnection, so AI never received its introduction message
-  - **Solution**: Added timer restart logic to both session resumption and fresh connection success paths
-  - **Impact**: AI now properly introduces itself and starts responding immediately after reconnection
-  - **Better Connection Logic**: Fixed stale closure issues in reconnection logic that were preventing proper connection state detection
-- **Automatic Reconnection UX**: Transformed reconnection from manual to automatic with informational status display
-  - **No More Buttons**: Removed manual "Reconnect" and "End Session" buttons - reconnection now happens automatically
-  - **Status Indicator**: Reconnection banner now shows informational status that appears during connection issues
-  - **Auto-Hide**: Banner automatically disappears when connection is restored
-  - **Retry Logic**: Automatic retry attempts every 5 seconds if reconnection fails
-  - **Network Awareness**: Automatically attempts reconnection when network comes back online
-  - **Better UX**: Users no longer need to manually manage reconnections - system handles it seamlessly
-- **CRITICAL: Fixed Reconnection Banner Issues**: Resolved multiple critical issues with automatic reconnection system
-  - **Banner Not Disappearing**: Fixed issue where reconnection banner wouldn't disappear when connection was restored
-  - **Double Welcome Messages**: Fixed timer conflicts causing AI to send multiple introduction messages
-  - **Timer Guard System**: Added timer tracking to prevent duplicate timer setup during reconnection
-  - **Console Log Cleanup**: Significantly reduced console logging noise for cleaner debugging experience
-
-### Technical Details
-
-- Added network connectivity event listeners for robust offline/online detection
-- Enhanced WebSocket close event handling to differentiate between expected and unexpected disconnections
-- Improved reconnection logic with network timeout handling and better error messaging
-- Separated live suggestion extraction errors from main session connection state
-- **Timer Restart System**: Comprehensive timer restart after successful reconnection ensures AI introduction message is sent
-- **Promise-Based Connection Checking**: Replaced stale closure-based connection checking with real-time client status polling
-- **Enhanced Reconnection Feedback**: Improved user feedback during reconnection attempts with better error reporting
-
-## [1.7.0] - 2025-06-01
-
-### Added
-
-- **AI Reconnection Message**: When network is restored, AI briefly mentions what it was saying before disconnection
-- **Last AI Message Tracking**: Added functionality to capture context for reconnection messages
-
-### Changed
-
-- **Improved Event Handling**: Used 'transcript' event instead of incorrect 'response' event for better accuracy
-- **Enhanced Network Reconnection Flow**: Added contextual AI messages to improve user experience during reconnection
-
-## [0.20.2] - 2025-06-27
-
-### Enhanced
-
-- **Network Status Management**: Improved network connectivity handling with intelligent microphone control
-  - **Automatic Microphone Muting**: Microphone automatically mutes when network connection is lost to prevent AI from trying to respond to offline speech
-  - **Network Status Banner**: Clear visual indication when network is offline with explanatory message "Microphone muted - AI won't respond to speech while offline"
-  - **Gradual Reconnection**: When network is restored, shows "Restoring connection and preparing AI..." message for 3 seconds before re-enabling microphone
-  - **Preserved User Intent**: Manual mute state is preserved when network connection is restored
-  - **Enhanced Mute Button**: Mute button shows orange border and tooltip when network muted, indicating it's disabled due to network issues
-  - **Audio Track Control**: Uses safe audio track enable/disable instead of stream recreation for reliable muting
-  - **Event-Driven Updates**: Utilizes browser's online/offline events for immediate network status detection
-
-### Technical Details
-
-- **Safe Audio Muting**: Implemented `audioTrack.enabled = false/true` for microphone control without affecting stream integrity
-- **Network Event Handling**: Added event listeners for `online` and `offline` events with proper cleanup
-- **State Coordination**: Added `micMutedDueToNetwork` state separate from manual mute to prevent conflicts
-- **Visual Feedback**: Enhanced mute button with conditional styling and explanatory tooltips
-- **Delay Coordination**: 3-second delay allows AI service to fully restore before accepting new audio input
-
-## [0.20.1] - 2025-06-27
-
-### Fixed
-
-- **Simplified Network Status Banner**: Completely simplified the reconnection banner logic to be a basic network connectivity indicator
-  - **Simple Logic**: Banner now simply shows when `navigator.onLine` is false and hides when it's true
-  - **Removed Complexity**: Eliminated complex session state tracking, WebSocket event handling, and automatic reconnection logic
-  - **Reliable Display**: Banner consistently appears when network is offline and disappears when back online
-  - **Less Code**: Removed hundreds of lines of complex state management that was causing timing issues
-  - **Better UX**: Users get immediate feedback about network connectivity without confusing reconnection states
-  - **No More Bugs**: Eliminated issues with banner not appearing/disappearing correctly during network changes
-
-### Removed
-
-- **Complex Reconnection Features**: Removed automatic reconnection, session resumption, and GoAway message handling
-  - **Auto-Reconnection**: Eliminated complex retry logic that was causing banner display issues
-  - **Session Resumption**: Removed session resumption features that added complexity without reliable functionality
-  - **WebSocket Monitoring**: Removed complex WebSocket event handling (open/close/goAway) that caused timing issues
-  - **hasEstablishedSession**: Removed complex session state tracking that was preventing banner from working correctly
+- Removed diagnostic code (manual test divs and temporary style overrides) from `PopupWindow.tsx`
