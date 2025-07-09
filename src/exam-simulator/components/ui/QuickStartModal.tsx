@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import twoScreenSetupImage from "../../../two-screen-setup.jpg";
-import { ExamSimulator } from "../../../types/ExamSimulator";
-import { getExaminerQuestions } from "../../utils/getExaminerQuestions";
-import getRepoQuestions from "../../utils/getGithubRepoFiles.js";
+import getGithubRepoFiles from "../../utils/getGithubRepoFiles";
 
 interface QuickStartModalProps {
   isOpen: boolean;
@@ -78,11 +76,11 @@ export const QuickStartModal: React.FC<QuickStartModalProps> = ({
   }, [repoUrl, type]);
 
   // Valid GitHub URL
-  const repoValid = useMemo(() => {
+  const repoValid = (() => {
     if (type !== "Github Repo") return true;
     if (!repoUrl.trim()) return false;
     return getRepoUrlError(repoUrl) === "";
-  }, [type, repoUrl]);
+  })();
 
   const handleStartReview = () => {
     if (type === "Github Repo" && !repoValid) return;

@@ -305,6 +305,16 @@ function ControlTray({
     };
   }, [connected, activeVideoStream, client, videoRef]);
 
+  // Ensure microphone stream is stopped when component unmounts (e.g., navigation away)
+  useEffect(() => {
+    return () => {
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach((track) => track.stop());
+        audioStreamRef.current = null;
+      }
+    };
+  }, []);
+
   // Main button click handler
   const handleMainButtonClick = async () => {
     // Safari and Firefox are not supported

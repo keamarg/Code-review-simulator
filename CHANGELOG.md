@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2025-07-09
+
+### Added
+
+- **Navigation Confirmation Prompt**: Implemented a confirmation prompt to prevent users from accidentally leaving an active code review session.
+- **In-App Navigation**: Uses React Router's `useBlocker` to show a `window.confirm` dialog when navigating within the application.
+- **Browser Tab/Close**: Uses a `beforeunload` event listener to show the browser's native confirmation prompt when attempting to close the tab or navigate to an external site.
+
 ## [1.2.4] - 2025-07-09
 
 ### Fixed
@@ -2314,3 +2322,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Re-enabled stylesheet copying from the main application to the popup, allowing CSS variables and global styles to function correctly within the popup.
   - Verified that theme-consistent styling (backgrounds, text colors, shadows, hover effects) applies correctly to all suggestion items and panel elements within the popup.
 - Removed diagnostic code (manual test divs and temporary style overrides) from `PopupWindow.tsx`
+
+## [1.2.6] - 2025-07-09
+
+### Fixed
+
+- **Navigation Guard Double-Prompt & Blocker Crash**: Resolved an issue where pressing "OK" on the leave-session confirmation dialog would immediately show the dialog again and crash with `Invalid blocker state transition: unblocked -> proceeding`.
+  - Added a `cleanupAfterProceedRef` guard to ensure `blocker.proceed()` is invoked only once per navigation event.
+  - Cleanup (`shutdownSession`) now runs only after the router reports the blocker state as `unblocked`, guaranteeing a safe state transition.
+  - Removes the previous `setTimeout` workaround that could still race in some browsers.
+
+### Changed
+
+- Minor refactor of `AIExaminerPage.tsx` blocker effect for clarity and robustness.
+
+## [1.2.7] - 2025-07-09
+
+### Fixed
+
+- **Microphone Still Live After Navigating Away**: Ensured that the user's microphone stream is fully stopped when leaving or reloading the page.
+  - Added a cleanup `useEffect` in `ControlTrayCustom.tsx` that stops and releases all audio tracks on component unmount.
+  - This complements the existing screen-share cleanup so both video and audio resources are freed.

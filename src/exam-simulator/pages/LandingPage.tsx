@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Layout from "../layout/Layout";
 import RecentCodeReviews from "../components/RecentCodeReviews";
 import { QuickStartModal } from "../components/ui/QuickStartModal";

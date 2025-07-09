@@ -1,8 +1,11 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import { useSearchParams, useLocation } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import {
+  useSearchParams,
+  useLocation,
+  useNavigate,
+  useBlocker,
+} from "react-router-dom";
 import Layout from "../layout/Layout";
-import ControlTrayCustom from "../components/control-tray-custom/ControlTrayCustom";
 import { ExamWorkflow } from "../components/ai-examiner/ExamWorkflow";
 import { useGenAILiveContext } from "../../contexts/GenAILiveContext";
 import { GenAILiveProvider } from "../../contexts/GenAILiveContext";
@@ -17,6 +20,7 @@ import { LiveSuggestionsPanel } from "../components/ui/LiveSuggestionsPanel";
 import { LoadingAnimation } from "../components/ui/LoadingAnimation";
 import cn from "classnames";
 import { mediaStreamService } from "../lib/mediaStreamService";
+import sessionService from "../lib/sessionService";
 // supabase might not be needed here anymore if ExamWorkflow handles all supabase interactions
 // import { supabase } from "../config/supabaseClient";
 
@@ -205,6 +209,15 @@ export default function LivePage() {
   // examIntentStarted is controlled by the ControlTrayCustom button
   const [examIntentStarted, setExamIntentStarted] = useState(false);
 
+  // Keep global sessionService in sync with current review state
+  useEffect(() => {
+    if (examIntentStarted) {
+      sessionService.startReview();
+    } else {
+      sessionService.stopReview();
+    }
+  }, [examIntentStarted]);
+
   // Force stop audio flag for timer expiration
   const [forceStopAudio, setForceStopAudio] = useState(false);
 
@@ -222,6 +235,14 @@ export default function LivePage() {
 
   // Track task loading state
   const [isTaskLoading, setIsTaskLoading] = useState(false);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      sessionService.isReviewActive &&
+      currentLocation.pathname !== nextLocation.pathname
+  );
+
+  const cleanupAfterProceedRef = useRef(false);
 
   // Initialize live suggestion extractor
   const {
@@ -324,25 +345,33 @@ export default function LivePage() {
     }
   }, [examIntentStarted]);
 
-  const handleEndReview = () => {
-    // Clear any pending auto-trigger
-    if (autoTriggerTimeoutRef.current) {
-      clearTimeout(autoTriggerTimeoutRef.current);
-      autoTriggerTimeoutRef.current = null;
+  // This is the one true cleanup function.
+  const shutdownSession = useCallback(() => {
+    // Stop all media tracks
+    if (videoStream) {
+      videoStream.getTracks().forEach((track) => track.stop());
+      setVideoStream(null);
     }
-
+    // Terminate the AI session
     if (genaiClient) {
       genaiClient.terminateSession();
     }
+    // Update global state
+    sessionService.stopReview();
+    // Reset component state
+    setExamIntentStarted(false);
+  }, [genaiClient, videoStream, setVideoStream]);
 
+  const handleEndReview = () => {
+    // This function is now just a wrapper for UI state changes.
     setForceStopAudio(true);
     setForceStopVideo(true);
-    setExamIntentStarted(false);
+    shutdownSession();
 
     setTimeout(() => {
       setForceStopAudio(false);
       setForceStopVideo(false);
-    }, 3000);
+    }, 100);
   };
 
   // Add a new handler for summary modal close
@@ -356,20 +385,8 @@ export default function LivePage() {
 
   // Handle timer expiration - reset state and force stop audio/video
   const handleTimerExpired = () => {
-    if (genaiClient) {
-      genaiClient.terminateSession();
-    }
-
-    setForceStopAudio(true);
-    setForceStopVideo(true);
-    setExamIntentStarted(false);
-
+    shutdownSession();
     clearAllSuggestions();
-
-    setTimeout(() => {
-      setForceStopAudio(false);
-      setForceStopVideo(false);
-    }, 3000);
   };
 
   // Handle manual stop - show summary instead of immediate redirect
@@ -416,24 +433,46 @@ export default function LivePage() {
 
   // Terminate session on page reload/close
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (genaiClient) {
-        genaiClient.terminateSession();
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (sessionService.isReviewActive) {
+        event.preventDefault();
+        event.returnValue = "";
+        return "";
       }
     };
-
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      if (genaiClient) {
-        genaiClient.terminateSession();
-      }
-      if (autoTriggerTimeoutRef.current) {
-        clearTimeout(autoTriggerTimeoutRef.current);
-      }
+      shutdownSession();
     };
-  }, [genaiClient]);
+  }, [shutdownSession]);
+
+  // Handle blocker state
+  useEffect(() => {
+    if (!blocker) return;
+
+    if (blocker.state === "blocked") {
+      const shouldLeave = window.confirm(
+        "You have an active code review session. Are you sure you want to leave? The session will be terminated."
+      );
+
+      if (shouldLeave) {
+        // Mark that we still need to clean up once the navigation actually happens
+        cleanupAfterProceedRef.current = true;
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    } else if (
+      blocker.state === "unblocked" &&
+      cleanupAfterProceedRef.current
+    ) {
+      // Navigation has finished; run cleanup exactly once
+      cleanupAfterProceedRef.current = false;
+      shutdownSession();
+    }
+  }, [blocker, shutdownSession]);
 
   // Stop video stream when forceStopVideo is triggered
   useEffect(() => {

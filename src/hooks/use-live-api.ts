@@ -50,6 +50,10 @@ export function useLiveAPI({
     model: getCurrentModel(),
   });
   const [volume, setVolume] = useState(0);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isWebcamStarted, setIsWebcamStarted] = useState(false);
+  const [isAudioRecording, setIsAudioRecording] = useState(false);
+  const [isChangeScreenButton, setIsChangeScreenButton] = useState(false);
 
   // register audio for streaming server -> speakers
   useEffect(() => {

@@ -15,14 +15,15 @@ import { createLiveConfig } from "../../utils/liveConfigUtils"; // Import the ne
 import { LoadingAnimation } from "../ui/LoadingAnimation"; // Check path
 import { AIExaminerDisplay } from "./AIExaminer"; // Import the refactored display component
 import { CountdownTimer } from "../CountdownTimer"; // Import CountdownTimer
-import { getCurrentModel, getTimerConfig } from "../../../config/aiConfig"; // Import centralized config
+import { getCurrentModel } from "../../../config/aiConfig"; // Import centralized config
 import { useConversationTracker } from "../../hooks/useConversationTracker"; // New hook for tracking conversation
 import { CodeReviewSummaryModal } from "../ui/CodeReviewSummaryModal"; // New modal component
 import { ReconnectionBanner } from "../ui/ReconnectionBanner"; // New reconnection banner
 import ControlTrayCustom from "../control-tray-custom/ControlTrayCustom"; // Correct import for ControlTrayCustom
 import prompts from "../../../prompts.json"; // Import prompts for introduction message
 
-const EXAM_DURATION_IN_MINUTES = 10; // default duration
+const GITHUB_REPO_URL_REGEX =
+  /^https:\/\/github\.com\/[a-zA-Z0-9-]+\/[a-zA-Z0-9_.-]+$/;
 
 interface ExamWorkflowProps {
   examId: string;

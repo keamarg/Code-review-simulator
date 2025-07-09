@@ -17,10 +17,7 @@
 import { EventEmitter } from "events";
 import VolMeterWorket from "./worklets/vol-meter";
 import AudioRecordingWorklet from "./worklets/audio-processing";
-import {
-  registeredWorklets,
-  createWorketFromSrc,
-} from "./audioworklet-registry";
+import { createWorketFromSrc } from "./audioworklet-registry";
 import { audioContext } from "./utils";
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {

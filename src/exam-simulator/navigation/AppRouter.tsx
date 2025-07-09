@@ -1,11 +1,15 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  createBrowserRouter,
+  RouterProvider,
+  Route,
+  createRoutesFromElements,
+} from "react-router-dom";
 import LandingPage from "../pages/LandingPage";
 import AIExaminerPage from "../pages/AIExaminerPage";
 import Dashboard from "../pages/Dashboard";
 import ExamEditor from "../pages/ExamEditor";
-
-import { AuthProvider } from "./../contexts/AuthContext";
+import { RootLayout } from "../layout/RootLayout";
 import { ProtectedRoute } from "./../pages/ProtectedRoute";
 import LoginPage from "../pages/Login";
 import SignupPage from "./../pages/Signup";
@@ -13,25 +17,23 @@ import SignupPage from "./../pages/Signup";
 const basename = new URL(process.env.PUBLIC_URL || "", window.location.origin)
   .pathname;
 
-// The authentication is created via anthropic: https://claude.ai/chat/563676a5-b56e-40d3-b58e-4e33ccaf962f
-export function AppRouter() {
-  return (
-    <AuthProvider>
-      <BrowserRouter basename={basename}>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route path="/" element={<RootLayout />}>
+      <Route index element={<LandingPage />} />
+      <Route path="login" element={<LoginPage />} />
+      <Route path="signup" element={<SignupPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="dashboard" element={<Dashboard />} />
+        <Route path="create" element={<ExamEditor />} />
+        <Route path="exam" element={<ExamEditor />} />
+        <Route path="live" element={<AIExaminerPage />} />
+      </Route>
+    </Route>
+  ),
+  { basename: basename }
+);
 
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/create" element={<ExamEditor />} />
-            <Route path="/exam" element={<ExamEditor />} />
-            <Route path="/live" element={<AIExaminerPage />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
-  );
+export function AppRouter() {
+  return <RouterProvider router={router} />;
 }
