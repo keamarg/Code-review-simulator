@@ -22,9 +22,6 @@ import { ReconnectionBanner } from "../ui/ReconnectionBanner"; // New reconnecti
 import ControlTrayCustom from "../control-tray-custom/ControlTrayCustom"; // Correct import for ControlTrayCustom
 import prompts from "../../../prompts.json"; // Import prompts for introduction message
 
-const GITHUB_REPO_URL_REGEX =
-  /^https:\/\/github\.com\/[a-zA-Z0-9-]+\/[a-zA-Z0-9_.-]+$/;
-
 interface ExamWorkflowProps {
   examId: string;
   examIntentStarted: boolean; // Controlled by AIExaminerPage via ControlTrayCustom
@@ -103,7 +100,6 @@ export function ExamWorkflow({
   // New state for network status banner
   const [showReconnectionBanner, setShowReconnectionBanner] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [showReconnectButton, setShowReconnectButton] = useState(false);
 
   // Track deliberate pause to avoid showing network banner
   const [isDeliberatelyPaused, setIsDeliberatelyPaused] = useState(false);
@@ -115,8 +111,10 @@ export function ExamWorkflow({
   const previousPauseStateRef = useRef(isDeliberatelyPaused);
 
   // Use conversation tracker hook
-  const { getConversationSummary, clearConversation, getTranscripts } =
-    useConversationTracker(client, onTranscriptChunk);
+  const { getConversationSummary, clearConversation } = useConversationTracker(
+    client,
+    onTranscriptChunk
+  );
 
   // GitHub URL validation function
   const isValidGitHubUrl = (url: string): boolean => {
@@ -124,10 +122,10 @@ export function ExamWorkflow({
 
     // Support multiple GitHub URL formats
     const githubUrlPatterns = [
-      /^https?:\/\/github\.com\/[^\/]+\/[^\/]+\/?$/,
-      /^https?:\/\/api\.github\.com\/repos\/[^\/]+\/[^\/]+\/?$/,
-      /^git@github\.com:[^\/]+\/[^\/]+\.git$/,
-      /^[^\/]+\/[^\/]+$/,
+      /^https?:\/\/github\.com\/[^/]+\/[^/]+\/?$/,
+      /^https?:\/\/api\.github\.com\/repos\/[^/]+\/[^/]+\/?$/,
+      /^git@github\.com:[^/]+\/[^/]+\.git$/,
+      /^[^/]+\/[^/]+$/,
     ];
 
     return githubUrlPatterns.some((pattern) => pattern.test(url.trim()));
@@ -180,12 +178,9 @@ export function ExamWorkflow({
     if (client && connected) {
       // Check if we just resumed from a deliberate pause
       if (previousPauseStateRef.current && !isDeliberatelyPaused && connected) {
-        console.log(
-          "🔄 Resume detected - sending 'let's continue' prompt to AI"
-        );
         client.send([
           {
-            text: "Let's continue with the code review.",
+            text: "Session resumed. Please continue with the code review.",
           },
         ]);
       }
@@ -206,18 +201,11 @@ export function ExamWorkflow({
 
   // Automatic reconnect handler - starts immediately when network is restored
   const handleAutomaticReconnect = useCallback(async () => {
-    console.log(
-      "🔄 Automatic reconnect started - triggering normal connection flow"
-    );
     setIsReconnecting(true);
-    setShowReconnectButton(false); // No manual button needed
 
     try {
       // Instead of using client.reconnectWithResumption(), trigger the normal connection flow
       // by temporarily resetting the connection guards to allow the normal useEffect to run
-      console.log(
-        "🔄 Resetting connection guards to trigger normal connection flow"
-      );
 
       // Reset connection guards to allow normal connection
       isConnectingRef.current = false;
@@ -232,16 +220,11 @@ export function ExamWorkflow({
       // Set up a timeout to check if connection was successful
       reconnectTimeoutRef.current = setTimeout(() => {
         if (connected) {
-          console.log(
-            "✅ Connection established - sending reconnection prompt to AI"
-          );
-
           // Send introduction message to make AI speak
           if (client) {
-            console.log("📤 Sending reconnection acknowledgment prompt to AI");
             client.send([
               {
-                text: "I notice we had a brief connection interruption, but I'm back now. Let's continue with your code review where we left off.",
+                text: "Connection restored. Please continue with the code review where we left off.",
               },
             ]);
 
@@ -249,12 +232,10 @@ export function ExamWorkflow({
             // Don't hide banner here - wait for AI response
           }
         } else {
-          console.log("⚠️ Normal connection flow didn't complete - retrying");
           setIsReconnecting(false);
           // Retry after 5 seconds
           setTimeout(() => {
             if (showReconnectionBanner && !isDeliberatelyPaused) {
-              console.log("🔄 Retrying automatic reconnection...");
               handleAutomaticReconnect();
             }
           }, 5000);
@@ -270,7 +251,6 @@ export function ExamWorkflow({
       // Retry after 5 seconds
       setTimeout(() => {
         if (showReconnectionBanner && !isDeliberatelyPaused) {
-          console.log("🔄 Retrying automatic reconnection after error...");
           handleAutomaticReconnect();
         }
       }, 5000);
@@ -289,32 +269,25 @@ export function ExamWorkflow({
 
     // Simple offline detection - automatically start reconnection process
     const handleOffline = () => {
-      console.log("📡 Browser offline event fired");
       // Only show banner if not deliberately paused and exam is started
       if (examStarted && !isDeliberatelyPaused) {
-        console.log("🔴 Network offline - showing banner and cutting AI audio");
-
         // Cut the AI audio immediately in the browser
         stopAudio();
 
         setShowReconnectionBanner(true);
         setIsReconnecting(false); // Reset reconnecting flag for fresh offline state
-        setShowReconnectButton(false); // No manual button
 
         // Clear any existing reconnection timeout from previous attempts
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
           reconnectTimeoutRef.current = null;
-          console.log("🧹 Cleared previous reconnection timeout");
         }
       }
     };
 
     const handleOnline = () => {
-      console.log("📡 Browser online event fired");
       // Automatically start reconnection when network comes back
       if (examStarted && showReconnectionBanner && !isDeliberatelyPaused) {
-        console.log("🟢 Network restored - starting automatic reconnection");
         handleAutomaticReconnect();
       }
     };
@@ -342,9 +315,11 @@ export function ExamWorkflow({
     if (!client) return;
 
     const handleClose = () => {
-      console.log(
-        "🔴 GenAI Live connection closed – enabling reconnection flow"
-      );
+      // Check if a voice change is in progress - if so, don't interfere
+      if (client.isVoiceChangeInProgress) {
+        return;
+      }
+
       // Mark connection as inactive so the normal connection effect can run again
       activeConnectionRef.current = false;
       isConnectingRef.current = false;
@@ -417,7 +392,6 @@ export function ExamWorkflow({
       setExamStarted(false);
       setShowReconnectionBanner(false);
       setIsReconnecting(false); // Reset reconnecting flag
-      setShowReconnectButton(false); // Reset button flag
 
       // Reset deliberate pause flag for next session
       setIsDeliberatelyPaused(false);
@@ -465,7 +439,6 @@ export function ExamWorkflow({
       isPreparingContentRef.current = false; // Reset content preparation flag
       setShowReconnectionBanner(false);
       setIsReconnecting(false); // Reset reconnecting flag
-      setShowReconnectButton(false); // Reset button flag
 
       // Reset deliberate pause flag
       setIsDeliberatelyPaused(false);
@@ -541,14 +514,14 @@ export function ExamWorkflow({
           } as ExamSimulator)
       );
     }
-  }, [quickStartExam?.fullScan, examSimulator]);
+  }, [quickStartExam?.fullScan, quickStartExam?.type, examSimulator]);
 
   // Initialize repo URL from quick start exam data if available
   useEffect(() => {
-    if (quickStartExam?.repoUrl && quickStartExam.type === "Github Repo") {
+    if (quickStartExam?.repoUrl && quickStartExam?.type === "Github Repo") {
       setRepoUrl(quickStartExam.repoUrl);
     }
-  }, [quickStartExam]);
+  }, [quickStartExam?.repoUrl, quickStartExam?.type]);
 
   // If parent passes an initial repo URL (e.g., from setup modal), populate it once.
   useEffect(() => {
@@ -650,7 +623,7 @@ export function ExamWorkflow({
         prepareExamContent();
       }
     }
-  }, [examSimulator, repoUrl]); // Removed prepareExamContent from dependencies
+  }, [examSimulator, repoUrl, prompt, isLoadingPrompt, prepareExamContent]);
 
   // Effect for when exam intent starts (user clicks start button)
   useEffect(() => {
@@ -711,15 +684,20 @@ export function ExamWorkflow({
     prompt,
     connected,
     client,
-    // Removed isLoadingPrompt - it was causing infinite loop
-    // Removed prepareExamContent from dependencies
+    isLoadingPrompt,
+    isReconnecting,
+    prepareExamContent,
+    showReconnectionBanner,
   ]);
+
+  // Extract complex expression to avoid linter warning
+  const liveConfigText = liveConfig?.systemInstruction?.parts?.[0]?.text;
 
   // Effect to connect and start timers when config is set and intent is active
   useEffect(() => {
     if (
       examIntentStarted &&
-      liveConfig?.systemInstruction?.parts?.[0]?.text &&
+      liveConfigText &&
       !connected &&
       !isConnectingRef.current &&
       !activeConnectionRef.current &&
@@ -763,7 +741,7 @@ export function ExamWorkflow({
     }
   }, [
     examIntentStarted,
-    liveConfig?.systemInstruction?.parts?.[0]?.text,
+    liveConfigText,
     connected,
     connect,
     examDurationActiveExamMs,
@@ -772,6 +750,7 @@ export function ExamWorkflow({
     showReconnectionBanner,
     connectionTrigger, // Add the trigger to the dependency array
     isDeliberatelyPaused, // Add this to the dependency array
+    liveConfig,
   ]);
 
   // Notify parent of loading state changes

@@ -7,12 +7,10 @@ function getLevelSpecificGuidance(level) {
 
 function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
   // Use the standardExam template from prompts.json
-  // eslint-disable-next-line no-template-curly-in-string
   let prompt = prompts.mainPrompts.standardExam
-    .replace("${examDurationActiveExam}", examDurationActiveExam)
-    // eslint-disable-next-line no-template-curly-in-string
+    .replace("{{examDurationActiveExam}}", examDurationActiveExam)
     .replace(
-      '${examSimulator?.title || "code review"}',
+      '{{examSimulator?.title || "code review"}}',
       examSimulator?.title || "code review"
     );
 
@@ -39,15 +37,13 @@ function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
     `;
 
   // Add additional context from prompts.json
-  // eslint-disable-next-line no-template-curly-in-string
   const additionalContext = prompts.instructionComponents.additionalContext
     .replace(
-      "${description}",
+      "{{description}}",
       examSimulator.description ||
         "This is a general code review focusing on the areas specified above."
     )
-    // eslint-disable-next-line no-template-curly-in-string
-    .replace("${studentTask}", studentTask);
+    .replace("{{studentTask}}", studentTask);
 
   prompt += additionalContext.replace(/\\n/g, "\n");
 
@@ -59,10 +55,9 @@ function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
   prompt += guidelines;
 
   // Add level-specific suffix from prompts.json
-  // eslint-disable-next-line no-template-curly-in-string
   const levelSpecificSuffix =
     prompts.instructionComponents.levelSpecificSuffix.replace(
-      "${level}",
+      "{{level}}",
       examSimulator.learning_goals || "intermediate"
     );
 
@@ -78,9 +73,9 @@ function getGithubPrompt(
 ) {
   // Use the githubExam template from prompts.json
   let prompt = prompts.mainPrompts.githubExam
-    .replace("${examDurationActiveExam}", examDurationActiveExam)
+    .replace("{{examDurationActiveExam}}", examDurationActiveExam)
     .replace(
-      '${examSimulator?.title || "code review"}',
+      '{{examSimulator?.title || "code review"}}',
       examSimulator?.title || "code review"
     );
 
@@ -124,8 +119,8 @@ START BY: Greeting the developer, confirming you can see their screen, and askin
   // Add github-specific suffix from prompts.json
   const githubSpecificSuffix =
     prompts.instructionComponents.githubSpecificSuffix
-      .replace("${githubQuestions}", githubQuestions)
-      .replace("${level}", examSimulator.learning_goals || "intermediate");
+      .replace("{{githubQuestions}}", githubQuestions)
+      .replace("{{level}}", examSimulator.learning_goals || "intermediate");
 
   prompt += githubSpecificSuffix.replace(/\\n/g, "\n");
 
@@ -134,13 +129,10 @@ START BY: Greeting the developer, confirming you can see their screen, and askin
 
 function getGeneralPrompt(examSimulator, studentTask) {
   // Use the generalReview template from prompts.json
-  // eslint-disable-next-line no-template-curly-in-string
-  let prompt = prompts.mainPrompts.generalReview
-    // eslint-disable-next-line no-template-curly-in-string
-    .replace(
-      '${examSimulator?.title || "general code review"}',
-      examSimulator?.title || "general code review"
-    );
+  let prompt = prompts.mainPrompts.generalReview.replace(
+    '{{examSimulator?.title || "general code review"}}',
+    examSimulator?.title || "general code review"
+  );
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
@@ -158,16 +150,14 @@ function getGeneralPrompt(examSimulator, studentTask) {
     `;
 
   // Add additional context from prompts.json (modified for general review)
-  // eslint-disable-next-line no-template-curly-in-string
   const additionalContext = prompts.instructionComponents.additionalContext
     .replace(
-      "${description}",
+      "{{description}}",
       examSimulator.description ||
         "This is a general code review focusing on code quality improvements and best practices."
     )
-    // eslint-disable-next-line no-template-curly-in-string
     .replace(
-      "${studentTask}",
+      "{{studentTask}}",
       studentTask ||
         "Please show me the code you'd like me to review, and I'll provide specific suggestions for improvement."
     );
@@ -182,10 +172,9 @@ function getGeneralPrompt(examSimulator, studentTask) {
   prompt += guidelines;
 
   // Add level-specific suffix from prompts.json
-  // eslint-disable-next-line no-template-curly-in-string
   const levelSpecificSuffix =
     prompts.instructionComponents.levelSpecificSuffix.replace(
-      "${level}",
+      "{{level}}",
       examSimulator.learning_goals || "intermediate"
     );
 

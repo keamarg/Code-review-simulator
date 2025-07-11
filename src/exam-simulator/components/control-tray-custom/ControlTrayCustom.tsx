@@ -79,7 +79,6 @@ function ControlTray({
 }: ControlTrayProps) {
   const [activeVideoStream, setActiveVideoStream] =
     useState<MediaStream | null>(null);
-  const [inVolume, setInVolume] = useState(0);
   const [audioRecorder] = useState(() => new AudioRecorder());
   const [muted, setMuted] = useState(false);
   const renderCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,13 +86,6 @@ function ControlTray({
   const [buttonIsOn, setButtonIsOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [screenSharingSource, setScreenSharingSource] = useState<string>("");
-  const [showStartMic, setShowStartMic] = useState(false);
-  const [pendingVideoStream, setPendingVideoStream] =
-    useState<MediaStream | null>(null);
-  const [showPreShareWarning, setShowPreShareWarning] = useState(false);
-  const [pendingShareAction, setPendingShareAction] = useState<
-    null | (() => void)
-  >(null);
 
   // Track audio stream for proper cleanup
   const audioStreamRef = useRef<MediaStream | null>(null);
@@ -102,8 +94,8 @@ function ControlTray({
   const hasNotifiedButtonReadyRef = useRef(false);
 
   // New state for two-step approach
-  const [permissionsGranted, setPermissionsGranted] = useState(false);
-  const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
+  const [permissionsGranted] = useState(false);
+  const [isRequestingPermissions] = useState(false);
 
   // New state for pause/resume functionality
   const [hasEverConnected, setHasEverConnected] = useState(false);
@@ -123,9 +115,6 @@ function ControlTray({
     if (videoElement && videoElement.srcObject) {
       const stream = videoElement.srcObject as MediaStream;
       if (stream.active && stream.getVideoTracks().length > 0) {
-        console.log(
-          "🚀 ControlTrayCustom: Restoring video stream state on remount."
-        );
         setActiveVideoStream(stream);
         setIsScreenSharing(true);
         setScreenSharingSource(getScreenSharingSourceName(stream));
@@ -145,9 +134,6 @@ function ControlTray({
             },
           })
           .then((audioStream) => {
-            console.log(
-              "🎤 Quick start mode: Got audio stream, storing for recording"
-            );
             audioStreamRef.current = audioStream;
             setShouldStartAudioRecorder(true);
           })
@@ -159,7 +145,7 @@ function ControlTray({
           });
       }
     }
-  }, []); // Empty dependency array ensures this runs only on mount
+  }, [videoRef]); // Include videoRef dependency
 
   useEffect(() => {
     if (!connected && connectButtonRef.current) {
@@ -205,6 +191,7 @@ function ControlTray({
       hasNotifiedButtonReadyRef.current = true;
       onButtonReady(handleMainButtonClick);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     connected,
     isRequestingPermissions,
@@ -212,6 +199,7 @@ function ControlTray({
     onButtonReady,
     hideMainButton,
     isReadyForAutoTrigger,
+    // handleMainButtonClick cannot be included as it's defined after this useEffect
   ]);
 
   // When the main button transitions from hidden → visible, allow a new notification
@@ -246,10 +234,6 @@ function ControlTray({
     },
     [client, audioRecorder]
   );
-
-  const audioVolumeHandler = useCallback((volume: number) => {
-    setInVolume(volume);
-  }, []);
 
   // Simple mute toggle - just enable/disable the audio track
   const handleMuteToggle = useCallback(() => {
@@ -292,7 +276,6 @@ function ControlTray({
       forceStopInProgressRef.current = true;
 
       audioRecorder.off("data", audioDataHandler);
-      audioRecorder.off("volume", audioVolumeHandler);
       audioRecorder.stop();
 
       // Also stop the MediaStream tracks for complete cleanup
@@ -302,7 +285,7 @@ function ControlTray({
         forceStopInProgressRef.current = false;
       }, 100);
     }
-  }, [forceStopAudio, audioRecorder, audioDataHandler, audioVolumeHandler]);
+  }, [forceStopAudio, audioRecorder, audioDataHandler]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -347,14 +330,8 @@ function ControlTray({
         try {
           // Only start if not already started
           if (!audioRecorder.recording) {
-            console.log(
-              `🎤 Starting audio recorder after connection established (${
-                isQuickStartMode ? "Quick Start" : "Custom"
-              } mode)`
-            );
             await audioRecorder.start(audioStreamRef.current);
             audioRecorder.on("data", audioDataHandler);
-            audioRecorder.on("volume", audioVolumeHandler);
           }
         } catch (error) {
           console.error("❌ Failed to start audio recorder:", error);
@@ -369,7 +346,6 @@ function ControlTray({
     shouldStartAudioRecorder,
     audioRecorder,
     audioDataHandler,
-    audioVolumeHandler,
     isQuickStartMode,
   ]);
 
@@ -396,20 +372,17 @@ function ControlTray({
     // Handle different states: Start, Pause, Resume
     if (connected) {
       // Currently connected - this is a PAUSE
-      console.log("🔄 Pausing session - preserving for resumption");
       disconnect(); // This preserves session data for resumption
       setButtonIsOn(false);
       onButtonClicked(false); // Notify parent that we're pausing
     } else if (hasEverConnected) {
       // Not connected but has connected before - this is a RESUME
-      console.log("🔄 Resuming session using session resumption");
       setButtonIsOn(true);
 
       try {
         // Use session resumption to continue from where we left off
         const resumeSuccess = await client.reconnectWithResumption();
         if (resumeSuccess) {
-          console.log("✅ Session resumed successfully");
           onButtonClicked(true); // Notify parent that we're resuming
         } else {
           console.error("❌ Session resume failed");
@@ -425,254 +398,7 @@ function ControlTray({
       }
     } else {
       // Never connected before - this is a START
-      console.log("🔄 Starting new session");
       await startUnifiedFlow();
-    }
-  };
-
-  // Request permissions (microphone and screen sharing)
-  const requestPermissions = async () => {
-    if (isRequestingPermissions) return;
-
-    setIsRequestingPermissions(true);
-    setButtonIsOn(true);
-
-    try {
-      // Request both permissions in parallel (like Chrome)
-      const [audioStream, videoStream] = await Promise.all([
-        navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-            channelCount: 1,
-          },
-        }),
-        navigator.mediaDevices.getDisplayMedia({
-          video: true,
-        }),
-      ]);
-
-      // Store audio stream for cleanup - CRITICAL for Firefox flow
-      audioStreamRef.current = audioStream;
-
-      // Set up video stream
-      const videoOnlyStream = new MediaStream(videoStream.getVideoTracks());
-      setActiveVideoStream(videoOnlyStream);
-      onVideoStreamChange(videoOnlyStream);
-      setIsScreenSharing(true);
-      setScreenSharingSource(getScreenSharingSourceName(videoStream));
-
-      // Mark permissions as granted
-      setPermissionsGranted(true);
-      setButtonIsOn(false);
-    } catch (permissionError) {
-      setButtonIsOn(false);
-      setIsRequestingPermissions(false);
-
-      if (permissionError instanceof DOMException) {
-        if (permissionError.name === "NotAllowedError") {
-          // Check if this is a quick start session and call the cancellation callback
-          if (onScreenShareCancelled) {
-            onScreenShareCancelled();
-            return;
-          }
-
-          alert(
-            "Microphone and screen sharing permissions are required. Please allow both permissions and try again."
-          );
-        } else {
-          alert("Permission error: " + permissionError.message);
-        }
-      } else {
-        alert("Failed to get permissions. Please try again.");
-      }
-    } finally {
-      setIsRequestingPermissions(false);
-    }
-  };
-
-  // Start the actual review (Firefox second step)
-  const startReview = async () => {
-    if (!permissionsGranted) {
-      alert(
-        "Please grant permissions first by clicking 'Share Screen & Microphone'."
-      );
-      return;
-    }
-
-    if (!audioStreamRef.current) {
-      alert(
-        "Audio stream not available. Please try granting permissions again."
-      );
-      return;
-    }
-
-    if (!activeVideoStream) {
-      alert(
-        "Screen sharing not available. Please try granting permissions again."
-      );
-      return;
-    }
-
-    setButtonIsOn(true);
-
-    try {
-      // For custom mode, set flag to start audio recorder when connection is established
-      if (!isQuickStartMode) {
-        setShouldStartAudioRecorder(true);
-      } else {
-        // For quick start mode, start audio recorder immediately
-        try {
-          await audioRecorder.start(audioStreamRef.current);
-          audioRecorder.on("data", audioDataHandler);
-          audioRecorder.on("volume", audioVolumeHandler);
-        } catch (audioError) {
-          setButtonIsOn(false);
-          alert(
-            "Failed to start microphone. Please check permissions and try again."
-          );
-          return;
-        }
-      }
-
-      // Start the review
-      onButtonClicked(true);
-    } catch (error) {
-      setButtonIsOn(false);
-      alert("Failed to start the code review. Please try again.");
-    }
-  };
-
-  // Handler for the pre-sharing warning modal
-  const handlePreShareWarningOk = async () => {
-    setShowPreShareWarning(false);
-    if (pendingShareAction) await pendingShareAction();
-  };
-
-  // Handler for the Start Review modal (for Firefox and Safari)
-  const handleStartReviewClick = async () => {
-    setShowStartMic(false);
-
-    // For Safari, request screen sharing in this user gesture
-    if (isSafari()) {
-      try {
-        const videoStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-        });
-
-        // Set up video stream
-        const videoOnlyStream = new MediaStream(videoStream.getVideoTracks());
-        setActiveVideoStream(videoOnlyStream);
-        onVideoStreamChange(videoOnlyStream);
-        setIsScreenSharing(true);
-        setScreenSharingSource(getScreenSharingSourceName(videoStream));
-
-        // For custom mode, set flag to start audio recorder when connection is established
-        if (audioStreamRef.current) {
-          if (!isQuickStartMode) {
-            setShouldStartAudioRecorder(true);
-          } else {
-            // For quick start mode, start audio recorder immediately
-            try {
-              await audioRecorder.start(audioStreamRef.current);
-              audioRecorder.on("data", audioDataHandler);
-              audioRecorder.on("volume", audioVolumeHandler);
-            } catch (audioError) {
-              setButtonIsOn(false);
-              alert(
-                "Failed to start microphone. Please check permissions and try again."
-              );
-              return;
-            }
-          }
-        }
-
-        // Start the review
-        try {
-          onButtonClicked(true);
-        } catch (error) {
-          setButtonIsOn(false);
-          alert("Failed to start the code review. Please try again.");
-          return;
-        }
-      } catch (screenShareError) {
-        setButtonIsOn(false);
-        if (
-          screenShareError instanceof DOMException &&
-          screenShareError.name === "NotAllowedError"
-        ) {
-          // Check if this is a quick start session and call the cancellation callback
-          if (onScreenShareCancelled) {
-            onScreenShareCancelled();
-            return;
-          }
-
-          alert(
-            "Screen sharing is required to start the code review. Please allow screen sharing and try again."
-          );
-        } else {
-          alert("Failed to start screen sharing. Please try again.");
-        }
-        return;
-      }
-      return;
-    }
-
-    // Original Firefox flow
-    let audioStream: MediaStream;
-    try {
-      audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        },
-      });
-    } catch (audioError) {
-      setButtonIsOn(false);
-      alert(
-        "Microphone access is required. Please allow microphone access and try again."
-      );
-      return;
-    }
-    try {
-      // Store audio stream for cleanup
-      audioStreamRef.current = audioStream;
-
-      // For custom mode, set flag to start audio recorder when connection is established
-      if (!isQuickStartMode) {
-        setShouldStartAudioRecorder(true);
-      } else {
-        // For quick start mode, start audio recorder immediately
-        try {
-          await audioRecorder.start(audioStream);
-          audioRecorder.on("data", audioDataHandler);
-          audioRecorder.on("volume", audioVolumeHandler);
-        } catch (audioError) {
-          setButtonIsOn(false);
-          alert(
-            "Failed to start microphone. Please check permissions and try again."
-          );
-          return;
-        }
-      }
-
-      // Start the review
-      try {
-        onButtonClicked(true);
-      } catch (error) {
-        setButtonIsOn(false);
-        alert("Failed to start the code review. Please try again.");
-        return;
-      }
-    } catch (audioError) {
-      setButtonIsOn(false);
-      alert(
-        "Failed to start microphone. Please check permissions and try again."
-      );
-      return;
     }
   };
 
@@ -744,7 +470,6 @@ function ControlTray({
           try {
             await audioRecorder.start(audioStream);
             audioRecorder.on("data", audioDataHandler);
-            audioRecorder.on("volume", audioVolumeHandler);
           } catch (audioError) {
             setButtonIsOn(false);
             alert(

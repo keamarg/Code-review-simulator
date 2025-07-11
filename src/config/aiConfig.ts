@@ -55,8 +55,16 @@ export const getCurrentModel = (): string => {
 
 /**
  * Get the current voice name
+ * Checks localStorage for user preference, then environment variable, then default
  */
 export const getCurrentVoice = (): string => {
+  // Check localStorage for user's voice preference first
+  const savedVoice = localStorage.getItem("ai_voice_setting");
+  if (savedVoice) {
+    return savedVoice;
+  }
+
+  // Fall back to environment variable or default
   return process.env.REACT_APP_AI_VOICE || AI_CONFIG.DEFAULT_VOICE;
 };
 

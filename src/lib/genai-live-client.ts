@@ -90,6 +90,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   private reconnectionAttempts: number = 0;
   private readonly maxReconnectionAttempts: number = 1; // Enable automatic reconnection with session resumption
   private manualDisconnect: boolean = false;
+  private voiceChangeInProgress: boolean = false;
 
   private _session: Session | null = null;
   public get session() {
@@ -105,6 +106,10 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
   public getConfig() {
     return { ...this.config };
+  }
+
+  public get isVoiceChangeInProgress() {
+    return this.voiceChangeInProgress;
   }
 
   constructor(options: LiveClientOptions) {
@@ -251,6 +256,151 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     }
   }
 
+  // Add method to change voice while preserving session context
+  public async changeVoice(newVoiceName: string): Promise<boolean> {
+    if (!this.config || !this._model) {
+      console.error("❌ Cannot change voice: Missing config or model");
+      return false;
+    }
+
+    // Set flag to prevent ExamWorkflow from interfering
+    this.voiceChangeInProgress = true;
+    console.log(`🎤 Changing voice to ${newVoiceName}...`);
+
+    // Create new config with updated voice but keep everything else the same
+    const newConfig = {
+      ...this.config,
+      speechConfig: {
+        ...this.config.speechConfig,
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: newVoiceName,
+          },
+        },
+      },
+    };
+
+    // Update stored config for future use
+    this.config = newConfig;
+
+    // Helper function to wait for status change
+    const waitForDisconnect = async (
+      maxWait: number = 2000
+    ): Promise<boolean> => {
+      const startTime = Date.now();
+      while (
+        this._status !== "disconnected" &&
+        Date.now() - startTime < maxWait
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return this._status === "disconnected";
+    };
+
+    // If we have a session resumption handle, use it to preserve context
+    if (this.sessionResumptionHandle) {
+      console.log(
+        `🔄 Using session resumption to preserve conversation context`
+      );
+
+      // Disconnect current session (preserves session handle)
+      const wasConnected = this._status === "connected";
+      if (wasConnected) {
+        this.disconnect();
+        // Wait for actual disconnect to complete
+        const disconnected = await waitForDisconnect();
+        if (!disconnected) {
+          console.log("❌ Failed to disconnect properly");
+          return false;
+        }
+      }
+
+      // Use session resumption to continue the conversation with new voice
+      const resumptionConfig = {
+        ...newConfig,
+        sessionResumption: { handle: this.sessionResumptionHandle },
+      };
+
+      try {
+        const success = await this.connect(this._model, resumptionConfig);
+        if (success) {
+          console.log(
+            `✅ Voice changed to ${newVoiceName} with conversation context preserved`
+          );
+
+          // Send continuation message to let AI know we're back, similar to pause/resume
+          // Wait a moment for connection to fully establish before sending
+          setTimeout(() => {
+            if (this._status === "connected") {
+              this.send([
+                {
+                  text: `Voice changed successfully. Please continue with the code review.`,
+                },
+              ]);
+            }
+          }, 1000); // 1 second delay to ensure connection is ready
+        } else {
+          console.log(`❌ Failed to reconnect with session resumption`);
+        }
+        // Clear flag before returning
+        this.voiceChangeInProgress = false;
+        return success;
+      } catch (error) {
+        console.error("❌ Voice change with resumption failed:", error);
+        // Clear flag before returning
+        this.voiceChangeInProgress = false;
+        return false;
+      }
+    } else {
+      // No session resumption handle available - this is normal for early session changes
+      console.log(`🔄 Applying voice change with fresh connection`);
+
+      try {
+        // Disconnect if currently connected
+        if (this._status === "connected") {
+          this.disconnect();
+          // Wait for actual disconnect to complete
+          const disconnected = await waitForDisconnect();
+          if (!disconnected) {
+            console.log("❌ Failed to disconnect properly");
+            // Clear flag before returning
+            this.voiceChangeInProgress = false;
+            return false;
+          }
+        }
+
+        const success = await this.connect(this._model, newConfig);
+        if (success) {
+          console.log(
+            `✅ Voice changed to ${newVoiceName} (fresh connection - no conversation context to preserve)`
+          );
+
+          // Send continuation message for fresh connection voice changes
+          // Wait a moment for connection to fully establish before sending
+          setTimeout(() => {
+            if (this._status === "connected") {
+              this.send([
+                {
+                  text: `Voice changed successfully. Please continue with the code review.`,
+                },
+              ]);
+            }
+          }, 1000); // 1 second delay to ensure connection is ready
+        } else {
+          console.log(`❌ Failed to reconnect with new voice`);
+        }
+        // Clear flag before returning
+        this.voiceChangeInProgress = false;
+        return success;
+      } catch (error) {
+        console.error("❌ Voice change with fresh connection failed:", error);
+        // Clear flag before returning
+        this.voiceChangeInProgress = false;
+        return false;
+      }
+    }
+  }
+
   protected onopen() {
     this.reconnectionAttempts = 0; // Reset counter on successful connection
     this.log("client.open", "Connected");
@@ -262,34 +412,12 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   }
 
   protected async onclose(e: CloseEvent) {
-    console.log("🔌 WebSocket CloseEvent received");
-
     // Reset status to disconnected when connection closes
     this._status = "disconnected";
     this._session = null;
 
-    console.log("🔍 CloseEvent Debug:", {
-      code: e.code,
-      reason: e.reason,
-      hasSessionHandle: !!this.sessionResumptionHandle,
-      hasConfig: !!this.config,
-      hasModel: !!this._model,
-      reconnectionAttempts: this.reconnectionAttempts,
-      maxAttempts: this.maxReconnectionAttempts,
-      manualDisconnect: this.manualDisconnect,
-    });
-
     // Only clear session data if it was a manual disconnect
     // For all other disconnections (network issues, server errors), preserve session data for manual reconnection
-    if (this.manualDisconnect) {
-      console.log(
-        "🔄 Manual disconnect - session data preserved for potential reconnection"
-      );
-    } else {
-      console.log(
-        "🔄 Unexpected disconnect - preserving session data for manual reconnection"
-      );
-    }
 
     // Try automatic reconnection only for specific error codes
     if (
@@ -316,7 +444,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       // Add a small delay to ensure WebSocket is fully closed before reconnecting
       setTimeout(async () => {
         try {
-          console.log("🔄 Executing automatic reconnection...");
           await this.connect(this._model!, resumptionConfig);
         } catch (e) {
           console.error("❌ Error during automatic reconnection:", e);
@@ -326,19 +453,8 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
       return;
     } else {
-      console.log("🚫 Automatic reconnection skipped:", {
-        wrongCode: e.code !== 1011,
-        noSessionHandle: !this.sessionResumptionHandle,
-        noConfig: !this.config,
-        noModel: !this._model,
-        maxAttemptsReached:
-          this.reconnectionAttempts >= this.maxReconnectionAttempts,
-        wasManualDisconnect: this.manualDisconnect,
-      });
-
       // IMPORTANT: Don't clear session data here!
       // Even if automatic reconnection is skipped, we want to preserve session data for manual reconnection
-      console.log("🔄 Session data preserved for manual reconnection");
     }
 
     this.log(

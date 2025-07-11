@@ -46,6 +46,7 @@ interface ExamPageContentProps {
   onScreenShareCancelled?: () => void;
   initialRepoUrl?: string;
   isReadyForAutoTrigger?: boolean;
+  onVoiceChangeReady: (handler: (newVoice: string) => void) => void;
 }
 
 function ExamPageContent({
@@ -70,10 +71,42 @@ function ExamPageContent({
   onScreenShareCancelled,
   initialRepoUrl,
   isReadyForAutoTrigger,
+  onVoiceChangeReady,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [isTaskLoading, setIsTaskLoading] = useState(false);
+
+  // Create voice change handler and pass it up
+  const handleVoiceChange = useCallback(
+    async (newVoice: string) => {
+      if (!connected) {
+        console.log(`🎤 Voice preference saved: ${newVoice} (not in session)`);
+        return;
+      }
+
+      try {
+        console.log(`🎤 Changing voice to ${newVoice} during active session`);
+
+        // Use the new changeVoice method that preserves session context
+        const success = await client.changeVoice(newVoice);
+
+        if (success) {
+          console.log(
+            `✅ Voice successfully changed to ${newVoice} - conversation context preserved`
+          );
+        } else {
+          console.error("❌ Voice change failed");
+        }
+      } catch (error) {
+        console.error("Error changing voice:", error);
+      }
+    },
+    [client, connected]
+  );
+
+  // Pass the voice change handler up to parent
+  useEffect(() => {
+    onVoiceChangeReady(handleVoiceChange);
+  }, [handleVoiceChange, onVoiceChangeReady]);
 
   useEffect(() => {
     if (client) {
@@ -84,11 +117,11 @@ function ExamPageContent({
   // Track connection state for loading animation
   useEffect(() => {
     if (examIntentStarted && !connected) {
-      setIsConnecting(true);
+      // Connection starting logic
     } else if (connected) {
-      setIsConnecting(false);
+      // Connection established logic
     } else if (!examIntentStarted) {
-      setIsConnecting(false);
+      // Connection not started logic
     }
   }, [examIntentStarted, connected]);
 
@@ -111,7 +144,7 @@ function ExamPageContent({
           onManualStop={onEndReview}
           onTranscriptChunk={onTranscriptChunk}
           liveSuggestions={suggestions}
-          onLoadingStateChange={setIsTaskLoading}
+          onLoadingStateChange={onLoadingStateChange}
           videoRef={videoRef}
           supportsVideo={true}
           onVideoStreamChange={setVideoStream}
@@ -182,9 +215,6 @@ export default function LivePage() {
     examId ||
     (quickStartData?.quickStart ? `quickstart-${Date.now()}` : undefined);
 
-  // Get video stream from navigation state if it exists (for quick start)
-  const passedVideoStream = location.state?.videoStream as MediaStream | null;
-
   const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
   const [isLoadingKey, setIsLoadingKey] = useState(true);
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
@@ -225,12 +255,6 @@ export default function LivePage() {
   // Force stop video/screen sharing flag for timer expiration
   const [forceStopVideo, setForceStopVideo] = useState(false);
 
-  // Trigger for manual stop
-  const [triggerManualStop, setTriggerManualStop] = useState(false);
-
-  // Add guard to prevent cascading state changes during cleanup
-  const isManualStopInProgress = useRef(false);
-
   // Store client reference for session termination
   const [genaiClient, setGenaiClient] = useState<any>(null);
   const genaiClientRef = useRef(genaiClient);
@@ -238,9 +262,6 @@ export default function LivePage() {
 
   const videoStreamRef = useRef(videoStream);
   videoStreamRef.current = videoStream;
-
-  // Track task loading state
-  const [isTaskLoading, setIsTaskLoading] = useState(false);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -251,13 +272,8 @@ export default function LivePage() {
   const cleanupAfterProceedRef = useRef(false);
 
   // Initialize live suggestion extractor
-  const {
-    suggestions,
-    persistedSuggestions,
-    extractSuggestions,
-    clearAllSuggestions,
-    isProcessing,
-  } = useLiveSuggestionExtractor();
+  const { suggestions, extractSuggestions, clearAllSuggestions, isProcessing } =
+    useLiveSuggestionExtractor();
 
   // Store quick start exam data
   const [quickStartExam, setQuickStartExam] = useState<any>(null);
@@ -316,7 +332,16 @@ export default function LivePage() {
       };
       setQuickStartExam(tempExam);
     }
-  }, [quickStartData?.quickStart, examId, id, quickStartExam]);
+  }, [
+    quickStartData?.quickStart,
+    examId,
+    id,
+    quickStartExam,
+    quickStartData?.developerLevel,
+    quickStartData?.fullScan,
+    quickStartData?.repoUrl,
+    quickStartData?.type,
+  ]);
 
   // Auto-start exam for quick start with autoStart flag
   useEffect(() => {
@@ -381,24 +406,10 @@ export default function LivePage() {
     }, 100);
   };
 
-  // Add a new handler for summary modal close
-  const handleSummaryModalClose = () => {
-    if (quickStartData?.quickStart) {
-      navigate("/");
-    } else {
-      navigate("/dashboard");
-    }
-  };
-
   // Handle timer expiration - reset state and force stop audio/video
   const handleTimerExpired = () => {
     shutdownSession();
     clearAllSuggestions();
-  };
-
-  // Handle manual stop - show summary instead of immediate redirect
-  const handleManualStop = () => {
-    handleEndReview();
   };
 
   const handleClientReady = useCallback((client: any) => {
@@ -551,7 +562,12 @@ export default function LivePage() {
       };
       fetchExam();
     }
-  }, [quickStartData?.quickStart, id, examIntentStarted]);
+  }, [
+    quickStartData?.quickStart,
+    quickStartData?.autoStart,
+    id,
+    examIntentStarted,
+  ]);
 
   // Handler for custom modal start
   const handleCustomStartReview = (
@@ -580,6 +596,14 @@ export default function LivePage() {
 
     // Close the modal
     setShowSetupModal(false);
+  };
+
+  const [voiceChangeHandler, setVoiceChangeHandler] = useState<
+    ((newVoice: string) => void) | null
+  >(null);
+
+  const handleVoiceChangeReady = (handler: (newVoice: string) => void) => {
+    setVoiceChangeHandler(() => handler);
   };
 
   if (isLoadingKey) {
@@ -628,7 +652,10 @@ export default function LivePage() {
   }
 
   return (
-    <Layout>
+    <Layout
+      onVoiceChange={voiceChangeHandler || undefined}
+      isSessionActive={examIntentStarted}
+    >
       <GenAILiveProvider apiKey={geminiApiKey}>
         {/* Custom exam setup modal */}
         {showSetupModal && customExam && (
@@ -654,19 +681,20 @@ export default function LivePage() {
           handleStartExamClicked={handleStartExamClicked}
           onEndReview={handleEndReview}
           onTimerExpired={handleTimerExpired}
-          triggerManualStop={triggerManualStop}
+          triggerManualStop={false}
           onClientReady={handleClientReady}
           forceStopAudio={forceStopAudio}
           forceStopVideo={forceStopVideo}
           onTranscriptChunk={extractSuggestions}
           suggestions={suggestions}
           isProcessing={isProcessing}
-          onLoadingStateChange={setIsTaskLoading}
+          onLoadingStateChange={() => {}}
           quickStartExam={quickStartExam}
           onButtonReady={handleButtonReady}
           onScreenShareCancelled={handleScreenShareCancelled}
           initialRepoUrl={quickStartData?.repoUrl || customRepoUrl}
           isReadyForAutoTrigger={isReadyForAutoTrigger}
+          onVoiceChangeReady={handleVoiceChangeReady}
         />
       </GenAILiveProvider>
     </Layout>

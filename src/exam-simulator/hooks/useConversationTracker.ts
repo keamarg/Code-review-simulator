@@ -114,7 +114,7 @@ export function useConversationTracker(
       client.off("log", handleLog);
       client.off("audio", handleAudio);
     };
-  }, [client, onTranscriptChunk]);
+  }, [client, onTranscriptChunk, flushTranscriptBuffer]);
 
   const generateSummaryWithOpenAI = async (
     examDetails?: {

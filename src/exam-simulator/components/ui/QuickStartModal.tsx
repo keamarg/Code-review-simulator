@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import twoScreenSetupImage from "../../../two-screen-setup.jpg";
-import getGithubRepoFiles from "../../utils/getGithubRepoFiles";
 
 interface QuickStartModalProps {
   isOpen: boolean;

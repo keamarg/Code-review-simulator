@@ -21,7 +21,6 @@ import { LiveClientOptions } from "../types";
 import { AudioStreamer } from "../lib/audio-streamer";
 import { audioContext } from "../lib/utils";
 import VolMeterWorket from "../lib/worklets/vol-meter";
-import { getCurrentModel } from "../config/aiConfig";
 
 export type UseGenAILiveResults = {
   client: GenAILiveClient;
@@ -36,7 +35,8 @@ export type UseGenAILiveResults = {
 export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
   const client = useMemo(
     () => new GenAILiveClient(options),
-    [options.apiKey] // Only recreate if API key changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [options.apiKey] // Only recreate if API key changes, not on every render to prevent infinite loops
   );
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
 

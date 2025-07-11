@@ -270,24 +270,11 @@ async function getRepoFiles(repoUrl, options = {}) {
     maxDepth = 3,
   } = options;
 
-  console.log(`🚀 GitHub repo processing: ${repoUrl}`);
-  console.log(
-    `📊 Mode: ${fullScan ? "Full Repository Scan" : "Root Directory Only"}`
-  );
-
-  if (fullScan) {
-    console.log(`⚠️ Full scan mode: This will use more API calls!`);
-    console.log(
-      `📈 Limits: ${maxFiles} files max, ${maxDepth} directories deep`
-    );
-  }
-
   try {
     // Parse and normalize the URL
     const { owner, repoName } = parseGitHubUrl(repoUrl);
 
     // Simple approach: try once, fail cleanly
-    console.log(`🔍 Checking repository '${owner}/${repoName}'...`);
 
     // Test repository access with better error handling
     let testResponse;
@@ -479,8 +466,6 @@ async function getRepoFiles(repoUrl, options = {}) {
       }
     }
 
-    console.log(`📄 Processing ${codeFiles.length} files...`);
-
     let result = "";
     let processedCount = 0;
 
@@ -540,7 +525,6 @@ async function getRepoFiles(repoUrl, options = {}) {
 
         result += "```\n" + item.path + "\n```\n" + content + "\n```\n\n";
         processedCount++;
-        console.log(`✅ Processed ${item.path}`);
       } catch (error) {
         if (error.message.includes("rate limit")) {
           throw error; // Stop on rate limit
@@ -557,15 +541,12 @@ async function getRepoFiles(repoUrl, options = {}) {
       );
     }
 
-    console.log(`🎯 Successfully processed repository`);
-
     const scanMode = fullScan ? "full repository scan" : "root directory only";
     const depthInfo = fullScan ? ` (up to ${maxDepth} levels deep)` : "";
     result += `\n\n📋 **Processing Summary**: Processed ${processedCount} files from ${scanMode}${depthInfo}.\n`;
 
     return result;
   } catch (error) {
-    console.log(`💥 Repository processing failed: ${error.message}`);
     throw new Error(`Repository Processing Error: ${error.message}`);
   }
 }
@@ -582,8 +563,8 @@ export async function getRepoQuestions(repoUrl, developerLevel, options = {}) {
   // Get the prompt template from prompts.json and replace variables
   let promptTemplate = prompts.taskPrompts.repoQuestions;
   let prompt = promptTemplate
-    .replace("${repoContents}", repoContents)
-    .replace("${learningGoals}", levelGuidance);
+    .replace("{{repoContents}}", repoContents)
+    .replace("{{learningGoals}}", levelGuidance);
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");

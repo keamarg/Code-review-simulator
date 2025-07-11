@@ -28,7 +28,7 @@ export const LoadingAnimation: React.FC<LoadingAnimationProps> = ({
     }, 1500);
 
     return () => clearInterval(interval);
-  }, [isLoading]);
+  }, [isLoading, icons.length]);
 
   if (!isLoading) return null;
 

@@ -1,10 +1,4 @@
 export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
-  // Log the prompts being sent to OpenAI
-  console.log("🔵 OpenAI API Call - getCompletion:");
-  console.log("📋 System Prompt:", systemPrompt);
-  console.log("💬 User Prompt:", prompt);
-  console.log("🔧 JSON Mode:", doesReturnJSON);
-
   const apiKeyResponse = await fetch(
     "https://api-key-server-codereview.vercel.app/api/prompt1"
   );
@@ -48,11 +42,6 @@ export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
-
-    console.log(
-      "✅ OpenAI Response:",
-      content?.substring(0, 200) + (content?.length > 200 ? "..." : "")
-    );
 
     if (doesReturnJSON) {
       try {
@@ -121,11 +110,6 @@ export async function getSessionCompletion(messages, doesReturnJSON = false) {
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
-
-    console.log(
-      "✅ OpenAI Session Response:",
-      content?.substring(0, 200) + (content?.length > 200 ? "..." : "")
-    );
 
     if (doesReturnJSON) {
       try {

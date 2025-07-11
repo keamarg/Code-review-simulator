@@ -4,14 +4,9 @@ import {
   StartSensitivity,
   EndSensitivity,
 } from "@google/genai";
-import {
-  AI_CONFIG,
-  getCurrentVoice,
-  getVADConfig,
-} from "../../config/aiConfig";
+import { getCurrentVoice, getVADConfig } from "../../config/aiConfig";
 
 // Default values from centralized config
-const DEFAULT_VOICE_NAME = getCurrentVoice();
 const VAD_CONFIG = getVADConfig();
 
 // Interface for optional parameters to allow some flexibility
@@ -35,7 +30,8 @@ export function createLiveConfig(
   promptText: string,
   options?: CreateLiveConfigOptions
 ): LiveConnectConfig {
-  const voiceName = options?.voiceName || DEFAULT_VOICE_NAME;
+  // Get current voice preference each time config is created (not cached at module level)
+  const voiceName = options?.voiceName || getCurrentVoice();
   const silenceDurationMs =
     options?.silenceDurationMs || VAD_CONFIG.silenceDurationMs;
   const prefixPaddingMs =

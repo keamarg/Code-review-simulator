@@ -48,7 +48,6 @@ export class AudioRecorder extends EventEmitter {
   async start(existingStream?: MediaStream) {
     // Don't start if already recording or in the process of starting
     if (this.recording || this.starting) {
-      console.log("🎤 AudioRecorder: Already recording or starting, skipping");
       return;
     }
 
@@ -56,18 +55,12 @@ export class AudioRecorder extends EventEmitter {
       throw new Error("Could not request user media");
     }
 
-    console.log("🎤 AudioRecorder: Starting audio recording process...");
-
     this.starting = new Promise(async (resolve, reject) => {
       try {
         // Use existing stream if provided, otherwise get new one
         if (existingStream) {
-          console.log("🎤 AudioRecorder: Using provided audio MediaStream");
           this.stream = existingStream;
         } else {
-          console.log(
-            "🎤 AudioRecorder: Getting new MediaStream (audio only)..."
-          );
           this.stream = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
@@ -81,29 +74,18 @@ export class AudioRecorder extends EventEmitter {
         // Get the actual sample rate from the MediaStream
         const audioTrack = this.stream.getAudioTracks()[0];
         const settings = audioTrack.getSettings();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const actualSampleRate = settings.sampleRate || 44100; // fallback to 44.1kHz
 
-        console.log(
-          `🎤 AudioRecorder: MediaStream sample rate: ${actualSampleRate}Hz`
-        );
-
         // Create AudioContext using shared utility (handles autoplay policy)
-        console.log("🎤 AudioRecorder: Creating AudioContext...");
         this.audioContext = await audioContext({
           sampleRate: this.sampleRate,
           // Don't reuse AudioContext on resume - create fresh one to avoid processing delays
           // id: "audio-recorder-context", // Reuse the same AudioContext instance
         });
-        console.log(
-          `✅ AudioRecorder: Created AudioContext with ${this.audioContext.sampleRate}Hz`
-        );
-
-        // Fresh AudioContext for each session
-        console.log("✅ AudioRecorder: AudioContext ready (fresh instance)");
 
         // Create source node
         this.source = this.audioContext.createMediaStreamSource(this.stream);
-        console.log("✅ AudioRecorder: Created MediaStreamAudioSourceNode");
 
         const workletName = "audio-recorder-worklet";
         const src = createWorketFromSrc(workletName, AudioRecordingWorklet);
@@ -179,7 +161,6 @@ export class AudioRecorder extends EventEmitter {
         this.source.connect(this.vuWorklet);
         this.recording = true;
         this.hasLoggedIgnoring = false; // Reset logging flag for new recording session
-        console.log("✅ AudioRecorder: Successfully started recording");
         resolve();
         this.starting = null;
       } catch (error) {

@@ -36,8 +36,6 @@ export function AuthProvider({ children }) {
     signIn: (data) => supabase.auth.signInWithPassword(data),
     signOut: async () => {
       try {
-        console.log("🚪 Attempting logout...");
-
         // Force clear all possible Supabase session data first
         const supabaseKeys = Object.keys(localStorage).filter(
           (key) => key.startsWith("sb-") || key.includes("supabase")
@@ -45,7 +43,6 @@ export function AuthProvider({ children }) {
 
         supabaseKeys.forEach((key) => {
           localStorage.removeItem(key);
-          console.log("🗑️ Cleared localStorage key:", key);
         });
 
         // Clear sessionStorage too
@@ -55,7 +52,6 @@ export function AuthProvider({ children }) {
 
         sessionKeys.forEach((key) => {
           sessionStorage.removeItem(key);
-          console.log("🗑️ Cleared sessionStorage key:", key);
         });
 
         // Set user to null immediately for UI responsiveness
@@ -64,7 +60,6 @@ export function AuthProvider({ children }) {
         // Try to call Supabase logout (but don't fail if it errors)
         try {
           await supabase.auth.signOut({ scope: "local" });
-          console.log("✅ Supabase logout successful");
         } catch (logoutError) {
           console.warn(
             "⚠️ Supabase logout failed (but local session cleared):",
