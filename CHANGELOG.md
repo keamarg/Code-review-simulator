@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.13] - 2025-07-11
+
+### Fixed
+
+- **Build Conflicts**: Fixed browser compilation errors caused by duplicate AppRouter files in the codebase.
+  - **Root Cause**: Two AppRouter files existed simultaneously in `src/navigation/AppRouter.tsx` and `src/exam-simulator/navigation/AppRouter.tsx`, causing module resolution conflicts
+  - **Solution**: Removed the unused AppRouter file from `src/navigation/` directory since the application correctly uses the one from `src/exam-simulator/navigation/`
+  - **Impact**: Development server now starts without TypeScript module resolution errors
+
 ## [1.2.12] - 2025-07-09
 
 ### Fixed
