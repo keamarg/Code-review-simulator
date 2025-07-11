@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.10] - 2025-07-12
+
+### Fixed
+
+- **Logo Restoration**: Restored the original logo from the exam-simulator directory to match the design before CDN Tailwind changes.
+  - **Logo Source**: Changed from `/favicon.svg` back to the local `logo.png` file from `src/exam-simulator/`
+  - **Import Method**: Added proper import statement for the logo file to ensure it loads correctly
+  - **Impact**: Logo now displays properly as intended in the original design
+
 ## [1.3.9] - 2025-07-12
 
 ### Added
@@ -228,6 +237,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **AI Voice Configuration**: Updated the voice selection logic to prioritize user preferences over system defaults
 - **Header Navigation**: Added settings icon to the navigation bar for easy access to preferences
+
+## [1.2.16] - 2025-07-12
+
+### Changed
+
+- **Default AI Voice**: Changed default voice from "Puck" to "Aoede" for a more relaxed and breezy experience
+  - **Voice Description**: Aoede is described as "Breezy and relaxed" compared to Puck's "Upbeat and energetic"
+  - **User Preference**: Users can still change the voice through the settings menu
+  - **Impact**: New users will experience a more calming AI voice by default
+
+## [1.2.15] - 2025-07-12
+
+### Changed
+
+- **Navigation Text**: Updated navigation labels for better clarity
+
+  - "Create" → "Create Review" - More descriptive of the action
+  - "Dashboard" → "Saved Reviews" - Better reflects the content (saved code reviews)
+  - **Impact**: Improved user understanding of navigation destinations
+
+- **Settings Button Alignment**: Fixed vertical alignment of settings button with navigation links
+  - Added `flex items-center` class to ensure proper vertical centering
+  - Reduced icon size from `h-6 w-6` to `h-5 w-5` for better visual balance
+  - **Impact**: Settings button now aligns perfectly with text navigation items
+
+### Added
+
+- **Footer Component**: Restored missing footer with research project information
+  - Added footer with beta status message and contact information
+  - Included feedback form link for user contributions
+  - Styled with Tokyo Night theme colors for consistency
+  - **Impact**: Provides important context about the research nature of the project
+
+## [1.2.14] - 2025-07-12
+
+### Changed
+
+- **Navigation Layout**: Moved settings button to the right of the logout link for better visual organization and user experience
+  - **Before**: Settings button was positioned before the navigation menu
+  - **After**: Settings button now appears after the logout link in the authenticated user navigation
+  - **Impact**: Improved navigation flow and logical grouping of user-related actions
 
 ## [1.2.13] - 2025-07-11
 

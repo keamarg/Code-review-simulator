@@ -15,7 +15,7 @@ export const AI_CONFIG = {
   // DEFAULT_MODEL: "models/gemini-2.5-flash-preview-05-20", // Not Live API compatible
 
   // Voice configuration
-  DEFAULT_VOICE: "Puck", // Changed from "Aoede" to "Puck" to test if voice-specific issue
+  DEFAULT_VOICE: "Aoede", // Breezy and relaxed voice
 
   // Voice Activity Detection (VAD) settings
   VAD_SETTINGS: {
