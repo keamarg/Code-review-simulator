@@ -73,9 +73,9 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   useEffect(() => {
     if (!running) return; // Don't fire messages when not running
 
-    // Introduction message - trigger after 1.5 seconds of countdown
+    // Introduction message - trigger after 0.5 seconds of countdown (reduced from 1.5s)
     if (
-      timeLeft <= totalMs - 1500 &&
+      timeLeft <= totalMs - 500 &&
       !hasCalledIntroduction.current &&
       onIntroductionRef.current
     ) {

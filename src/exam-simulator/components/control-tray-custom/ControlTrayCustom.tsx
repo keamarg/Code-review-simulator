@@ -461,22 +461,18 @@ function ControlTray({
         // Store audio stream for cleanup
         audioStreamRef.current = audioStream;
 
-        // For custom mode, set flag to start audio recorder when connection is established
-        // For quick start mode, audio recorder should already be set up
-        if (!isQuickStartMode) {
+        // Start audio recorder immediately for faster response (both modes)
+        try {
+          await audioRecorder.start(audioStream);
+          audioRecorder.on("data", audioDataHandler);
+          // Set flag for connection-based start as backup
           setShouldStartAudioRecorder(true);
-        } else {
-          // For quick start mode, start audio recorder immediately
-          try {
-            await audioRecorder.start(audioStream);
-            audioRecorder.on("data", audioDataHandler);
-          } catch (audioError) {
-            setButtonIsOn(false);
-            alert(
-              "Failed to start microphone. Please check permissions and try again."
-            );
-            return;
-          }
+        } catch (audioError) {
+          setButtonIsOn(false);
+          alert(
+            "Failed to start microphone. Please check permissions and try again."
+          );
+          return;
         }
 
         // Start the review

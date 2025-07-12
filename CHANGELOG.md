@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.21] - 2025-07-12
+## [1.3.22] - 2025-07-12
+
+### Improved
+
+- **Reduced AI Interruption Delay**: Significantly reduced the delay before users can interrupt the AI when a session starts.
+  - **Introduction Delay**: Reduced from 1.5 seconds to 0.5 seconds for faster AI response
+  - **Audio Stream Setup**: Optimized audio recorder to start immediately instead of waiting for connection establishment
+  - **VAD Settings**: Reduced silence duration from 1000ms to 800ms and prefix padding from 20ms to 10ms for faster speech detection
+  - **Configuration Updates**: Updated `aiConfig.ts` to reflect new timing values for consistency
+  - **Impact**: Users can now interrupt the AI much sooner after session start, improving responsiveness and user experience
 
 ### Fixed
 
@@ -19,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Removed arbitrary timeout-based flushing in favor of conversation-driven boundaries
     - Simplified transcript handling to match AI transcript approach (simple concatenation)
   - **Impact**: User speech now appears as complete utterances in conversation summaries, creating natural conversation flow
+
+## [1.3.21] - 2025-07-12
 
 ### Improved
 
