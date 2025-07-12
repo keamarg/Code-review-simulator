@@ -75,6 +75,8 @@ export function createLiveConfig(
     },
     // Enable output audio transcription to capture AI speech as text
     outputAudioTranscription: true, // Re-enabled since disabling didn't fix the cutoff issue
+    // Enable input audio transcription to capture user speech as text
+    inputAudioTranscription: true,
     // Configure Voice Activity Detection using centralized config values
     // These settings prevent the AI from cutting itself off mid-sentence
     realtimeInputConfig: {

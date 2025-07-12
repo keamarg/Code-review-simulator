@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.21] - 2025-07-12
+
+### Fixed
+
+- **User Speech Chunking Issue**: Fixed user speech appearing as individual words/characters in conversation summaries by implementing conversation-boundary buffering.
+  - **Root Cause**: Gemini Live API sends user transcripts in very small chunks (individual words or characters), causing fragmented conversation display
+  - **Solution**: Implemented natural conversation boundary buffering - user transcripts are flushed when AI starts speaking
+  - **Technical Implementation**:
+    - Added `userTranscriptBufferRef` for user speech buffering
+    - Created `flushUserTranscriptBuffer()` function to combine small chunks into coherent sentences
+    - Modified AI transcript handler to flush user buffer when AI starts speaking (natural conversation boundary)
+    - Removed arbitrary timeout-based flushing in favor of conversation-driven boundaries
+    - Simplified transcript handling to match AI transcript approach (simple concatenation)
+  - **Impact**: User speech now appears as complete utterances in conversation summaries, creating natural conversation flow
+
+### Improved
+
+- **Conversation Readability**: Enhanced user transcript handling to group fragmented speech into meaningful utterances using natural conversation boundaries instead of arbitrary timeouts.
+- **Code Simplicity**: Simplified user transcript processing to match the proven AI transcript approach, removing complex cleaning logic in favor of trusting the API's transcription quality.
+
+## [1.3.20] - 2025-07-12
+
+### Fixed
+
+- **CRITICAL: User Transcript Support Now Working**: Fixed the key issue that was preventing user transcript support from working.
+  - **Root Cause**: The API uses `inputTranscription` key, but our code was looking for `inputAudioTranscription`
+  - **Solution**: Updated the event handler in `genai-live-client.ts` to use the correct key name `inputTranscription`
+  - **Discovery**: Found that the API was sending user transcripts all along, but we weren't processing them due to the wrong key name
+  - **Technical Implementation**:
+    - Changed `inputAudioTranscription` to `inputTranscription` in the message processing logic
+    - Updated debugging to look for the correct key name
+    - Maintained the `inputAudioTranscription: true` configuration which was correct
+  - **Expected Behavior**: User transcripts should now be received and the conversation format should activate in session summaries
+  - **Impact**: Session summaries should now show "AI: [response]" and "User: [input]" in chronological order
+
+### Improved
+
+- **AI Filename Pronunciation**: Enhanced AI prompts to improve pronunciation of file names and prevent awkward pauses between filename and extension.
+  - **Problem**: AI was pausing between filename and extension (e.g., "main" [pause] ".js" instead of "main.js")
+  - **Solution**: Added specific pronunciation instructions to all main prompts in `prompts.json`
+  - **Instructions Added**: Clear guidance to speak filenames as single units without pauses
+  - **Examples Provided**: "main.js", "index.html", "package.json", "src/components/Button.tsx" as continuous phrases
+  - **Coverage**: Applied to standard exams, GitHub exams, and general review sessions
+  - **Impact**: More natural speech flow when AI mentions file names during code reviews
+
 ## [1.3.13] - 2025-07-12
 
 ### Fixed

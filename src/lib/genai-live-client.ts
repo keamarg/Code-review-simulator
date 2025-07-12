@@ -60,8 +60,10 @@ export interface LiveClientEventTypes {
   ) => void;
   // Emitted when the current turn is complete
   turncomplete: () => void;
-  // Emitted when output transcription is received
+  // Emitted when output transcription is received (AI speech)
   transcript: (transcription: string) => void;
+  // Emitted when input transcription is received (user speech)
+  userTranscript: (transcription: string) => void;
   // Emitted when server sends GoAway message (advance warning before disconnection)
   goAway: (timeLeft: number) => void;
 }
@@ -511,6 +513,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     // or contentUpdate { end_of_turn: true }
     if (message.serverContent) {
       const { serverContent } = message;
+
       if ("interrupted" in serverContent) {
         this.log("server.content", "interrupted");
         this.emit("interrupted");
@@ -531,6 +534,19 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
               : (serverContent.outputTranscription as any).text ||
                 JSON.stringify(serverContent.outputTranscription);
           this.emit("transcript", transcriptText);
+        }
+      }
+
+      if ("inputTranscription" in serverContent) {
+        // Handle user speech transcription
+        if (serverContent.inputTranscription) {
+          // Extract text from transcription object
+          const transcriptText =
+            typeof serverContent.inputTranscription === "string"
+              ? serverContent.inputTranscription
+              : (serverContent.inputTranscription as any).text ||
+                JSON.stringify(serverContent.inputTranscription);
+          this.emit("userTranscript", transcriptText);
         }
       }
 

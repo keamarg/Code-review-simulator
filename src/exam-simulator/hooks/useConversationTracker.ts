@@ -3,7 +3,12 @@ import { GenAILiveClient } from "../../lib/genai-live-client";
 
 interface ConversationEntry {
   timestamp: Date;
-  type: "ai_transcript" | "session_start" | "session_end" | "user_interaction";
+  type:
+    | "ai_transcript"
+    | "user_transcript"
+    | "session_start"
+    | "session_end"
+    | "user_interaction";
   content?: string;
   metadata?: {
     audio_size?: number;
@@ -13,7 +18,8 @@ interface ConversationEntry {
 
 export function useConversationTracker(
   client: GenAILiveClient | null,
-  onTranscriptChunk?: (chunk: string) => void
+  onTranscriptChunk?: (chunk: string) => void,
+  onUserTranscriptChunk?: (chunk: string) => void
 ) {
   const entriesRef = useRef<ConversationEntry[]>([]);
   const sessionStartTime = useRef<Date | null>(null);
@@ -22,6 +28,9 @@ export function useConversationTracker(
   // Transcript buffering refs
   const transcriptBufferRef = useRef<string>("");
   const bufferTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // User transcript buffering refs
+  const userTranscriptBufferRef = useRef<string>("");
 
   const flushTranscriptBuffer = useCallback(() => {
     if (transcriptBufferRef.current.trim()) {
@@ -42,6 +51,29 @@ export function useConversationTracker(
     }
   }, [onTranscriptChunk]);
 
+  const flushUserTranscriptBuffer = useCallback(() => {
+    if (userTranscriptBufferRef.current.trim()) {
+      // Simple concatenation - Gemini Live API should provide clean transcription
+      // Just trim any leading/trailing whitespace
+      const cleanedTranscript = userTranscriptBufferRef.current.trim();
+
+      const userTranscriptEntry: ConversationEntry = {
+        type: "user_transcript",
+        content: cleanedTranscript,
+        timestamp: new Date(),
+      };
+
+      entriesRef.current.push(userTranscriptEntry);
+
+      // Send to parent callback if provided
+      if (onUserTranscriptChunk) {
+        onUserTranscriptChunk(cleanedTranscript);
+      }
+
+      userTranscriptBufferRef.current = "";
+    }
+  }, [onUserTranscriptChunk]);
+
   useEffect(() => {
     if (!client) return;
 
@@ -54,9 +86,15 @@ export function useConversationTracker(
       });
     };
 
-    // Handle transcript reception with simple buffering (like summary screen)
+    // Handle AI transcript reception with simple buffering (like summary screen)
     const handleTranscript = (text: string) => {
       if (!text || typeof text !== "string") return;
+
+      // Flush user transcript buffer when AI starts speaking
+      // This creates natural conversation boundaries: user speaks → AI responds
+      if (userTranscriptBufferRef.current.trim()) {
+        flushUserTranscriptBuffer();
+      }
 
       // Simple concatenation - Gemini Live API already provides perfect transcription
       // No need to reconstruct word boundaries since the API handles this flawlessly
@@ -71,6 +109,15 @@ export function useConversationTracker(
       bufferTimeoutRef.current = setTimeout(() => {
         flushTranscriptBuffer();
       }, 10000);
+    };
+
+    // Handle user transcript reception with conversation-boundary buffering
+    const handleUserTranscript = (text: string) => {
+      if (!text || typeof text !== "string") return;
+
+      // Simple concatenation - Gemini Live API should provide clean transcription
+      // Will be flushed when AI starts speaking (natural conversation boundary)
+      userTranscriptBufferRef.current += text;
     };
 
     // Track user interactions (audio input indicates user is speaking)
@@ -97,6 +144,7 @@ export function useConversationTracker(
 
     client.on("setupcomplete", handleSetupComplete);
     client.on("transcript", handleTranscript);
+    client.on("userTranscript", handleUserTranscript);
     client.on("log", handleLog);
     client.on("audio", handleAudio);
 
@@ -109,12 +157,24 @@ export function useConversationTracker(
         clearTimeout(bufferTimeoutRef.current);
       }
 
+      // Cleanup user transcript buffer
+      if (userTranscriptBufferRef.current.trim()) {
+        flushUserTranscriptBuffer();
+      }
+
       client.off("setupcomplete", handleSetupComplete);
       client.off("transcript", handleTranscript);
+      client.off("userTranscript", handleUserTranscript);
       client.off("log", handleLog);
       client.off("audio", handleAudio);
     };
-  }, [client, onTranscriptChunk, flushTranscriptBuffer]);
+  }, [
+    client,
+    onTranscriptChunk,
+    onUserTranscriptChunk,
+    flushTranscriptBuffer,
+    flushUserTranscriptBuffer,
+  ]);
 
   const generateSummaryWithOpenAI = async (
     examDetails?: {
@@ -129,6 +189,11 @@ export function useConversationTracker(
       flushTranscriptBuffer();
     }
 
+    // Flush any remaining user transcript buffer
+    if (userTranscriptBufferRef.current.trim()) {
+      flushUserTranscriptBuffer();
+    }
+
     // Add session end event
     entriesRef.current.push({
       timestamp: new Date(),
@@ -141,31 +206,46 @@ export function useConversationTracker(
         )
       : 0;
 
-    const transcriptEntries = entriesRef.current.filter(
+    const aiTranscriptEntries = entriesRef.current.filter(
       (e) => e.type === "ai_transcript"
     );
 
-    // Clean up and join transcripts with simple concatenation (like summary screen)
-    const cleanTranscripts = transcriptEntries
+    const userTranscriptEntries = entriesRef.current.filter(
+      (e) => e.type === "user_transcript"
+    );
+
+    // Clean up and join AI transcripts with simple concatenation (like summary screen)
+    const cleanAiTranscripts = aiTranscriptEntries
       .map((e) => e.content)
       .filter((text): text is string => Boolean(text))
       .map((text) => text.trim())
       .filter((text) => text.length > 0); // Remove empty strings after cleaning
 
-    const allTranscripts = cleanTranscripts.join(" ");
+    const allAiTranscripts = cleanAiTranscripts.join(" ");
 
-    if (transcriptEntries.length === 0 || !allTranscripts.trim()) {
+    // Clean up and join user transcripts
+    const cleanUserTranscripts = userTranscriptEntries
+      .map((e) => e.content)
+      .filter((text): text is string => Boolean(text))
+      .map((text) => text.trim())
+      .filter((text) => text.length > 0);
+
+    const allUserTranscripts = cleanUserTranscripts.join(" ");
+
+    if (aiTranscriptEntries.length === 0 || !allAiTranscripts.trim()) {
       return "No AI speech transcripts were captured during this session. This might indicate a technical issue with transcript generation or a very brief session.";
     }
 
     // Generate structured analysis of the transcripts
     const summary = generateTranscriptBasedSummary(
-      allTranscripts,
-      transcriptEntries,
+      allAiTranscripts,
+      aiTranscriptEntries,
       sessionDuration,
       examDetails,
       userInteractionCount.current,
-      liveSuggestions
+      liveSuggestions,
+      allUserTranscripts,
+      entriesRef.current
     );
     return summary;
   };
@@ -181,6 +261,9 @@ export function useConversationTracker(
       clearTimeout(bufferTimeoutRef.current);
       bufferTimeoutRef.current = null;
     }
+
+    // Clear user transcript buffer as well
+    userTranscriptBufferRef.current = "";
   };
 
   // Return method to get captured transcripts
@@ -219,6 +302,13 @@ export function useConversationTracker(
         (transcriptBufferRef.current.length > 100 ? "..." : ""),
       hasTimeout: !!bufferTimeoutRef.current,
     },
+    userBuffer: {
+      length: userTranscriptBufferRef.current.length,
+      content:
+        userTranscriptBufferRef.current.substring(0, 100) +
+        (userTranscriptBufferRef.current.length > 100 ? "..." : ""),
+      pendingFlush: userTranscriptBufferRef.current.trim().length > 0,
+    },
     entries: entriesRef.current.map((e) => ({
       timestamp: e.timestamp,
       type: e.type,
@@ -246,7 +336,9 @@ function generateTranscriptBasedSummary(
   sessionDuration: number,
   examDetails?: { title?: string; description?: string; duration?: number },
   userInteractions?: number,
-  liveSuggestions?: Array<{ text: string; timestamp: Date }>
+  liveSuggestions?: Array<{ text: string; timestamp: Date }>,
+  allUserTranscripts?: string,
+  allEntries?: ConversationEntry[]
 ): string {
   const sessionMinutes = Math.round(sessionDuration / 60);
   const plannedMinutes = examDetails?.duration || 0;
@@ -305,10 +397,40 @@ function generateTranscriptBasedSummary(
   }
 
   summary += "\n";
-  summary += "Full AI Review Transcript:\n";
-  summary += "-".repeat(15) + "\n";
-  summary += allTranscripts;
-  summary += "\n" + "-".repeat(15) + "\n\n";
+
+  // Create chronological conversation if we have both AI and user transcripts
+  if (allUserTranscripts && allUserTranscripts.trim() && allEntries) {
+    summary += "Full Conversation Transcript:\n";
+    summary += "-".repeat(15) + "\n";
+
+    // Get all entries sorted by timestamp
+    const conversationEntries = allEntries
+      .filter(
+        (e: ConversationEntry) =>
+          e.type === "ai_transcript" || e.type === "user_transcript"
+      )
+      .sort(
+        (a: ConversationEntry, b: ConversationEntry) =>
+          a.timestamp.getTime() - b.timestamp.getTime()
+      );
+
+    // Build conversation
+    conversationEntries.forEach((entry: ConversationEntry) => {
+      if (entry.type === "user_transcript" && entry.content) {
+        summary += `User: ${entry.content}\n\n`;
+      } else if (entry.type === "ai_transcript" && entry.content) {
+        summary += `AI: ${entry.content}\n\n`;
+      }
+    });
+
+    summary += "-".repeat(15) + "\n\n";
+  } else {
+    // Fallback to just AI transcript if no user transcripts
+    summary += "Full AI Review Transcript:\n";
+    summary += "-".repeat(15) + "\n";
+    summary += allTranscripts;
+    summary += "\n" + "-".repeat(15) + "\n\n";
+  }
 
   summary += "Next Steps:\n";
   summary +=
