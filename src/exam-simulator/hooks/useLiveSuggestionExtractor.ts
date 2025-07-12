@@ -131,10 +131,9 @@ export const useLiveSuggestionExtractor = () => {
 
       try {
         // Create chunk prompt using template
-        const chunkPrompt = prompts.suggestionExtraction.chunkPrompt.replace(
-          "{{transcriptChunk}}",
-          transcriptChunk
-        );
+        const chunkPrompt = prompts.suggestionExtraction.chunkPrompt
+          // eslint-disable-next-line no-template-curly-in-string
+          .replace("${transcriptChunk}", transcriptChunk);
 
         // Add user message to conversation
         conversationHistory.current.push({

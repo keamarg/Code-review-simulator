@@ -117,7 +117,7 @@ export default function Layout({
                         to="/create"
                         className="text-tokyo-fg hover:text-tokyo-fg-brightest transition-colors"
                       >
-                        Create
+                        Create Review
                       </Link>
                     </li>
                     <li>
@@ -125,7 +125,7 @@ export default function Layout({
                         to="/dashboard"
                         className="text-tokyo-fg hover:text-tokyo-fg-brightest transition-colors"
                       >
-                        Dashboard
+                        Saved Reviews
                       </Link>
                     </li>
                     <li>
@@ -133,7 +133,7 @@ export default function Layout({
                         onClick={handleLogout}
                         className="text-tokyo-fg hover:text-tokyo-fg-brightest transition-colors cursor-pointer"
                       >
-                        Logout
+                        Log out
                       </button>
                     </li>
                     <li>
@@ -173,7 +173,7 @@ export default function Layout({
                         to="/login"
                         className="text-tokyo-fg hover:text-tokyo-fg-brightest transition-colors"
                       >
-                        Login
+                        Log in
                       </Link>
                     </li>
                     <li>
@@ -181,7 +181,7 @@ export default function Layout({
                         to="/signup"
                         className="bg-tokyo-accent text-white px-4 py-2 rounded-md hover:bg-tokyo-accent-lighter transition-colors"
                       >
-                        Sign Up
+                        Create account
                       </Link>
                     </li>
                   </>

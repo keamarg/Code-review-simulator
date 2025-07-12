@@ -9,7 +9,7 @@ import Layout from "../layout/Layout";
 import { ExamWorkflow } from "../components/ai-examiner/ExamWorkflow";
 import { useGenAILiveContext } from "../../contexts/GenAILiveContext";
 import { GenAILiveProvider } from "../../contexts/GenAILiveContext";
-import { QuickStartModal } from "../components/ui/QuickStartModal";
+import { ReviewSetupModal } from "../components/ui/ReviewSetupModal";
 import { ExamSimulator } from "../../types/ExamSimulator";
 import { supabase } from "../config/supabaseClient";
 import {
@@ -160,7 +160,7 @@ function ExamPageContent({
         />
 
         {/* Live Suggestions Panel - Now shown inline when review is active */}
-        {examIntentStarted && videoStream && (
+        {examIntentStarted && (
           <div className="mt-8">
             <LiveSuggestionsPanel
               suggestions={suggestions}
@@ -379,15 +379,20 @@ export default function LivePage() {
 
   // This is the one true cleanup function.
   const shutdownSession = useCallback(() => {
+    // Trigger audio stop through the forceStopAudio mechanism
+    setForceStopAudio(true);
+
+    // Then terminate the session
+    if (genaiClientRef.current) {
+      genaiClientRef.current.terminateSession();
+    }
+
     // Stop all media tracks
     if (videoStreamRef.current) {
       videoStreamRef.current.getTracks().forEach((track) => track.stop());
       setVideoStream(null);
     }
-    // Terminate the AI session
-    if (genaiClientRef.current) {
-      genaiClientRef.current.terminateSession();
-    }
+
     // Update global state
     sessionService.stopReview();
     // Reset component state
@@ -453,6 +458,8 @@ export default function LivePage() {
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (sessionService.isReviewActive) {
+        // Trigger audio stop through the forceStopAudio mechanism
+        setForceStopAudio(true);
         event.preventDefault();
         event.returnValue = "";
         return "";
@@ -476,6 +483,8 @@ export default function LivePage() {
       );
 
       if (shouldLeave) {
+        // Trigger audio stop through the forceStopAudio mechanism
+        setForceStopAudio(true);
         // Mark that we still need to clean up once the navigation actually happens
         cleanupAfterProceedRef.current = true;
         blocker.proceed();
@@ -659,7 +668,7 @@ export default function LivePage() {
       <GenAILiveProvider apiKey={geminiApiKey}>
         {/* Custom exam setup modal */}
         {showSetupModal && customExam && (
-          <QuickStartModal
+          <ReviewSetupModal
             isOpen={showSetupModal}
             onClose={() => {
               setShowSetupModal(false);

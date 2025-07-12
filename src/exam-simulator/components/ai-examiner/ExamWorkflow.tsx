@@ -116,6 +116,13 @@ export function ExamWorkflow({
     onTranscriptChunk
   );
 
+  // Immediately stop AI voice when forceStopAudio is triggered
+  useEffect(() => {
+    if (forceStopAudio) {
+      stopAudio();
+    }
+  }, [forceStopAudio, stopAudio]);
+
   // GitHub URL validation function
   const isValidGitHubUrl = (url: string): boolean => {
     if (!url.trim()) return false;

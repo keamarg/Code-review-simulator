@@ -251,9 +251,7 @@ export const LiveSuggestionsPanel: React.FC<LiveSuggestionsPanelProps> = ({
             className="text-sm text-center py-6 h-full flex items-center justify-center opacity-75"
             style={{ color: "var(--tokyo-comment)" }}
           >
-            {isProcessing
-              ? "Processing suggestions..."
-              : "No suggestions yet. Start the review!"}
+            {isProcessing ? "Processing suggestions..." : "No suggestions yet."}
           </div>
         ) : (
           reversedSuggestions.map((suggestion, index) => {

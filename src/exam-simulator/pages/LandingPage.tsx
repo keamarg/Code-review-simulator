@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Layout from "../layout/Layout";
 import RecentCodeReviews from "../components/RecentCodeReviews";
-import { QuickStartModal } from "../components/ui/QuickStartModal";
+import { ReviewSetupModal } from "../components/ui/ReviewSetupModal";
 import { useAuth } from "../contexts/AuthContext";
 
 const LandingPage: React.FC = () => {
@@ -185,10 +185,11 @@ const LandingPage: React.FC = () => {
               skill development through interactive code reviews.
             </p>
             <p className="text-tokyo-fg">
-              By participating, you contribute to research on AI-assisted
-              education and help improve tools for developers and students. All
-              participation is anonymous and data is used for research purposes
-              only.
+              By participating, you contribute to research that intends to
+              critically assess generative AI’s impact on software development
+              practises and explore vibe coding’s methodological potential for
+              creating rapid research probes. All participation is anonymous and
+              data is used for research purposes only.
             </p>
           </div>
         </section>
@@ -205,7 +206,7 @@ const LandingPage: React.FC = () => {
       </div>
 
       {/* Quick Start Modal */}
-      <QuickStartModal
+      <ReviewSetupModal
         isOpen={showQuickStartModal}
         onClose={() => setShowQuickStartModal(false)}
         onStartReview={handleQuickStart}

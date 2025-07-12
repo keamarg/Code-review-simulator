@@ -191,82 +191,93 @@ const RecentCodeReviews: React.FC = () => {
                 )}
 
                 {/* Review Title */}
-                <h3 className="text-xl font-bold text-tokyo-fg-bright mb-3 line-clamp-2 pr-20">
+                <h3 className="text-xl font-bold text-tokyo-fg-bright mb-3 truncate">
                   {review.title}
                 </h3>
 
-                {/* Review Description */}
-                <p className="text-tokyo-fg text-sm mb-4 line-clamp-3">
-                  {review.description}
-                </p>
-
-                {/* Review Details */}
-                <div className="flex flex-wrap gap-3 mb-4">
-                  {review.duration > 0 && (
-                    <div className="flex items-center text-sm text-tokyo-comment">
-                      <svg
-                        className="h-4 w-4 mr-1"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      {formatDuration(review.duration)}
-                    </div>
-                  )}
-
-                  {review.type && (
-                    <div className="flex items-center text-sm text-tokyo-comment">
-                      <svg
-                        className="h-4 w-4 mr-1"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                      {review.type}
-                    </div>
-                  )}
-
-                  {review.learning_goals && (
-                    <div className="flex items-center text-sm text-tokyo-comment">
-                      <svg
-                        className="h-4 w-4 mr-1"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 10V3L4 14h7v7l9-11h-7z"
-                        />
-                      </svg>
-                      {review.learning_goals}
-                    </div>
-                  )}
+                {/* Review Description - Fixed 3 lines */}
+                <div className="h-18 mb-4">
+                  <p className="text-tokyo-fg text-sm line-clamp-3">
+                    {review.description}
+                  </p>
                 </div>
 
-                {/* Try Review Button */}
+                {/* Review Details - Single Line */}
+                <div className="flex items-center justify-between text-sm text-tokyo-comment mb-4">
+                  <div className="flex items-center gap-3">
+                    {review.duration > 0 && (
+                      <div className="flex items-center">
+                        <svg
+                          className="h-4 w-4 mr-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="whitespace-nowrap">
+                          {formatDuration(review.duration)}
+                        </span>
+                      </div>
+                    )}
+
+                    {review.type && (
+                      <div className="flex items-center">
+                        <svg
+                          className="h-4 w-4 mr-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                        <span className="whitespace-nowrap">{review.type}</span>
+                      </div>
+                    )}
+
+                    {review.learning_goals && (
+                      <div className="flex items-center">
+                        <svg
+                          className="h-4 w-4 mr-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 10V3L4 14h7v7l9-11h-7z"
+                          />
+                        </svg>
+                        <span className="whitespace-nowrap">
+                          {review.learning_goals}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Horizontal Separator */}
+                <div className="border-t border-tokyo-selection mb-4"></div>
+
+                {/* Start Code Review Button */}
                 <Link
                   to={`/live?id=${review.id}`}
                   className="w-full bg-tokyo-accent hover:bg-tokyo-accent-darker text-white text-center py-2 px-4 rounded-md transition-colors flex items-center justify-center"
                 >
                   <svg
-                    className="h-4 w-4 mr-2"
+                    className="h-5 w-5 mr-2"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -275,10 +286,16 @@ const RecentCodeReviews: React.FC = () => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293H15M9 10v4a2 2 0 002 2h2a2 2 0 002-2v-4M9 10V9a2 2 0 012-2h2a2 2 0 012 2v1.01"
+                      d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  Try this review
+                  Start code review
                 </Link>
               </div>
             );
@@ -291,7 +308,7 @@ const RecentCodeReviews: React.FC = () => {
             to="/dashboard"
             className="inline-flex items-center text-tokyo-accent hover:text-tokyo-accent-lighter font-medium transition-colors"
           >
-            View all reviews
+            View all saved reviews
             <svg
               className="h-4 w-4 ml-1"
               fill="none"

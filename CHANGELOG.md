@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.13] - 2025-07-12
+
+### Fixed
+
+- **CRITICAL: AI Voice Continues After Navigation**: Fixed issue where AI voice would continue speaking and finish its sentence when navigating away from the review page.
+  - **Root Cause**: The `forceStopAudio` mechanism only stopped audio recording but didn't immediately stop the AI voice output
+  - **Solution**: Added `useEffect` in `ExamWorkflow` to call `stopAudio()` immediately when `forceStopAudio` is triggered
+  - **Immediate Response**: AI voice now stops instantly when navigating away, matching the behavior when the review ends
+  - **Technical Implementation**: The `stopAudio()` method from `useGenAILiveContext` immediately stops the `AudioStreamer` that handles AI voice output
+  - **Impact**: Navigation away from review page now immediately silences the AI voice instead of letting it finish speaking
+
+## [1.3.12] - 2025-07-12
+
+### Fixed
+
+- **CRITICAL: GenAILiveContext Provider Error**: Fixed "useGenAILiveContext must be used within a GenAILiveProvider" error that was preventing the live review page from loading.
+  - **Root Cause**: The main `LivePage` component was calling `useGenAILiveContext()` outside of the `GenAILiveProvider` wrapper
+  - **Solution**: Removed the premature context usage from the main component and moved all context-dependent logic inside the provider
+  - **Audio Stop Handling**: Replaced direct `genaiContext.stopAudio()` calls with the existing `forceStopAudio` mechanism that works through the provider
+  - **Clean Architecture**: All context usage now properly occurs within the provider boundaries
+  - **Impact**: Live review page now loads correctly without context provider errors
+
+## [1.3.11] - 2025-07-12
+
+### Changed
+
+- **Navigation Text Update**: Changed navigation text to use consistent terminology - "Log in", "Log out", and "Create account" in the navigation header.
+
 ## [1.3.10] - 2025-07-12
 
 ### Fixed
@@ -1880,6 +1908,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Navigation Patterns**: Normal mode uses URL parameters, quick start uses navigation state - completely separate
   - **Backward Compatibility**: All existing features and workflows remain fully functional
   - **Conditional Logic**: Quick start only activates when explicitly triggered via navigation state, leaving normal paths untouched
+
+## [0.17.30] - 2025-07-12
+
+### Fixed
+
+- **Template String Replacement Mismatches**: Fixed multiple template string format inconsistencies across the codebase
+  - **Live Suggestions**: Fixed `{{transcriptChunk}}` → `${transcriptChunk}` replacement in useLiveSuggestionExtractor.ts
+  - **Prompt Generation**: Fixed template string replacements in prompt.js for all exam types
+    - `{{examDurationActiveExam}}` → `${examDurationActiveExam}`
+    - `{{studentTask}}` → `${studentTask}`
+    - `{{level}}` → `${level}`
+    - `{{description}}` → `${description}`
+    - `{{githubQuestions}}` → `${githubQuestions}`
+  - **GitHub Repository Analysis**: Fixed template string replacements in getGithubRepoFiles.js
+    - `{{repoContents}}` → `${repoContents}`
+    - `{{learningGoals}}` → `${learningGoals}`
+  - **Root Cause**: Code was using `{{variable}}` format but prompts.json uses `${variable}` format
+  - **Impact**: All prompt generation and live suggestions now work correctly with proper variable substitution
+  - **Template Consistency**: Standardized template string format across the entire codebase
+- **Code Quality**: Fixed unused variable warning in ReviewSetupModal.tsx
+- **ESLint Compliance**: Added ESLint disable comments for template string replacements (warnings remain but are false positives)
 
 ## [0.17.29] - 2025-06-26
 

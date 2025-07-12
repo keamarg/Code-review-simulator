@@ -16,6 +16,7 @@ const formatDuration = (minutes: number): string => {
 interface ExamSimulatorCardProps {
   sim: ExamSimulator;
   showToast: (message: string) => void;
+  onDelete?: (id: string) => void;
   isNew?: boolean;
   isUpdated?: boolean;
 }
@@ -23,6 +24,7 @@ interface ExamSimulatorCardProps {
 function ExamSimulatorCard({
   sim,
   showToast,
+  onDelete,
   isNew = false,
   isUpdated = false,
 }: ExamSimulatorCardProps) {
@@ -63,6 +65,38 @@ function ExamSimulatorCard({
     }
   };
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent menu close from click outside
+    setMenuOpen(false);
+
+    if (
+      window.confirm(
+        `Are you sure you want to delete "${sim.title}"? This action cannot be undone.`
+      )
+    ) {
+      try {
+        const { error } = await supabase
+          .from("exams")
+          .delete()
+          .eq("id", sim.id);
+
+        if (error) {
+          showToast("Failed to delete code review");
+          console.error("Error deleting exam:", error);
+        } else {
+          showToast("Code review deleted successfully");
+          // Call the parent callback to update the state
+          if (onDelete) {
+            onDelete(sim.id);
+          }
+        }
+      } catch (err) {
+        showToast("Failed to delete code review");
+        console.error("Error deleting exam:", err);
+      }
+    }
+  };
+
   return (
     <div
       className={`relative p-5 bg-tokyo-bg-lighter rounded-lg shadow-md transition-all duration-200 flex flex-col justify-between h-full border border-tokyo-selection ${
@@ -87,21 +121,21 @@ function ExamSimulatorCard({
       )}
 
       {/* Card Header with Title and Menu */}
-      <div className="flex justify-between items-start mb-3">
-        <Link to={`/exam?id=${sim.id}`} className="group pr-20">
-          <h2 className="text-xl font-bold text-tokyo-fg-bright group-hover:text-tokyo-accent transition-colors">
+      <div className="flex justify-between items-center mb-3">
+        <Link to={`/exam?id=${sim.id}`} className="group flex-1 min-w-0">
+          <h2 className="text-xl font-bold text-tokyo-fg-bright group-hover:text-tokyo-accent transition-colors truncate">
             {sim.title}
           </h2>
         </Link>
 
         {/* Three-dots Menu Button */}
-        <div className="relative" ref={menuRef}>
+        <div className="relative flex-shrink-0 -mr-3" ref={menuRef}>
           <button
             onClick={(e) => {
               e.stopPropagation();
               setMenuOpen(!menuOpen);
             }}
-            className="p-2 rounded-full hover:bg-tokyo-bg-lightest transition-colors cursor-pointer"
+            className="p-2 rounded-full hover:bg-tokyo-bg-lightest transition-colors cursor-pointer flex items-center justify-center h-8"
             aria-label="Menu"
           >
             <svg
@@ -125,7 +159,7 @@ function ExamSimulatorCard({
             <div className="absolute top-full right-0 mt-1 bg-tokyo-bg-lightest border border-tokyo-selection rounded-md shadow-xl backdrop-blur-sm z-20 w-48 py-1 overflow-hidden">
               <button
                 onClick={handleCopyLink}
-                className="flex items-center w-full text-left px-4 py-2 text-sm text-tokyo-fg hover:bg-tokyo-selection transition-colors cursor-pointer"
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-tokyo-fg hover:bg-tokyo-selection hover:bg-opacity-20 transition-colors cursor-pointer"
               >
                 <svg
                   className="h-4 w-4 mr-2"
@@ -144,10 +178,30 @@ function ExamSimulatorCard({
               </button>
               <Link
                 to={`/exam?id=${sim.id}`}
-                className="text-tokyo-accent hover:text-tokyo-accent-darker text-sm font-medium mr-4"
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-tokyo-accent hover:text-tokyo-accent-darker hover:bg-tokyo-selection hover:bg-opacity-20 font-medium transition-colors cursor-pointer"
+                onClick={() => setMenuOpen(false)}
               >
                 Edit Custom Review
               </Link>
+              <button
+                onClick={handleDelete}
+                className="flex items-center w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-900 hover:bg-opacity-20 transition-colors cursor-pointer"
+              >
+                <svg
+                  className="h-4 w-4 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
+                </svg>
+                Delete
+              </button>
             </div>
           )}
         </div>
@@ -155,13 +209,17 @@ function ExamSimulatorCard({
 
       {/* Card Content */}
       <div className="flex-grow">
-        {/* Task Description */}
-        <p className="text-tokyo-fg line-clamp-3 mb-3">{sim.description}</p>
+        {/* Task Description - Fixed height */}
+        <div className="h-18 mb-4">
+          <p className="text-tokyo-fg line-clamp-3">{sim.description}</p>
+        </div>
+      </div>
 
-        {/* Exam Details */}
-        <div className="flex flex-wrap gap-3 mb-4">
+      {/* Review Details - Single Line */}
+      <div className="flex items-center justify-between text-sm text-tokyo-comment mb-4">
+        <div className="flex items-center gap-3">
           {sim.duration > 0 && (
-            <div className="flex items-center text-sm text-tokyo-comment">
+            <div className="flex items-center">
               <svg
                 className="h-4 w-4 mr-1"
                 fill="none"
@@ -175,12 +233,14 @@ function ExamSimulatorCard({
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              {formatDuration(sim.duration)}
+              <span className="whitespace-nowrap">
+                {formatDuration(sim.duration)}
+              </span>
             </div>
           )}
 
           {sim.type && (
-            <div className="flex items-center text-sm text-tokyo-comment">
+            <div className="flex items-center">
               <svg
                 className="h-4 w-4 mr-1"
                 fill="none"
@@ -194,14 +254,17 @@ function ExamSimulatorCard({
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              {sim.type}
+              <span className="whitespace-nowrap">{sim.type}</span>
             </div>
           )}
         </div>
       </div>
 
+      {/* Horizontal Separator */}
+      <div className="border-t border-tokyo-selection mb-4"></div>
+
       {/* Card Actions */}
-      <div className="mt-auto pt-3 border-t border-tokyo-selection">
+      <div className="mt-auto">
         <Link
           to={`/live?id=${sim.id}`}
           className="w-full bg-tokyo-accent hover:bg-tokyo-accent-darker text-white text-center py-2 px-4 rounded-md transition-colors flex items-center justify-center"
@@ -363,6 +426,10 @@ export default function Dashboard() {
     }, 3000);
   };
 
+  const handleDelete = (id: string) => {
+    setExamSimulators((prev) => prev.filter((sim) => sim.id !== id));
+  };
+
   return (
     <Layout>
       <div className="relative min-h-screen max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -412,6 +479,7 @@ export default function Dashboard() {
                     key={sim.id}
                     sim={sim}
                     showToast={showToast}
+                    onDelete={handleDelete}
                     isNew={sim.id === newlyCreatedExamId}
                     isUpdated={sim.id === recentlyUpdatedExamId}
                   />
@@ -459,7 +527,7 @@ export default function Dashboard() {
 
         {/* Toast Notification */}
         <div
-          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-tokyo-bg-lightest text-tokyo-fg-bright py-3 px-6 rounded-lg shadow-lg z-50 flex items-center transition-opacity duration-300 ${
+          className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-tokyo-bg-lightest bg-opacity-95 text-tokyo-fg-bright py-3 px-6 rounded-lg shadow-xl backdrop-blur-sm z-50 flex items-center transition-opacity duration-300 border border-tokyo-selection ${
             isToastVisible ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
         >

@@ -1,3 +1,4 @@
+/* eslint-disable no-template-curly-in-string */
 import prompts from "../../prompts.json";
 
 // Function to get level-specific review guidance from prompts.json
@@ -7,12 +8,12 @@ function getLevelSpecificGuidance(level) {
 
 function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
   // Use the standardExam template from prompts.json
-  let prompt = prompts.mainPrompts.standardExam
-    .replace("{{examDurationActiveExam}}", examDurationActiveExam)
-    .replace(
-      '{{examSimulator?.title || "code review"}}',
-      examSimulator?.title || "code review"
-    );
+  let prompt = prompts.mainPrompts.standardExam;
+  prompt = prompt.replace("${examDurationActiveExam}", examDurationActiveExam);
+  prompt = prompt.replace(
+    '${examSimulator?.title || "code review"}',
+    examSimulator?.title || "code review"
+  );
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
@@ -37,13 +38,13 @@ function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
     `;
 
   // Add additional context from prompts.json
-  const additionalContext = prompts.instructionComponents.additionalContext
-    .replace(
-      "{{description}}",
-      examSimulator.description ||
-        "This is a general code review focusing on the areas specified above."
-    )
-    .replace("{{studentTask}}", studentTask);
+  let additionalContext = prompts.instructionComponents.additionalContext;
+  additionalContext = additionalContext.replace(
+    "${description}",
+    examSimulator.description ||
+      "This is a general code review focusing on the areas specified above."
+  );
+  additionalContext = additionalContext.replace("${studentTask}", studentTask);
 
   prompt += additionalContext.replace(/\\n/g, "\n");
 
@@ -55,11 +56,11 @@ function getPrompt(examSimulator, examDurationActiveExam, studentTask) {
   prompt += guidelines;
 
   // Add level-specific suffix from prompts.json
-  const levelSpecificSuffix =
-    prompts.instructionComponents.levelSpecificSuffix.replace(
-      "{{level}}",
-      examSimulator.learning_goals || "intermediate"
-    );
+  let levelSpecificSuffix = prompts.instructionComponents.levelSpecificSuffix;
+  levelSpecificSuffix = levelSpecificSuffix.replace(
+    "${level}",
+    examSimulator.learning_goals || "intermediate"
+  );
 
   prompt += levelSpecificSuffix.replace(/\\n/g, "\n");
 
@@ -72,12 +73,12 @@ function getGithubPrompt(
   githubQuestions
 ) {
   // Use the githubExam template from prompts.json
-  let prompt = prompts.mainPrompts.githubExam
-    .replace("{{examDurationActiveExam}}", examDurationActiveExam)
-    .replace(
-      '{{examSimulator?.title || "code review"}}',
-      examSimulator?.title || "code review"
-    );
+  let prompt = prompts.mainPrompts.githubExam;
+  prompt = prompt.replace("${examDurationActiveExam}", examDurationActiveExam);
+  prompt = prompt.replace(
+    '${examSimulator?.title || "code review"}',
+    examSimulator?.title || "code review"
+  );
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
@@ -117,10 +118,15 @@ START BY: Greeting the developer, confirming you can see their screen, and askin
 `;
 
   // Add github-specific suffix from prompts.json
-  const githubSpecificSuffix =
-    prompts.instructionComponents.githubSpecificSuffix
-      .replace("{{githubQuestions}}", githubQuestions)
-      .replace("{{level}}", examSimulator.learning_goals || "intermediate");
+  let githubSpecificSuffix = prompts.instructionComponents.githubSpecificSuffix;
+  githubSpecificSuffix = githubSpecificSuffix.replace(
+    "${githubQuestions}",
+    githubQuestions
+  );
+  githubSpecificSuffix = githubSpecificSuffix.replace(
+    "${level}",
+    examSimulator.learning_goals || "intermediate"
+  );
 
   prompt += githubSpecificSuffix.replace(/\\n/g, "\n");
 
@@ -129,8 +135,9 @@ START BY: Greeting the developer, confirming you can see their screen, and askin
 
 function getGeneralPrompt(examSimulator, studentTask) {
   // Use the generalReview template from prompts.json
-  let prompt = prompts.mainPrompts.generalReview.replace(
-    '{{examSimulator?.title || "general code review"}}',
+  let prompt = prompts.mainPrompts.generalReview;
+  prompt = prompt.replace(
+    '${examSimulator?.title || "general code review"}',
     examSimulator?.title || "general code review"
   );
 
@@ -150,17 +157,17 @@ function getGeneralPrompt(examSimulator, studentTask) {
     `;
 
   // Add additional context from prompts.json (modified for general review)
-  const additionalContext = prompts.instructionComponents.additionalContext
-    .replace(
-      "{{description}}",
-      examSimulator.description ||
-        "This is a general code review focusing on code quality improvements and best practices."
-    )
-    .replace(
-      "{{studentTask}}",
-      studentTask ||
-        "Please show me the code you'd like me to review, and I'll provide specific suggestions for improvement."
-    );
+  let additionalContext = prompts.instructionComponents.additionalContext;
+  additionalContext = additionalContext.replace(
+    "${description}",
+    examSimulator.description ||
+      "This is a general code review focusing on code quality improvements and best practices."
+  );
+  additionalContext = additionalContext.replace(
+    "${studentTask}",
+    studentTask ||
+      "Please show me the code you'd like me to review, and I'll provide specific suggestions for improvement."
+  );
 
   prompt += additionalContext.replace(/\\n/g, "\n");
 
@@ -172,11 +179,11 @@ function getGeneralPrompt(examSimulator, studentTask) {
   prompt += guidelines;
 
   // Add level-specific suffix from prompts.json
-  const levelSpecificSuffix =
-    prompts.instructionComponents.levelSpecificSuffix.replace(
-      "{{level}}",
-      examSimulator.learning_goals || "intermediate"
-    );
+  let levelSpecificSuffix = prompts.instructionComponents.levelSpecificSuffix;
+  levelSpecificSuffix = levelSpecificSuffix.replace(
+    "${level}",
+    examSimulator.learning_goals || "intermediate"
+  );
 
   prompt += levelSpecificSuffix.replace(/\\n/g, "\n");
 

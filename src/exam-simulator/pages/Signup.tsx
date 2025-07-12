@@ -50,7 +50,7 @@ const SignUp = () => {
         alert(
           "Check your email for verification link. After verifying, you can return to continue your quick start session."
         );
-        navigate("/login"); // Navigate to login page where they can sign in after verification
+        navigate("/login"); // Navigate to login page where they can log in after verification
       } else {
         alert("Check your email for verification link");
         navigate("/login"); // Navigate to login page
@@ -187,7 +187,7 @@ const SignUp = () => {
               to="/login"
               className="font-medium text-tokyo-accent hover:text-tokyo-accent-lighter"
             >
-              Sign in
+              Log in
             </Link>
           </div>
         </div>

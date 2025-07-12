@@ -563,8 +563,10 @@ export async function getRepoQuestions(repoUrl, developerLevel, options = {}) {
   // Get the prompt template from prompts.json and replace variables
   let promptTemplate = prompts.taskPrompts.repoQuestions;
   let prompt = promptTemplate
-    .replace("{{repoContents}}", repoContents)
-    .replace("{{learningGoals}}", levelGuidance);
+    // eslint-disable-next-line no-template-curly-in-string
+    .replace("${repoContents}", repoContents)
+    // eslint-disable-next-line no-template-curly-in-string
+    .replace("${learningGoals}", levelGuidance);
 
   // Replace escaped newlines with actual newlines
   prompt = prompt.replace(/\\n/g, "\n");
