@@ -23,12 +23,12 @@ export const AI_CONFIG = {
     START_OF_SPEECH_SENSITIVITY: "START_SENSITIVITY_HIGH", // High to detect user voice
     END_OF_SPEECH_SENSITIVITY: "END_SENSITIVITY_LOW", // Low to prevent AI cutoffs
     SILENCE_DURATION_MS: 500, // Reduced from 1000ms for faster response
-    PREFIX_PADDING_MS: 10, // Reduced padding for faster speech detection
+    PREFIX_PADDING_MS: 20, // Reduced padding for faster speech detection
   },
 
   // Timer configuration for code review sessions
   TIMER_SETTINGS: {
-    INTRODUCTION_DELAY_MS: 100, // Reduced delay before AI introduces itself (was 1000ms)
+    INTRODUCTION_DELAY_MS: 200, // Reduced delay before AI introduces itself (was 1000ms)
     TIME_WARNING_BEFORE_END_MS: 60000, // Warning 1 minute before end (not used anymore)
     FINAL_WARNING_BEFORE_END_MS: 7000, // Farewell message 7 seconds before end
   },
