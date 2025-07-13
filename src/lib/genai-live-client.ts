@@ -31,7 +31,7 @@ import {
 import { EventEmitter } from "eventemitter3";
 import { difference } from "lodash";
 import { LiveClientOptions, StreamingLog } from "../types";
-import { base64ToArrayBuffer } from "./utils";
+import { base64ToArrayBuffer, appLogger } from "./utils";
 
 /**
  * Event types that can be emitted by the GenAILiveClient.
@@ -93,6 +93,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   private readonly maxReconnectionAttempts: number = 1; // Enable automatic reconnection with session resumption
   private manualDisconnect: boolean = false;
   private voiceChangeInProgress: boolean = false;
+  private hasLoggedVadSettings: boolean = false;
 
   private _session: Session | null = null;
   public get session() {
@@ -143,6 +144,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     this.config = config;
     this._model = model;
 
+    // Reset VAD logging flag for new sessions
+    this.hasLoggedVadSettings = false;
+
     const callbacks: LiveCallbacks = {
       onopen: this.onopen,
       onmessage: this.onmessage,
@@ -173,14 +177,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     // Set flag to prevent automatic reconnection
     this.manualDisconnect = true;
 
-    // Debug logging for session resumption
-    console.log("🔍 Disconnect Debug:", {
-      hasSessionHandle: !!this.sessionResumptionHandle,
-      sessionHandle: this.sessionResumptionHandle,
-      hasConfig: !!this.config,
-      hasModel: !!this._model,
-    });
-
     this.log(
       "client.disconnect",
       `Session handle: ${
@@ -201,7 +197,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
   // Add explicit method to terminate session completely
   public terminateSession() {
-    console.log("🛑 Terminating session completely - no resumption possible");
     this.manualDisconnect = true;
     this.sessionResumptionHandle = undefined;
     this.config = null;
@@ -261,13 +256,13 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   // Add method to change voice while preserving session context
   public async changeVoice(newVoiceName: string): Promise<boolean> {
     if (!this.config || !this._model) {
-      console.error("❌ Cannot change voice: Missing config or model");
+      appLogger.error.session("Cannot change voice: Missing config or model");
       return false;
     }
 
     // Set flag to prevent ExamWorkflow from interfering
     this.voiceChangeInProgress = true;
-    console.log(`🎤 Changing voice to ${newVoiceName}...`);
+    appLogger.user.changeVoice(newVoiceName);
 
     // Create new config with updated voice but keep everything else the same
     const newConfig = {
@@ -301,10 +296,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
     // If we have a session resumption handle, use it to preserve context
     if (this.sessionResumptionHandle) {
-      console.log(
-        `🔄 Using session resumption to preserve conversation context`
-      );
-
       // Disconnect current session (preserves session handle)
       const wasConnected = this._status === "connected";
       if (wasConnected) {
@@ -312,7 +303,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         // Wait for actual disconnect to complete
         const disconnected = await waitForDisconnect();
         if (!disconnected) {
-          console.log("❌ Failed to disconnect properly");
+          appLogger.error.connection("Failed to disconnect properly");
           return false;
         }
       }
@@ -326,10 +317,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       try {
         const success = await this.connect(this._model, resumptionConfig);
         if (success) {
-          console.log(
-            `✅ Voice changed to ${newVoiceName} with conversation context preserved`
-          );
-
           // Send continuation message to let AI know we're back, similar to pause/resume
           // Wait a moment for connection to fully establish before sending
           setTimeout(() => {
@@ -342,13 +329,17 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
             }
           }, 1000); // 1 second delay to ensure connection is ready
         } else {
-          console.log(`❌ Failed to reconnect with session resumption`);
+          appLogger.error.connection(
+            "Failed to reconnect with session resumption"
+          );
         }
         // Clear flag before returning
         this.voiceChangeInProgress = false;
         return success;
       } catch (error) {
-        console.error("❌ Voice change with resumption failed:", error);
+        appLogger.error.connection(
+          "Voice change with resumption failed: " + error
+        );
         // Clear flag before returning
         this.voiceChangeInProgress = false;
         return false;
@@ -377,6 +368,14 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
             `✅ Voice changed to ${newVoiceName} (fresh connection - no conversation context to preserve)`
           );
 
+          // Log the voice settings that were sent to the server
+          const voiceSettings =
+            newConfig.speechConfig?.voiceConfig?.prebuiltVoiceConfig;
+          console.log(`🎤 Voice Settings sent to server:`, {
+            voiceName: newVoiceName,
+            prebuiltVoiceConfig: voiceSettings,
+          });
+
           // Send continuation message for fresh connection voice changes
           // Wait a moment for connection to fully establish before sending
           setTimeout(() => {
@@ -403,9 +402,198 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     }
   }
 
+  // Add method to change environment while preserving session context
+  public async changeEnvironment(newEnvironment: string): Promise<boolean> {
+    if (!this.config || !this._model) {
+      appLogger.error.session(
+        "Cannot change environment: Missing config or model"
+      );
+      return false;
+    }
+
+    // Set flag to prevent ExamWorkflow from interfering
+    this.voiceChangeInProgress = true; // Reuse the same flag since it serves the same purpose
+    appLogger.user.changeEnvironment(newEnvironment);
+
+    // Import the VAD config function to get fresh settings
+    const { getVADConfig } = await import("../config/aiConfig");
+    const { StartSensitivity, EndSensitivity } = await import("@google/genai");
+
+    // Get the new VAD configuration based on the selected environment
+    const VAD_CONFIG = getVADConfig();
+
+    // Create new config with updated VAD settings but keep everything else the same
+    const newConfig = {
+      ...this.config,
+      realtimeInputConfig: {
+        ...this.config.realtimeInputConfig,
+        automaticActivityDetection: {
+          ...this.config.realtimeInputConfig?.automaticActivityDetection,
+          startOfSpeechSensitivity:
+            StartSensitivity[
+              VAD_CONFIG.startOfSpeechSensitivity as keyof typeof StartSensitivity
+            ],
+          endOfSpeechSensitivity:
+            EndSensitivity[
+              VAD_CONFIG.endOfSpeechSensitivity as keyof typeof EndSensitivity
+            ],
+          prefixPaddingMs: VAD_CONFIG.prefixPaddingMs,
+          silenceDurationMs: VAD_CONFIG.silenceDurationMs,
+        },
+      },
+    };
+
+    // Update stored config for future use
+    this.config = newConfig;
+
+    // Helper function to wait for status change
+    const waitForDisconnect = async (
+      maxWait: number = 2000
+    ): Promise<boolean> => {
+      const startTime = Date.now();
+      while (
+        this._status !== "disconnected" &&
+        Date.now() - startTime < maxWait
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return this._status === "disconnected";
+    };
+
+    // If we have a session resumption handle, use it to preserve context
+    if (this.sessionResumptionHandle) {
+      // Disconnect current session (preserves session handle)
+      const wasConnected = this._status === "connected";
+      if (wasConnected) {
+        this.disconnect();
+        // Wait for actual disconnect to complete
+        const disconnected = await waitForDisconnect();
+        if (!disconnected) {
+          appLogger.error.connection("Failed to disconnect properly");
+          return false;
+        }
+      }
+
+      // Use session resumption to continue the conversation with new environment settings
+      const resumptionConfig = {
+        ...newConfig,
+        sessionResumption: { handle: this.sessionResumptionHandle },
+      };
+
+      try {
+        const success = await this.connect(this._model, resumptionConfig);
+        if (success) {
+          // Send continuation message to let AI know we're back, similar to pause/resume
+          // Wait a moment for connection to fully establish before sending
+          setTimeout(() => {
+            if (this._status === "connected") {
+              this.send([
+                {
+                  text: `Microphone sensitivity adjusted successfully. Please continue with the code review.`,
+                },
+              ]);
+            }
+          }, 1000); // 1 second delay to ensure connection is ready
+        } else {
+          appLogger.error.connection(
+            "Failed to reconnect with session resumption"
+          );
+        }
+        // Clear flag before returning
+        this.voiceChangeInProgress = false;
+        return success;
+      } catch (error) {
+        appLogger.error.connection(
+          "Environment change with resumption failed: " + error
+        );
+        // Clear flag before returning
+        this.voiceChangeInProgress = false;
+        return false;
+      }
+    } else {
+      // No session resumption handle available - this is normal for early session changes
+      console.log(`🔄 Applying environment change with fresh connection`);
+
+      try {
+        // Disconnect if currently connected
+        if (this._status === "connected") {
+          this.disconnect();
+          // Wait for actual disconnect to complete
+          const disconnected = await waitForDisconnect();
+          if (!disconnected) {
+            console.log("❌ Failed to disconnect properly");
+            // Clear flag before returning
+            this.voiceChangeInProgress = false;
+            return false;
+          }
+        }
+
+        const success = await this.connect(this._model, newConfig);
+        if (success) {
+          console.log(
+            `✅ Environment changed to ${newEnvironment} (fresh connection - no conversation context to preserve)`
+          );
+
+          // Log the VAD settings that were sent to the server
+          const vadSettings =
+            newConfig.realtimeInputConfig?.automaticActivityDetection;
+          console.log(`🎤 VAD Settings sent to server:`, {
+            environment: newEnvironment,
+            startOfSpeechSensitivity: vadSettings?.startOfSpeechSensitivity,
+            endOfSpeechSensitivity: vadSettings?.endOfSpeechSensitivity,
+            silenceDurationMs: vadSettings?.silenceDurationMs,
+            prefixPaddingMs: vadSettings?.prefixPaddingMs,
+          });
+
+          // Send continuation message for fresh connection environment changes
+          // Wait a moment for connection to fully establish before sending
+          setTimeout(() => {
+            if (this._status === "connected") {
+              this.send([
+                {
+                  text: `Microphone sensitivity adjusted successfully. Please continue with the code review.`,
+                },
+              ]);
+            }
+          }, 1000); // 1 second delay to ensure connection is ready
+        } else {
+          console.log(`❌ Failed to reconnect with new environment`);
+        }
+        // Clear flag before returning
+        this.voiceChangeInProgress = false;
+        return success;
+      } catch (error) {
+        console.error(
+          "❌ Environment change with fresh connection failed:",
+          error
+        );
+        // Clear flag before returning
+        this.voiceChangeInProgress = false;
+        return false;
+      }
+    }
+  }
+
   protected onopen() {
     this.reconnectionAttempts = 0; // Reset counter on successful connection
     this.log("client.open", "Connected");
+
+    // Log current VAD settings only once per session
+    if (
+      !this.hasLoggedVadSettings &&
+      this.config?.realtimeInputConfig?.automaticActivityDetection
+    ) {
+      const vadSettings =
+        this.config.realtimeInputConfig.automaticActivityDetection;
+      console.log(`🎤 Current VAD Settings (connection established):`, {
+        startOfSpeechSensitivity: vadSettings.startOfSpeechSensitivity,
+        endOfSpeechSensitivity: vadSettings.endOfSpeechSensitivity,
+        silenceDurationMs: vadSettings.silenceDurationMs,
+        prefixPaddingMs: vadSettings.prefixPaddingMs,
+      });
+      this.hasLoggedVadSettings = true;
+    }
+
     this.emit("open");
   }
 

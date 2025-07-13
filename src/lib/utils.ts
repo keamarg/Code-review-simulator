@@ -21,7 +21,7 @@ export type GetAudioContextOptions = AudioContextOptions & {
 const map: Map<string, AudioContext> = new Map();
 
 export const audioContext: (
-  options?: GetAudioContextOptions,
+  options?: GetAudioContextOptions
 ) => Promise<AudioContext> = (() => {
   const didInteract = new Promise((res) => {
     window.addEventListener("pointerdown", res, { once: true });
@@ -84,3 +84,68 @@ export function base64ToArrayBuffer(base64: string) {
   }
   return bytes.buffer;
 }
+
+/**
+ * Simple logging utility for important application state changes
+ * Provides consistent, meaningful logging without being verbose
+ */
+export const appLogger = {
+  // Session lifecycle events
+  session: {
+    start: () => console.log("🚀 Session started"),
+    stop: () => console.log("🛑 Session stopped"),
+    pause: () => console.log("⏸️ Session paused"),
+    resume: () => console.log("▶️ Session resumed"),
+    terminate: () => console.log("💥 Session terminated"),
+  },
+
+  // Connection events
+  connection: {
+    established: () => console.log("✅ Connection established"),
+    lost: () => console.log("❌ Connection lost"),
+    reconnecting: () => console.log("🔄 Reconnecting..."),
+    reconnected: () => console.log("✅ Reconnected successfully"),
+  },
+
+  // User actions
+  user: {
+    startReview: () => console.log("👤 User started review"),
+    stopReview: () => console.log("👤 User stopped review"),
+    pauseReview: () => console.log("👤 User paused review"),
+    resumeReview: () => console.log("👤 User resumed review"),
+    changeVoice: (voice: string) =>
+      console.log(`🎤 Voice changed to: ${voice}`),
+    changeEnvironment: (env: string) =>
+      console.log(`🎤 Environment changed to: ${env}`),
+    changeScreen: (screenName: string) =>
+      console.log(`🖥️ Screen changed to: ${screenName}`),
+    mute: () => console.log("🔇 User muted microphone"),
+    unmute: () => console.log("🔊 User unmuted microphone"),
+  },
+
+  // Timer events
+  timer: {
+    started: (duration: number) =>
+      console.log(`⏱️ Timer started (${Math.round(duration / 60000)}min)`),
+    paused: () => console.log("⏱️ Timer paused"),
+    resumed: () => console.log("⏱️ Timer resumed"),
+    expired: () => console.log("⏱️ Timer expired"),
+    introduction: () => console.log("📢 AI introduction sent"),
+    farewell: () => console.log("👋 AI farewell sent"),
+  },
+
+  // Error events
+  error: {
+    connection: (error: string) => console.error("❌ Connection error:", error),
+    session: (error: string) => console.error("❌ Session error:", error),
+    audio: (error: string) => console.error("❌ Audio error:", error),
+    general: (error: string) => console.error("❌ Error:", error),
+  },
+
+  // Info events
+  info: {
+    loading: (message: string) => console.log("⏳", message),
+    ready: (message: string) => console.log("✅", message),
+    warning: (message: string) => console.warn("⚠️", message),
+  },
+};

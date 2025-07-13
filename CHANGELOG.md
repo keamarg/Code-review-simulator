@@ -5,6 +5,103 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.25] - 2025-07-13
+
+### Added
+
+- **Mid-Session Environment Changes**: Added the ability to change microphone sensitivity environment settings during active code review sessions, preserving conversation context.
+  - **Session Resumption**: Environment changes now use the same session resumption mechanism as voice changes
+  - **Context Preservation**: AI continues the conversation from exactly where it left off when environment is changed
+  - **Immediate Effect**: VAD settings and audio processing worklet configuration update immediately
+  - **User Feedback**: Settings modal shows "Changing..." status during mid-session environment changes
+  - **Continuation Messages**: AI receives automatic notification when environment changes, similar to voice changes
+  - **Technical Implementation**: Added `changeEnvironment()` method to GenAILiveClient that follows the exact same pattern as `changeVoice()`
+  - **Component Chain**: Updated SettingsModal, Layout, and AIExaminerPage to support environment change handlers
+  - **Consistent UX**: Environment changes work identically to voice changes - seamless session resumption with conversation context preserved
+
+### Improved
+
+- **Enhanced Console Logging**: Added detailed console logging for environment and voice changes to help with debugging and verification.
+  - **VAD Settings Logging**: Console now shows the exact VAD settings sent to the server when environment changes
+  - **Voice Settings Logging**: Console shows voice configuration sent to the server when voice changes
+  - **Connection Establishment Logging**: Current VAD settings are logged whenever a connection is established
+  - **Server Configuration Verification**: Users can now see exactly what settings are being applied to the server
+  - **Debugging Support**: Detailed logging helps verify that environment changes are properly configured
+  - **Settings Transparency**: Clear visibility into what configuration is being sent to the Gemini Live API
+
+### Technical Details
+
+- **GenAILiveClient Enhancement**: Added `changeEnvironment(newEnvironment: string)` method that uses session resumption
+- **VAD Configuration**: Environment changes update both VAD settings and audio processing worklet parameters
+- **Session Resumption**: Uses existing session handles to preserve conversation context during environment changes
+- **Component Integration**: Added `onEnvironmentChange` prop chain from SettingsModal through Layout to AIExaminerPage
+- **User Interface**: Settings modal shows "⚡ Sensitivity will change immediately in your active session" when session is active
+- **Feedback Messages**: AI receives "Microphone sensitivity adjusted successfully. Please continue with the code review." message
+- **Console Logging**: Added comprehensive logging in `onopen()`, `changeEnvironment()`, and `changeVoice()` methods
+
+## [1.3.24] - 2025-07-13
+
+### Fixed
+
+- **CRITICAL: 20-Second Response Delay**: Fixed severe delay in AI response time caused by overly restrictive audio processing settings and VAD configuration caching.
+  - **Root Cause 1**: Audio processing worklet thresholds were too high and speech detection algorithm was too strict
+  - **Root Cause 2**: VAD configuration was cached at module load time, not picking up environment changes
+  - **Audio Processing Fixes**:
+    - Reduced volume threshold from 0.003 to 0.0001 for maximum responsiveness
+    - Simplified speech detection algorithm to require only any volume above threshold
+    - Reduced speech variation threshold from 0.15 to 0.02 for easiest detection
+    - Increased consecutive silence frames from 3 to 12 to allow natural speech pauses
+    - Reduced pattern detection samples from 8 to 3 for fastest processing
+    - Made processing logic maximum permissive - only blocks after many consecutive silent frames
+  - **VAD Configuration Fix**:
+    - Fixed VAD configuration caching issue in `liveConfigUtils.ts`
+    - Now calls `getVADConfig()` inside function instead of at module load time
+    - Environment changes now take effect immediately
+  - **VAD Settings Optimization**:
+    - Quiet Environment: Reduced silence duration from 800ms to 300ms, prefix padding from 50ms to 10ms
+    - Moderate Environment: Reduced silence duration from 1200ms to 500ms, prefix padding from 100ms to 20ms
+    - Noisy Environment: Reduced silence duration from 1500ms to 700ms, prefix padding from 150ms to 50ms
+  - **Impact**: AI now responds at original fast speeds while maintaining environment-specific noise filtering
+
+## [1.3.23] - 2025-07-13
+
+### Added
+
+- **Environment-Specific VAD Settings**: Added three environment presets for microphone sensitivity to optimize background noise filtering.
+  - **Quiet Environment**: Home office, library, or quiet workspace (default)
+    - High sensitivity for speech detection
+    - 800ms silence duration, 50ms prefix padding
+  - **Moderate Environment**: Office with some background noise, coffee shop
+    - Lower sensitivity to reduce background noise
+    - 1200ms silence duration, 100ms prefix padding
+  - **Noisy Environment**: Open office, public space, or high background noise
+    - Lowest sensitivity for maximum noise filtering
+    - 1500ms silence duration, 150ms prefix padding
+  - **Settings UI**: Added environment selection to the settings modal alongside voice selection
+  - **Persistent Settings**: Environment preference is saved to localStorage and persists between sessions
+  - **Dynamic Configuration**: VAD settings automatically adjust based on selected environment
+
+### Improved
+
+- **Audio Processing Worklet Optimization**: Enhanced the audio processing worklet for better noise filtering and speech detection.
+  - **Smart Noise Filtering**: Re-enabled advanced audio processing with improved algorithms
+  - **Volume Threshold**: Increased from 0.001 to 0.003 for better noise filtering
+  - **Pattern Detection**: Increased recent volume tracking from 5 to 8 samples for better speech pattern recognition
+  - **Speech Detection**: Enhanced algorithm with multiple criteria:
+    - Natural volume variation detection (threshold: 0.15)
+    - Reasonable volume requirements (2x threshold minimum)
+    - Volume spike detection (1.5x average volume)
+  - **Silence Detection**: Added consecutive silence frame tracking to prevent false speech endings
+  - **Consecutive Silence**: Maximum 3 silent frames before considering speech ended
+  - **Impact**: Significantly better background noise filtering while maintaining speech responsiveness
+
+### Changed
+
+- **Default VAD Settings**: Changed default environment from high sensitivity to "Quiet Environment" for better user experience.
+  - **Previous**: High sensitivity with 500ms silence duration, 20ms prefix padding
+  - **New**: Optimized quiet environment settings with 800ms silence duration, 50ms prefix padding
+  - **Impact**: Better default experience for most users while maintaining responsiveness
+
 ## [1.3.22] - 2025-07-12
 
 ### Improved
@@ -1679,6 +1776,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved event handling by using 'transcript' event instead of incorrect 'response' event
 - Enhanced network reconnection flow with contextual AI messages
 
+## [0.20.3] - 2025-07-13
+
+### Added
+
+- **Enhanced User Action Logging**: Added comprehensive logging for user interactions
+  - **Mute/Unmute Actions**: Clear logging when users mute or unmute their microphone
+  - **Screen Change Actions**: Logging when users change screen sharing source during active reviews
+  - **Consolidated Logging**: Centralized all user action logging through `appLogger` utility
+- **Live Suggestions Reliability**: Added comprehensive timeout and error handling for live suggestions
+  - **API Timeout Protection**: Added 30-second timeout to OpenAI API calls to prevent hanging requests
+  - **Processing State Timeout**: Added 35-second timeout to processing state to prevent infinite "Processing suggestions..." state
+  - **Long Chunk Filtering**: Skip very long transcript chunks (>2000 chars) that might cause timeouts
+  - **First Suggestion Fix**: Fixed initialization process to prevent hanging on first suggestion
+
+### Fixed
+
+- **Redundant Logging Issues**: Eliminated duplicate and verbose console messages
+  - **Double User Action Logs**: Removed duplicate "User started review" and "User resumed review" messages
+  - **Double VAD Settings Logs**: Fixed repeated VAD settings logging during reconnections by tracking logged state
+  - **Pause Warning Message**: Removed unnecessary warning about `handleStartExamClicked` being called with false
+  - **Session State Accuracy**: Improved session state tracking to prevent redundant logging
+  - **Audio Worklet Cleanup Warning**: Fixed "Worklet received data but recording is false" warning during review stops
+    - **Root Cause**: Audio worklet continued sending data after recording was stopped, causing console warnings
+    - **Solution**: Improved worklet disconnection timing and message suppression logic
+    - **Impact**: Eliminates console warning when stopping reviews
+  - **Live Suggestions Hanging**: Fixed live suggestions getting stuck in "Processing suggestions..." state
+    - **Root Cause**: Session initialization process was causing the first suggestion to hang
+    - **Solution**: Fixed initialization flow and added comprehensive timeout protection
+    - **Impact**: Live suggestions now work reliably from the first suggestion onwards
+
+### Improved
+
+- **Logging Clarity**: Enhanced console output for better debugging and user experience
+  - **Single VAD Settings Display**: VAD settings now logged only once per session instead of on every reconnection
+  - **Cleaner User Action Flow**: Streamlined logging flow to prevent duplicate messages
+  - **Better Session Management**: Improved session state tracking for more accurate logging
+  - **Audio Worklet Management**: Enhanced worklet cleanup to prevent data flow after recording stops
+  - **Live Suggestions Robustness**: Enhanced error handling and recovery mechanisms for live suggestions
+  - **Session Initialization**: Improved live suggestions session initialization to prevent hanging on first suggestion
+
 ## [0.20.2] - 2025-06-27
 
 ### Enhanced
@@ -1986,63 +2123,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Code Quality**: Fixed unused variable warning in ReviewSetupModal.tsx
 - **ESLint Compliance**: Added ESLint disable comments for template string replacements (warnings remain but are false positives)
 
-## [0.17.29] - 2025-06-26
-
-### Changed
-
-- **Live Suggestions UI**: Moved live suggestions from popup window to inline display beneath control buttons
-  - **Better UX**: Suggestions now appear directly on the review screen instead of in a separate popup window
-  - **Simplified Interface**: No need to manage multiple windows or position popup windows
-  - **Seamless Integration**: Suggestions appear automatically when review starts and disappear when review ends
-  - **Cleaner Code**: Removed popup window management, state tracking, and window positioning logic
-  - **Same Functionality**: All suggestion features remain the same - just better positioned for user convenience
-
-### Removed
-
-- **PopupWindow Component Usage**: Removed popup window implementation for live suggestions
-  - **State Cleanup**: Removed `showSuggestionsPopup` state and related effects
-  - **Import Cleanup**: Removed unused PopupWindow import
-  - **Simplified Props**: Removed popup-related props from component interfaces
-
-## [0.17.28] - 2025-06-26
+## [0.17.29] - 2025-07-13
 
 ### Fixed
 
-- **Quick Start AI Introduction**: Fixed issue where AI didn't start talking automatically in quick start sessions
+- **Double Session Termination**: Fixed issue where "Terminating session completely" message appeared twice during session cleanup
 
-  - **Root Cause**: Quick start sessions have `duration: 0`, so no timers were set up, including the introduction timer
-  - **Solution**: Added introduction timer setup for quick start sessions even when duration is 0
-  - **Result**: AI now introduces itself immediately in quick start sessions like in regular reviews
-  - **Timer Logic**: Quick start sessions get introduction timer only, while timed sessions get full timer suite
+  - **Root Cause**: Both `shutdownSession()` and `handleSessionEnd()` were calling `terminateSession()`
+  - **Solution**: Removed `terminateSession()` call from `handleSessionEnd()` to let parent handle session termination
+  - **Clean Session End**: Session termination now happens only once through the parent's `shutdownSession()` function
+  - **Console Output**: Eliminated duplicate termination messages in console logs
 
-- **Double Screen Sharing Dialog**: Fixed screen sharing permission dialog appearing twice after review ends
+- **Farewell Message in Unlimited Sessions**: Fixed confusing "Triggering farewell message" appearing in unlimited sessions
+  - **Root Cause**: Hidden CountdownTimer was being used for unlimited sessions to send introduction, but it also triggered farewell
+  - **Solution**: Replaced hidden CountdownTimer with direct introduction message sending for unlimited sessions
+  - **Cleaner Logic**: Unlimited sessions now only send introduction message, no timer-related messages
+  - **User Experience**: No more confusing farewell messages in sessions without time limits
 
-  - **Root Cause**: Auto-trigger mechanism was being called multiple times during state transitions when `connected` changed from `true` to `false`
-  - **Solution**: Added tracking flags to prevent multiple auto-trigger calls during the same session
-  - **hasAutoTriggeredRef**: Prevents auto-trigger from being called more than once per session
-  - **hasNotifiedButtonReadyRef**: Prevents onButtonReady from being called multiple times during state transitions
-  - **State Reset**: Both flags are properly reset when review ends for future sessions
+### Changed
 
-- **Screen Sharing Dialog on Stop**: Fixed screen sharing permission dialog appearing when pressing "Stop Code Review" button
+- **Console Logging Cleanup**: Significantly reduced verbose console logging for cleaner development experience
+  - **Removed Verbose Logs**: Eliminated excessive debug logging from session management, audio recording, and timer events
+  - **Kept Essential Logs**: Preserved important error messages and major state changes for troubleshooting
+  - **Files Cleaned**:
+    - `genai-live-client.ts`: Removed "Terminating session completely" console message
+    - `audio-recorder.ts`: Removed detailed stop process logging (stop called, executing handleStop, disconnecting worklets, stop completed)
+    - `ExamWorkflow.tsx`: Removed pause/resume detection logs and timer message sending logs
+    - `CountdownTimer.tsx`: Removed timer trigger logging messages
+  - **Development Experience**: Cleaner console output makes it easier to spot actual issues
+  - **Performance**: Reduced console overhead during session operations
 
-  - **Root Cause**: Auto-trigger mechanism was being called inappropriately during review cleanup
-  - **Solution**: Added guards to prevent auto-trigger during button state transitions and review cleanup
-  - **Additional Protection**: Reset auto-trigger flag when review ends to prevent inappropriate re-triggering
-  - **Button State Logic**: Added `!buttonIsOn` condition to prevent triggering when button is already active
+## [0.17.28] - 2025-07-13
 
-- **AI Voice Restarting After Review**: Fixed issue where AI would start a new review automatically after the previous review ended
-  - **Root Cause**: Auto-trigger mechanism was being reactivated when `connected` changed from `true` to `false` after review ended
-  - **Solution**: Made auto-trigger a one-time-only mechanism that permanently disables after any review starts
-  - **Permanent Disable**: Once `examIntentStarted` becomes true, auto-trigger is permanently disabled for the session
-  - **Initial Load Only**: Auto-trigger now only works on the initial page load, not after reviews end
-  - **Clean Session End**: Reviews now end cleanly without triggering new sessions
+### Fixed
 
-### Enhanced
+- **CRITICAL: Session Resumption Not Working**: Fixed the root cause of session resumption failure - we were never enabling session resumption in the initial connection configuration
 
-- **Auto-Trigger Safety**: Improved auto-trigger mechanism with better state management
-  - **Flag Reset**: Auto-trigger flag is now properly reset when reviews end
-  - **Timeout Cleanup**: Auto-trigger timeout is cleared during review cleanup
-  - **State Guards**: Added multiple guards to prevent inappropriate auto-triggering during state transitions
+  - **Root Cause**: Session resumption was never enabled in the `createLiveConfig` function, so the server never sent us session resumption handles
+  - **Solution**: Added `sessionResumption: { transparent: true }` to the initial connection configuration to enable session resumption capability
+  - **Server Communication**: Server now sends `sessionResumptionUpdate` messages with session handles that can be used for reconnection
+  - **Transparent Reconnections**: Enabled transparent mode for better state tracking and seamless reconnections
+  - **Debug Logging**: Temporarily re-enabled session resumption handle logging to verify server communication
+
+- **Session Handle Reception**: Fixed missing session resumption handles that were preventing all reconnection attempts
+
+  - **Previous State**: All reconnection attempts showed `hasSessionHandle: false` and `sessionHandle: ''`
+  - **Enhanced Logging**: Added logging to track when session handles are received from server: handle value, resumable status, and last consumed message index
+  - **Verification**: Console will now show when session resumption handles are received and stored
+  - **Reconnection Capability**: Enables proper session resumption instead of always falling back to fresh sessions
+
+### Changed
+
+- **Connection Configuration**: Enhanced initial connection setup to support Google AI Live API session resumption features
+
+  - **Transparent Mode**: Enabled transparent session resumption for better reconnection state tracking
+  - **Server Integration**: Proper integration with Google's session resumption mechanism
+  - **API Compatibility**: Uses the correct `SessionResumptionConfig` interface with `transparent: true` instead of invalid `enabled` property
+  - **Session State Preservation**: Server-side session state is now properly maintained across network disconnections
+
+### Technical Details
+
+- **LiveConnectConfig Enhancement**: Added `sessionResumption: { transparent: true }` to initial connection configuration
+- **Session Handle Logging**: Re-enabled logging for `sessionResumptionUpdate` messages to debug and verify session handle reception
+- **Type Compliance**: Fixed TypeScript error by using correct `SessionResumptionConfig` properties (`transparent` instead of `enabled`)
+- **API Integration**: Proper integration with Google AI Live API's session resumption mechanism as documented in the official API
+
+### Expected Behavior After Fix
+
+- **Session Handles Received**: Console should show "🔄 Session resumption handle received" messages during active sessions
+- **Successful Resumption**: Network reconnections should use session resumption instead of always falling back to fresh sessions
+- **Context Preservation**: AI should continue conversations from exactly where they left off after network restoration
+- **No More "Missing session data"**: Eliminates "❌ Cannot reconnect: Missing session data" errors
 
 ## [0.17.27] - 2025-06-26
 
@@ -2521,3 +2672,131 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Firefox and Safari Hanging During Media Initialization**: Fixed critical issue where browsers would hang on "Getting MediaStream..." step
   - **Root Cause**: Old `useScreenCapture` and `useWebcam` hooks were calling `getUserMedia`
+
+## [0.17.30] - 2025-07-13
+
+### Added
+
+- **Balanced Logging System**: Implemented a structured logging approach that captures important state changes without being verbose
+  - **appLogger Utility**: Created centralized logging utility in `src/lib/utils.ts` with categorized logging methods
+  - **Session Lifecycle**: Clear logging for session start, stop, pause, resume, and termination events
+  - **Connection Events**: Logging for connection establishment, loss, reconnection attempts, and successful reconnections
+  - **User Actions**: Tracking of user-initiated actions like starting/stopping reviews, changing voice/environment
+  - **Timer Events**: Logging for timer start, pause, resume, expiration, and AI message events
+  - **Error Handling**: Structured error logging for connection, session, audio, and general errors
+  - **Info Messages**: Loading states, ready states, and warnings with consistent formatting
+
+### Changed
+
+- **Consistent Logging Format**: Replaced scattered console.log statements with structured logging calls
+  - **Session Management**: Updated AIExaminerPage to use appLogger for session start/stop events
+  - **Connection Handling**: Updated ExamWorkflow to use appLogger for connection establishment and errors
+  - **User Interactions**: Updated button handlers to log user actions consistently
+  - **Timer System**: Updated CountdownTimer to use appLogger for timer events and AI messages
+  - **Voice/Environment Changes**: Updated GenAILiveClient to use appLogger for configuration changes
+  - **Error Reporting**: Standardized error logging across all components
+
+### Benefits
+
+- **Development Experience**: Clear, meaningful logs that help understand application flow without console clutter
+- **Debugging Support**: Easy to identify important state transitions and user actions
+- **Consistent Format**: All logs follow the same pattern with appropriate emojis and categorization
+- **Performance**: Reduced console overhead while maintaining essential debugging information
+- **Maintainability**: Centralized logging makes it easy to adjust log levels or add new categories
+
+### Logging Categories
+
+- **Session**: 🚀 Session started, 🛑 Session stopped, ⏸️ Session paused, ▶️ Session resumed, 💥 Session terminated
+- **Connection**: ✅ Connection established, ❌ Connection lost, 🔄 Reconnecting..., ✅ Reconnected successfully
+- **User**: 👤 User actions (start/stop/pause/resume review, change voice/environment)
+- **Timer**: ⏱️ Timer events (started, paused, resumed, expired), 📢 AI introduction, 👋 AI farewell
+- **Error**: ❌ Error events with appropriate categorization
+- **Info**: ⏳ Loading, ✅ Ready, ⚠️ Warning messages
+
+## [0.17.31] - 2025-07-13
+
+### Fixed
+
+- **Redundant Session Logging**: Eliminated duplicate "Session review started" and "Session review stopped" messages
+
+  - **Root Cause**: Both `sessionService` and `appLogger` were logging the same session start/stop events
+  - **Solution**: Removed console.log statements from `sessionService` since it's only used for navigation blocking
+  - **Cleaner Output**: Now only shows the meaningful "🚀 Session started" and "🛑 Session stopped" messages
+  - **Purpose Clarification**: `sessionService` is purely for navigation blocking, `appLogger` handles user-facing logging
+
+- **Verbose OpenAI API Logging**: Significantly reduced verbose logging from live suggestion extraction system
+  - **Previous State**: Full conversation history was logged with message previews for every API call
+  - **New State**: Only logs the number of messages being sent to OpenAI for suggestion extraction
+  - **Console Output**: Changed from 5+ lines per API call to a single concise line
+  - **Functionality Preserved**: Live suggestion extraction still works exactly the same, just with cleaner logging
+  - **Performance**: Reduced console overhead during active code review sessions
+
+### Technical Details
+
+- **sessionService Cleanup**: Removed redundant console.log statements while preserving navigation blocking functionality
+- **getSessionCompletion Optimization**: Simplified logging to show only essential information (message count)
+- **Live Suggestions**: The system still analyzes conversation transcripts to extract actionable code suggestions
+- **API Calls**: OpenAI API calls for suggestion extraction continue to work normally with reduced logging
+
+### Benefits
+
+- **Cleaner Console**: Eliminated redundant and verbose logging messages
+- **Better Debugging**: Easier to spot actual issues when console isn't flooded with repetitive messages
+- **Performance**: Reduced console overhead during active sessions
+- **User Experience**: Console output is now focused on meaningful state changes and user actions
+
+## [0.17.32] - 2025-07-13
+
+### Added
+
+- **Enhanced User Action Logging**: Added logging for screen changes and microphone mute/unmute actions
+  - **Screen Changes**: `🖥️ Screen changed to: [screen name]` when user switches screen sharing
+  - **Microphone Controls**: `🔇 User muted microphone` and `🔊 User unmuted microphone` for audio controls
+  - **Complete User Journey**: Now tracks all major user interactions during code review sessions
+
+### Fixed
+
+- **Double getSessionCompletion Calls**: Eliminated redundant API calls during live suggestion extraction initialization
+
+  - **Root Cause**: `initializeSession()` and first `extractSuggestions()` were both calling the API
+  - **Solution**: Skip processing the first transcript chunk after initialization to prevent duplicate calls
+  - **Console Output**: Reduced from 2 API calls to 1 during session startup
+  - **Functionality Preserved**: Live suggestion extraction still works exactly the same
+
+- **Verbose Disconnect Debug Messages**: Removed excessive debug logging during session disconnection
+
+  - **Removed**: "🔍 Disconnect Debug" messages that showed session handle details
+  - **Cleaner Output**: Disconnection events now only show essential information
+  - **Debugging**: Session resumption still works normally, just with cleaner logging
+
+- **Consolidated Reconnection Messages**: Simplified session resumption logging
+
+  - **Before**: Multiple messages about manual reconnection and session resumption
+  - **After**: Single message "🔄 Resuming session with handle: [handle]..."
+  - **Clarity**: Easier to understand when session resumption is happening
+
+- **Double User Action Logging**: Fixed duplicate logging when resuming from pause
+
+  - **Root Cause**: Both `handleButtonClicked` and parent component were logging user actions
+  - **Solution**: Only log user actions in the appropriate component to prevent duplicates
+  - **Console Output**: Now shows single "👤 User resumed review" instead of resume + start
+
+- **Verbose Environment/Voice Change Logging**: Consolidated multiple messages into single meaningful logs
+  - **Before**: 5+ messages per change showing session resumption, VAD settings, server config, etc.
+  - **After**: Single "🎤 Environment changed to: [env]" or "🎤 Voice changed to: [voice]"
+  - **Error Handling**: Only log errors when changes fail, not successful changes
+  - **VAD Settings**: Removed verbose VAD settings logging that was cluttering console
+
+### Technical Details
+
+- **Live Suggestion Extraction**: Fixed initialization flow to prevent duplicate API calls
+- **Session Management**: Streamlined logging while preserving all functionality
+- **User Experience**: Console output is now focused and meaningful without information overload
+- **Error Reporting**: Maintained error logging for troubleshooting while reducing success noise
+
+### Benefits
+
+- **Cleaner Console**: Significantly reduced console clutter while maintaining essential debugging information
+- **Better Performance**: Fewer API calls and reduced console overhead during active sessions
+- **Improved UX**: Users can now easily track their actions without being overwhelmed by technical details
+- **Maintainability**: Easier to spot actual issues when console isn't flooded with routine operations

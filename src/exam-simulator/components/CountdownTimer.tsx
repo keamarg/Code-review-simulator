@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { appLogger } from "../../lib/utils";
 
 interface CountdownTimerProps {
   totalMs: number;
@@ -65,6 +66,7 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   useEffect(() => {
     if (timeLeft <= 0 && !hasCalledOnTimeUp.current && onTimeUpRef.current) {
       hasCalledOnTimeUp.current = true;
+      appLogger.timer.expired();
       onTimeUpRef.current();
     }
   }, [timeLeft]);
@@ -80,7 +82,6 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       onIntroductionRef.current
     ) {
       hasCalledIntroduction.current = true;
-      console.log("🎯 CountdownTimer: Triggering introduction message");
       onIntroductionRef.current();
     }
 
@@ -91,7 +92,6 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       onFarewellRef.current
     ) {
       hasCalledFarewell.current = true;
-      console.log("🎯 CountdownTimer: Triggering farewell message");
       onFarewellRef.current();
     }
   }, [timeLeft, totalMs, running]);
@@ -117,10 +117,11 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   useEffect(() => {
     if (startTrigger) {
       setRunning(true);
+      appLogger.timer.started(totalMs);
     } else {
       setRunning(false);
     }
-  }, [startTrigger]);
+  }, [startTrigger, totalMs]);
 
   const formatTimeLeft = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000);

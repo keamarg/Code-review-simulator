@@ -28,6 +28,7 @@ import {
 import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
 import { AudioRecorder } from "../../../lib/audio-recorder";
 import AudioPulse from "../../../components/audio-pulse/AudioPulse";
+import { appLogger } from "../../../lib/utils";
 import "./control-tray-custom.scss";
 
 // Browser detection
@@ -244,6 +245,13 @@ function ControlTray({
         if (!networkMuted) {
           audioTrack.enabled = !audioTrack.enabled;
           setMuted(!audioTrack.enabled);
+
+          // Log the mute/unmute action
+          if (audioTrack.enabled) {
+            appLogger.user.unmute();
+          } else {
+            appLogger.user.mute();
+          }
         }
       }
     }
@@ -646,7 +654,11 @@ function ControlTray({
       const videoOnlyStream = new MediaStream(newVideoStream.getVideoTracks());
       setActiveVideoStream(videoOnlyStream);
       onVideoStreamChange(videoOnlyStream);
-      setScreenSharingSource(getScreenSharingSourceName(newVideoStream));
+      const newScreenName = getScreenSharingSourceName(newVideoStream);
+      setScreenSharingSource(newScreenName);
+
+      // Log the screen change
+      appLogger.user.changeScreen(newScreenName);
 
       // Now that the replacement is active we can safely stop the old tracks
       activeVideoStream.getTracks().forEach((track) => track.stop());

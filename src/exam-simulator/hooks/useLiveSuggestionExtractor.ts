@@ -29,8 +29,6 @@ export const useLiveSuggestionExtractor = () => {
     isInitializing.current = true;
 
     try {
-      setIsProcessing(true);
-
       const systemMessage: Message = {
         role: "system",
         content: prompts.suggestionExtraction.systemPrompt,
@@ -43,7 +41,7 @@ export const useLiveSuggestionExtractor = () => {
 
       conversationHistory.current = [systemMessage, initialMessage];
 
-      // Get initial response to establish session
+      // Get initial response to establish session with timeout
       const response = await getSessionCompletion(conversationHistory.current);
 
       conversationHistory.current.push({
@@ -52,10 +50,13 @@ export const useLiveSuggestionExtractor = () => {
       });
 
       isSessionInitialized.current = true;
+      console.log("✅ Live suggestions session initialized successfully");
     } catch (error) {
-      console.error("Error initializing session:", error);
+      console.error("❌ Error initializing live suggestions session:", error);
       isSessionInitialized.current = false;
-      setIsProcessing(false);
+      // Don't set isProcessing to false here - let the calling function handle it
+    } finally {
+      isInitializing.current = false;
     }
   }, []);
 
@@ -120,14 +121,29 @@ export const useLiveSuggestionExtractor = () => {
         return; // Skip during network outage
       }
 
+      // Skip very long chunks that might cause timeouts
+      if (transcriptChunk.length > 2000) {
+        console.log("🟡 Skipping very long transcript chunk for suggestions");
+        return;
+      }
+
       // Initialize session if needed
       if (!isSessionInitialized.current) {
+        console.log("🔄 Initializing live suggestions session...");
         await initializeSession();
+        // After initialization, process this chunk normally
+        // Don't return early - let it continue to process
       }
 
       // Mark as processed
       processedChunks.current.add(transcriptChunk);
       setIsProcessing(true);
+
+      // Add a processing timeout to prevent infinite hanging
+      const processingTimeout = setTimeout(() => {
+        console.log("🟡 Live suggestions processing timeout - resetting state");
+        setIsProcessing(false);
+      }, 35000); // 35 seconds timeout (5 seconds more than API timeout)
 
       try {
         // Create chunk prompt using template
@@ -215,11 +231,16 @@ export const useLiveSuggestionExtractor = () => {
           }
         }
       } catch (error) {
-        // Enhanced error handling for network issues
+        // Enhanced error handling for network issues and timeouts
         if (error instanceof TypeError && error.message === "Failed to fetch") {
           // Network issues are expected during disconnections - no logging needed
         } else if (error instanceof Error && error.name === "AbortError") {
           // Request cancellation is normal - no logging needed
+        } else if (
+          error instanceof Error &&
+          error.message.includes("timeout")
+        ) {
+          console.log("🟡 Live suggestions API timeout - continuing normally");
         } else {
           console.error("Error extracting suggestions:", error);
         }
@@ -227,6 +248,7 @@ export const useLiveSuggestionExtractor = () => {
         // Don't let live suggestion errors interfere with the main session
         // The error is logged but we continue normally
       } finally {
+        clearTimeout(processingTimeout);
         setIsProcessing(false);
       }
     },

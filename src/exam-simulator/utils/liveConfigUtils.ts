@@ -6,9 +6,6 @@ import {
 } from "@google/genai";
 import { getCurrentVoice, getVADConfig } from "../../config/aiConfig";
 
-// Default values from centralized config
-const VAD_CONFIG = getVADConfig();
-
 // Interface for optional parameters to allow some flexibility
 interface CreateLiveConfigOptions {
   model?: string;
@@ -32,6 +29,10 @@ export function createLiveConfig(
 ): LiveConnectConfig {
   // Get current voice preference each time config is created (not cached at module level)
   const voiceName = options?.voiceName || getCurrentVoice();
+
+  // Get current VAD config each time (not cached at module level) to pick up environment changes
+  const VAD_CONFIG = getVADConfig();
+
   const silenceDurationMs =
     options?.silenceDurationMs || VAD_CONFIG.silenceDurationMs;
   const prefixPaddingMs =

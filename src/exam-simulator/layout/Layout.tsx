@@ -6,12 +6,14 @@ import { SettingsModal } from "../components/ui/SettingsModal";
 interface LayoutProps {
   children: React.ReactNode;
   onVoiceChange?: (newVoice: string) => void;
+  onEnvironmentChange?: (newEnvironment: string) => void;
   isSessionActive?: boolean;
 }
 
 export default function Layout({
   children,
   onVoiceChange,
+  onEnvironmentChange,
   isSessionActive = false,
 }: LayoutProps) {
   const { user, signOut } = useAuth(); // Get user and signOut from context
@@ -42,6 +44,16 @@ export default function Layout({
     } else {
       // Otherwise, just store the preference for future sessions
       console.log(`🎤 Voice preference saved: ${newVoice}`);
+    }
+  };
+
+  const handleEnvironmentChange = async (newEnvironment: string) => {
+    if (onEnvironmentChange) {
+      // If we have an environment change handler (from AIExaminerPage), use it
+      onEnvironmentChange(newEnvironment);
+    } else {
+      // Otherwise, just store the preference for future sessions
+      console.log(`🎤 Environment preference saved: ${newEnvironment}`);
     }
   };
 
@@ -218,6 +230,7 @@ export default function Layout({
         isOpen={isSettingsOpen}
         onClose={handleSettingsClose}
         onVoiceChange={handleVoiceChange}
+        onEnvironmentChange={handleEnvironmentChange}
         isSessionActive={isSessionActive}
       />
     </div>

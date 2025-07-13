@@ -3,6 +3,40 @@
  * Update these values to change AI model settings across the entire application
  */
 
+// Environment-specific VAD settings
+export const VAD_ENVIRONMENTS = {
+  QUIET: {
+    name: "Quiet Environment",
+    description: "Home office, library, or quiet workspace",
+    settings: {
+      START_OF_SPEECH_SENSITIVITY: "START_SENSITIVITY_HIGH" as const,
+      END_OF_SPEECH_SENSITIVITY: "END_SENSITIVITY_LOW" as const,
+      SILENCE_DURATION_MS: 300, // Restored to original fast settings and made even faster
+      PREFIX_PADDING_MS: 10, // Restored to original fast settings
+    },
+  },
+  MODERATE: {
+    name: "Moderate Environment",
+    description: "Office with some background noise, coffee shop",
+    settings: {
+      START_OF_SPEECH_SENSITIVITY: "START_SENSITIVITY_LOW" as const,
+      END_OF_SPEECH_SENSITIVITY: "END_SENSITIVITY_LOW" as const,
+      SILENCE_DURATION_MS: 500, // Restored to original fast settings
+      PREFIX_PADDING_MS: 20, // Restored to original fast settings
+    },
+  },
+  NOISY: {
+    name: "Noisy Environment",
+    description: "Open office, public space, or high background noise",
+    settings: {
+      START_OF_SPEECH_SENSITIVITY: "START_SENSITIVITY_LOW" as const,
+      END_OF_SPEECH_SENSITIVITY: "END_SENSITIVITY_LOW" as const,
+      SILENCE_DURATION_MS: 700, // Restored to original fast settings
+      PREFIX_PADDING_MS: 50, // Restored to original fast settings
+    },
+  },
+} as const;
+
 export const AI_CONFIG = {
   // Gemini model configuration
   DEFAULT_MODEL: "models/gemini-2.0-flash-live-001",
@@ -17,14 +51,8 @@ export const AI_CONFIG = {
   // Voice configuration
   DEFAULT_VOICE: "Aoede", // Breezy and relaxed voice
 
-  // Voice Activity Detection (VAD) settings
-  VAD_SETTINGS: {
-    // Sensitivity levels: "START_SENSITIVITY_HIGH" | "START_SENSITIVITY_LOW"
-    START_OF_SPEECH_SENSITIVITY: "START_SENSITIVITY_HIGH", // High to detect user voice
-    END_OF_SPEECH_SENSITIVITY: "END_SENSITIVITY_LOW", // Low to prevent AI cutoffs
-    SILENCE_DURATION_MS: 500, // Reduced from 1000ms for faster response
-    PREFIX_PADDING_MS: 20, // Reduced padding for faster speech detection
-  },
+  // Voice Activity Detection (VAD) settings - now uses environment-based defaults
+  VAD_SETTINGS: VAD_ENVIRONMENTS.QUIET.settings, // Default to quiet environment
 
   // Timer configuration for code review sessions
   TIMER_SETTINGS: {
@@ -69,14 +97,31 @@ export const getCurrentVoice = (): string => {
 };
 
 /**
- * Get VAD configuration object
+ * Get the current VAD environment
+ * Checks localStorage for user preference, then defaults to QUIET
  */
-export const getVADConfig = () => ({
-  startOfSpeechSensitivity: AI_CONFIG.VAD_SETTINGS.START_OF_SPEECH_SENSITIVITY,
-  endOfSpeechSensitivity: AI_CONFIG.VAD_SETTINGS.END_OF_SPEECH_SENSITIVITY,
-  silenceDurationMs: AI_CONFIG.VAD_SETTINGS.SILENCE_DURATION_MS,
-  prefixPaddingMs: AI_CONFIG.VAD_SETTINGS.PREFIX_PADDING_MS,
-});
+export const getCurrentVADEnvironment = (): keyof typeof VAD_ENVIRONMENTS => {
+  const savedEnvironment = localStorage.getItem("ai_vad_environment");
+  if (savedEnvironment && savedEnvironment in VAD_ENVIRONMENTS) {
+    return savedEnvironment as keyof typeof VAD_ENVIRONMENTS;
+  }
+  return "QUIET"; // Default to quiet environment
+};
+
+/**
+ * Get VAD configuration object based on current environment
+ */
+export const getVADConfig = () => {
+  const currentEnvironment = getCurrentVADEnvironment();
+  const environmentSettings = VAD_ENVIRONMENTS[currentEnvironment].settings;
+
+  return {
+    startOfSpeechSensitivity: environmentSettings.START_OF_SPEECH_SENSITIVITY,
+    endOfSpeechSensitivity: environmentSettings.END_OF_SPEECH_SENSITIVITY,
+    silenceDurationMs: environmentSettings.SILENCE_DURATION_MS,
+    prefixPaddingMs: environmentSettings.PREFIX_PADDING_MS,
+  };
+};
 
 /**
  * Get timer configuration object

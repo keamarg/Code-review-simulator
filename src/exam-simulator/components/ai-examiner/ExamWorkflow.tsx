@@ -21,6 +21,7 @@ import { CodeReviewSummaryModal } from "../ui/CodeReviewSummaryModal"; // New mo
 import { ReconnectionBanner } from "../ui/ReconnectionBanner"; // New reconnection banner
 import ControlTrayCustom from "../control-tray-custom/ControlTrayCustom"; // Correct import for ControlTrayCustom
 import prompts from "../../../prompts.json"; // Import prompts for introduction message
+import { appLogger } from "../../../lib/utils";
 
 interface ExamWorkflowProps {
   examId: string;
@@ -364,10 +365,8 @@ export function ExamWorkflow({
       isConnectingRef.current = false;
       activeConnectionRef.current = false;
 
-      // Terminate the session if connected
-      if (client) {
-        client.terminateSession();
-      }
+      // Don't terminate session here - let parent handle it to avoid double termination
+      // The parent will call shutdownSession() which includes terminateSession()
 
       // Generate summary
       if (onLoadingStateChange) {
@@ -411,7 +410,6 @@ export function ExamWorkflow({
       }
     },
     [
-      client,
       getConversationSummary,
       examSimulator,
       liveSuggestions,
@@ -671,30 +669,14 @@ export function ExamWorkflow({
           setLiveConfig(newConfig);
         }
       }
-    } else if (!examIntentStarted && connected) {
-      // Clean up when exam intent stops (but not during network issues)
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      // Only disconnect if we're not in a network-related state
-      if (!isReconnecting && !showReconnectionBanner) {
-        client.disconnect();
-      }
-      setExamStarted(false);
-      isConnectingRef.current = false;
-      activeConnectionRef.current = false;
     }
   }, [
     examIntentStarted,
     examSimulator,
     repoUrl,
     prompt,
-    connected,
-    client,
     isLoadingPrompt,
-    isReconnecting,
     prepareExamContent,
-    showReconnectionBanner,
   ]);
 
   // Extract complex expression to avoid linter warning
@@ -719,22 +701,33 @@ export function ExamWorkflow({
         .then(() => {
           activeConnectionRef.current = true;
           setExamStarted(true);
+          appLogger.connection.established();
 
           // Timer setup is now handled by CountdownTimer callbacks
           // No separate timer system needed - messages are triggered by CountdownTimer
-          console.log(
-            "✅ Connection established - CountdownTimer will handle all timed messages"
-          );
         })
         .catch((error) => {
-          console.error("Failed to connect:", error);
+          appLogger.error.connection("Failed to connect: " + error);
           setExamError("Failed to connect to the exam server.");
           isConnectingRef.current = false;
           activeConnectionRef.current = false;
         });
-    } else if (!examIntentStarted && connected) {
+    }
+  }, [
+    examIntentStarted,
+    liveConfigText,
+    connected,
+    connect,
+    examDurationActiveExamMs,
+    connectionTrigger,
+    isDeliberatelyPaused,
+    liveConfig,
+  ]);
+
+  // Separate effect for cleanup when exam intent stops
+  useEffect(() => {
+    if (!examIntentStarted && connected) {
       // Clean up when exam intent stops (but not during network issues)
-      // CountdownTimer handles its own lifecycle, just clean up reconnection timeout
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
@@ -748,16 +741,10 @@ export function ExamWorkflow({
     }
   }, [
     examIntentStarted,
-    liveConfigText,
     connected,
-    connect,
-    examDurationActiveExamMs,
     client,
     isReconnecting,
     showReconnectionBanner,
-    connectionTrigger, // Add the trigger to the dependency array
-    isDeliberatelyPaused, // Add this to the dependency array
-    liveConfig,
   ]);
 
   // Notify parent of loading state changes
@@ -776,20 +763,19 @@ export function ExamWorkflow({
   const handleButtonClicked = (isButtonOn: boolean) => {
     if (connected && !isButtonOn) {
       // Button is being turned off while connected - this is a deliberate pause
-      console.log("🔄 Deliberate pause detected");
       setIsDeliberatelyPaused(true);
       setShowReconnectionBanner(false); // Hide any network banner
+      appLogger.user.pauseReview();
     } else if (!connected && isButtonOn && isDeliberatelyPaused) {
       // Button is being turned on while not connected and we were paused - this is a resume
-      console.log("🔄 Deliberate resume detected");
       setIsDeliberatelyPaused(false);
+      appLogger.user.resumeReview();
     } else if (!connected && isButtonOn && !isDeliberatelyPaused) {
       // Button is being turned on while not connected and we weren't paused - this is a fresh start
-      console.log("🔄 Fresh start detected");
       setIsDeliberatelyPaused(false);
     }
 
-    // Call the original handler
+    // Call the original handler (but don't log startReview here since it's handled by parent)
     if (onButtonClicked) {
       onButtonClicked(isButtonOn);
     }
@@ -799,30 +785,51 @@ export function ExamWorkflow({
   const handleIntroduction = useCallback(() => {
     if (client) {
       try {
-        console.log("📤 Sending introduction message via CountdownTimer");
         client.send([{ text: prompts.timerMessages.introduction }]);
+        appLogger.timer.introduction();
       } catch (error) {
-        console.error("❌ Failed to send introduction message:", error);
+        appLogger.error.session(
+          "Failed to send introduction message: " + error
+        );
         // Don't set flag if message failed - CountdownTimer will handle retry logic
       }
     } else {
-      console.error("❌ No client available for introduction message");
+      appLogger.error.session("No client available for introduction message");
     }
   }, [client]);
 
   const handleFarewell = useCallback(() => {
     if (client) {
       try {
-        console.log("📤 Sending farewell message via CountdownTimer");
         client.send([{ text: prompts.timerMessages.farewell }]);
+        appLogger.timer.farewell();
       } catch (error) {
-        console.error("❌ Failed to send farewell message:", error);
+        appLogger.error.session("Failed to send farewell message: " + error);
         // Don't set flag if message failed - CountdownTimer will handle retry logic
       }
     } else {
-      console.error("❌ No client available for farewell message");
+      appLogger.error.session("No client available for farewell message");
     }
   }, [client]);
+
+  // Handle introduction message for unlimited sessions
+  const hasSentUnlimitedIntro = useRef(false);
+  useEffect(() => {
+    if (
+      examDurationActiveExamMs === 0 && // Unlimited session
+      examStarted && // Session is active
+      client && // Client is available
+      !hasSentUnlimitedIntro.current // Haven't sent intro yet
+    ) {
+      hasSentUnlimitedIntro.current = true;
+      // Small delay to ensure client is ready
+      setTimeout(() => {
+        if (client) {
+          handleIntroduction();
+        }
+      }, 500);
+    }
+  }, [examDurationActiveExamMs, examStarted, client, handleIntroduction]);
 
   if (
     !examSimulator ||
@@ -865,19 +872,10 @@ export function ExamWorkflow({
         />
       )}
 
-      {/* For unlimited sessions, still send introduction message */}
+      {/* For unlimited sessions, send introduction message directly */}
       {examDurationActiveExamMs === 0 && examStarted && (
         <div style={{ display: "none" }}>
-          <CountdownTimer
-            totalMs={60000} // 1 minute dummy timer just for introduction
-            autoStart={false}
-            startTrigger={examStarted}
-            pauseTrigger={false} // Never pause unlimited sessions
-            isDeliberatePause={false}
-            onTimeUp={() => {}} // No timeout for unlimited sessions
-            onIntroduction={handleIntroduction} // Still send introduction
-            onFarewell={() => {}} // No farewell for unlimited sessions
-          />
+          {/* Hidden div for unlimited sessions - introduction handled by useEffect */}
         </div>
       )}
 

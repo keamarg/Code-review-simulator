@@ -22,6 +22,10 @@ export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
   }
 
   try {
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -29,7 +33,10 @@ export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error(
@@ -53,22 +60,20 @@ export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
 
     return content;
   } catch (error) {
+    if (error.name === "AbortError") {
+      console.error("❌ OpenAI API Timeout: Request took too long");
+      throw new Error("Request timeout - please try again");
+    }
     console.error("❌ OpenAI API Error:", error.message);
     throw new Error(error.message);
   }
 }
 
 export async function getSessionCompletion(messages, doesReturnJSON = false) {
-  // Log the session-based prompts being sent to OpenAI
-  console.log("🟢 OpenAI API Call - getSessionCompletion:");
-  console.log("💭 Session Messages Count:", messages.length);
-  console.log("📚 Full Conversation History:");
-  messages.forEach((msg, index) => {
-    const preview =
-      msg.content.substring(0, 150) + (msg.content.length > 150 ? "..." : "");
-    console.log(`  ${index + 1}. [${msg.role.toUpperCase()}]: ${preview}`);
-  });
-  console.log("🔧 JSON Mode:", doesReturnJSON);
+  // Log the session-based prompts being sent to OpenAI (reduced verbosity)
+  console.log(
+    `🟢 OpenAI API Call - getSessionCompletion: ${messages.length} messages`
+  );
 
   const apiKeyResponse = await fetch(
     "https://api-key-server-codereview.vercel.app/api/prompt1"
@@ -90,6 +95,10 @@ export async function getSessionCompletion(messages, doesReturnJSON = false) {
   }
 
   try {
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -97,7 +106,10 @@ export async function getSessionCompletion(messages, doesReturnJSON = false) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error(
@@ -121,6 +133,10 @@ export async function getSessionCompletion(messages, doesReturnJSON = false) {
 
     return content;
   } catch (error) {
+    if (error.name === "AbortError") {
+      console.error("❌ OpenAI Session API Timeout: Request took too long");
+      throw new Error("Request timeout - please try again");
+    }
     console.error("❌ OpenAI Session API Error:", error.message);
     throw new Error(error.message);
   }

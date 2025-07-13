@@ -21,6 +21,7 @@ import { LoadingAnimation } from "../components/ui/LoadingAnimation";
 import cn from "classnames";
 import { mediaStreamService } from "../lib/mediaStreamService";
 import sessionService from "../lib/sessionService";
+import { appLogger } from "../../lib/utils";
 // supabase might not be needed here anymore if ExamWorkflow handles all supabase interactions
 // import { supabase } from "../config/supabaseClient";
 
@@ -47,6 +48,7 @@ interface ExamPageContentProps {
   initialRepoUrl?: string;
   isReadyForAutoTrigger?: boolean;
   onVoiceChangeReady: (handler: (newVoice: string) => void) => void;
+  onEnvironmentChangeReady: (handler: (newEnvironment: string) => void) => void;
 }
 
 function ExamPageContent({
@@ -72,6 +74,7 @@ function ExamPageContent({
   initialRepoUrl,
   isReadyForAutoTrigger,
   onVoiceChangeReady,
+  onEnvironmentChangeReady,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
 
@@ -89,15 +92,39 @@ function ExamPageContent({
         // Use the new changeVoice method that preserves session context
         const success = await client.changeVoice(newVoice);
 
-        if (success) {
-          console.log(
-            `✅ Voice successfully changed to ${newVoice} - conversation context preserved`
-          );
-        } else {
-          console.error("❌ Voice change failed");
+        if (!success) {
+          appLogger.error.session("Voice change failed");
         }
       } catch (error) {
         console.error("Error changing voice:", error);
+      }
+    },
+    [client, connected]
+  );
+
+  // Create environment change handler and pass it up
+  const handleEnvironmentChange = useCallback(
+    async (newEnvironment: string) => {
+      if (!connected) {
+        console.log(
+          `🎤 Environment preference saved: ${newEnvironment} (not in session)`
+        );
+        return;
+      }
+
+      try {
+        console.log(
+          `🎤 Changing environment to ${newEnvironment} during active session`
+        );
+
+        // Use the new changeEnvironment method that preserves session context
+        const success = await client.changeEnvironment(newEnvironment);
+
+        if (!success) {
+          appLogger.error.session("Environment change failed");
+        }
+      } catch (error) {
+        console.error("Error changing environment:", error);
       }
     },
     [client, connected]
@@ -107,6 +134,11 @@ function ExamPageContent({
   useEffect(() => {
     onVoiceChangeReady(handleVoiceChange);
   }, [handleVoiceChange, onVoiceChangeReady]);
+
+  // Pass the environment change handler up to parent
+  useEffect(() => {
+    onEnvironmentChangeReady(handleEnvironmentChange);
+  }, [handleEnvironmentChange, onEnvironmentChangeReady]);
 
   useEffect(() => {
     if (client) {
@@ -240,14 +272,37 @@ export default function LivePage() {
   // examIntentStarted is controlled by the ControlTrayCustom button
   const [examIntentStarted, setExamIntentStarted] = useState(false);
 
-  // Keep global sessionService in sync with current review state
+  // Track initialization phase to prevent redundant sessionService calls
+  const isInitializingRef = useRef(true);
+  const hasSessionStartedRef = useRef(false);
+
+  // Manage sessionService calls explicitly only when sessions actually start/stop
   useEffect(() => {
-    if (examIntentStarted) {
+    // Skip during initialization phase
+    if (isInitializingRef.current) {
+      return;
+    }
+
+    if (examIntentStarted && !hasSessionStartedRef.current) {
+      // Session is actually starting
+      hasSessionStartedRef.current = true;
       sessionService.startReview();
-    } else {
+      appLogger.session.start();
+    } else if (!examIntentStarted && hasSessionStartedRef.current) {
+      // Session is actually stopping
+      hasSessionStartedRef.current = false;
       sessionService.stopReview();
+      appLogger.session.stop();
     }
   }, [examIntentStarted]);
+
+  // Mark initialization as complete after first render
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      isInitializingRef.current = false;
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Force stop audio flag for timer expiration
   const [forceStopAudio, setForceStopAudio] = useState(false);
@@ -265,7 +320,7 @@ export default function LivePage() {
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      sessionService.isReviewActive &&
+      hasSessionStartedRef.current &&
       currentLocation.pathname !== nextLocation.pathname
   );
 
@@ -357,7 +412,10 @@ export default function LivePage() {
       // Set a timeout to trigger if the button doesn't become available quickly
       autoTriggerTimeoutRef.current = setTimeout(() => {
         if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
-          setExamIntentStarted(true);
+          // Only set examIntentStarted if we're past initialization
+          if (!isInitializingRef.current) {
+            setExamIntentStarted(true);
+          }
           shouldAutoTriggerRef.current = false;
           hasAutoTriggeredRef.current = true;
         }
@@ -393,8 +451,12 @@ export default function LivePage() {
       setVideoStream(null);
     }
 
-    // Update global state
-    sessionService.stopReview();
+    // Update global state only if session was actually active
+    if (hasSessionStartedRef.current) {
+      sessionService.stopReview();
+      hasSessionStartedRef.current = false;
+    }
+
     // Reset component state
     setExamIntentStarted(false);
   }, [setVideoStream]);
@@ -403,6 +465,7 @@ export default function LivePage() {
     // This function is now just a wrapper for UI state changes.
     setForceStopAudio(true);
     setForceStopVideo(true);
+    appLogger.user.stopReview();
     shutdownSession();
 
     setTimeout(() => {
@@ -457,7 +520,7 @@ export default function LivePage() {
   // Terminate session on page reload/close
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (sessionService.isReviewActive) {
+      if (hasSessionStartedRef.current) {
         // Trigger audio stop through the forceStopAudio mechanism
         setForceStopAudio(true);
         event.preventDefault();
@@ -469,7 +532,10 @@ export default function LivePage() {
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      shutdownSession();
+      // Only shutdown if we're past initialization and have an active session
+      if (!isInitializingRef.current && hasSessionStartedRef.current) {
+        shutdownSession();
+      }
     };
   }, [shutdownSession]);
 
@@ -497,7 +563,10 @@ export default function LivePage() {
     ) {
       // Navigation has finished; run cleanup exactly once
       cleanupAfterProceedRef.current = false;
-      shutdownSession();
+      // Only shutdown if we have an active session
+      if (hasSessionStartedRef.current) {
+        shutdownSession();
+      }
     }
   }, [blocker, shutdownSession]);
 
@@ -544,11 +613,9 @@ export default function LivePage() {
   const handleStartExamClicked = (isButtonOn: boolean) => {
     if (isButtonOn) {
       setExamIntentStarted(true);
-    } else {
-      console.log(
-        "⚠️ AIExaminerPage: handleStartExamClicked called with false - this should not happen anymore!"
-      );
+      // Logging is now handled in ExamWorkflow.handleButtonClicked
     }
+    // Removed the warning since pause/resume now uses different flow
   };
 
   // Fetch exam data when in custom mode (not quick start)
@@ -611,8 +678,18 @@ export default function LivePage() {
     ((newVoice: string) => void) | null
   >(null);
 
+  const [environmentChangeHandler, setEnvironmentChangeHandler] = useState<
+    ((newEnvironment: string) => void) | null
+  >(null);
+
   const handleVoiceChangeReady = (handler: (newVoice: string) => void) => {
     setVoiceChangeHandler(() => handler);
+  };
+
+  const handleEnvironmentChangeReady = (
+    handler: (newEnvironment: string) => void
+  ) => {
+    setEnvironmentChangeHandler(() => handler);
   };
 
   if (isLoadingKey) {
@@ -663,6 +740,7 @@ export default function LivePage() {
   return (
     <Layout
       onVoiceChange={voiceChangeHandler || undefined}
+      onEnvironmentChange={environmentChangeHandler || undefined}
       isSessionActive={examIntentStarted}
     >
       <GenAILiveProvider apiKey={geminiApiKey}>
@@ -704,6 +782,7 @@ export default function LivePage() {
           initialRepoUrl={quickStartData?.repoUrl || customRepoUrl}
           isReadyForAutoTrigger={isReadyForAutoTrigger}
           onVoiceChangeReady={handleVoiceChangeReady}
+          onEnvironmentChangeReady={handleEnvironmentChangeReady}
         />
       </GenAILiveProvider>
     </Layout>

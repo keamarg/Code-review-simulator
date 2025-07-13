@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { getCurrentVoice } from "../../../config/aiConfig";
+import {
+  getCurrentVoice,
+  getCurrentVADEnvironment,
+  VAD_ENVIRONMENTS,
+} from "../../../config/aiConfig";
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   // Optional props for mid-session voice changes
   onVoiceChange?: (newVoice: string) => void;
+  // Optional props for mid-session environment changes
+  onEnvironmentChange?: (newEnvironment: string) => void;
   isSessionActive?: boolean;
 }
 
@@ -29,16 +35,26 @@ export function SettingsModal({
   isOpen,
   onClose,
   onVoiceChange,
+  onEnvironmentChange,
   isSessionActive = false,
 }: SettingsModalProps) {
   const [selectedVoice, setSelectedVoice] = useState<string>(getCurrentVoice());
+  const [selectedEnvironment, setSelectedEnvironment] = useState<
+    keyof typeof VAD_ENVIRONMENTS
+  >(getCurrentVADEnvironment());
   const [justSelected, setJustSelected] = useState<string | null>(null);
+  const [justSelectedEnvironment, setJustSelectedEnvironment] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (isOpen) {
       const currentVoice = getCurrentVoice();
+      const currentEnvironment = getCurrentVADEnvironment();
       setSelectedVoice(currentVoice);
+      setSelectedEnvironment(currentEnvironment);
       setJustSelected(null);
+      setJustSelectedEnvironment(null);
     }
   }, [isOpen]);
 
@@ -59,6 +75,30 @@ export function SettingsModal({
       // Close modal
       onClose();
     }, 1000);
+  };
+
+  const handleEnvironmentChange = (
+    environment: keyof typeof VAD_ENVIRONMENTS
+  ) => {
+    setSelectedEnvironment(environment);
+    setJustSelectedEnvironment(environment);
+
+    // Add a delay with visual feedback for mid-session changes
+    setTimeout(
+      () => {
+        // Save immediately
+        localStorage.setItem("ai_vad_environment", environment);
+
+        // If we're in an active session and have an environment change handler, trigger mid-session change
+        if (isSessionActive && onEnvironmentChange) {
+          onEnvironmentChange(environment);
+        }
+
+        // Close modal
+        onClose();
+      },
+      isSessionActive ? 1000 : 500
+    ); // Longer delay for mid-session changes to show feedback
   };
 
   const handleCancel = () => {
@@ -94,7 +134,88 @@ export function SettingsModal({
               </svg>
             </button>
           </div>
+        </div>
 
+        {/* Scrollable settings list */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-8">
+          {/* VAD Environment Selection */}
+          <div>
+            <h3 className="text-lg font-semibold text-tokyo-fg-bright mb-4">
+              Microphone Sensitivity
+            </h3>
+            {isSessionActive && (
+              <p className="text-sm text-tokyo-fg-dim mb-4">
+                ⚡ Sensitivity will change immediately in your active session
+              </p>
+            )}
+            <p className="text-sm text-tokyo-fg-dim mb-4">
+              Choose the environment that best matches your current setting
+            </p>
+            <div className="space-y-3">
+              {Object.entries(VAD_ENVIRONMENTS).map(([key, environment]) => (
+                <label
+                  key={key}
+                  className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all duration-300 ${
+                    justSelectedEnvironment === key
+                      ? "bg-tokyo-fg-bright text-tokyo-bg border-tokyo-fg-bright"
+                      : "border-tokyo-selection hover:bg-tokyo-bg-lightest"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="environment"
+                    value={key}
+                    checked={selectedEnvironment === key}
+                    onChange={() =>
+                      handleEnvironmentChange(
+                        key as keyof typeof VAD_ENVIRONMENTS
+                      )
+                    }
+                    className="mr-3 text-tokyo-accent"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`font-medium ${
+                          justSelectedEnvironment === key
+                            ? "text-tokyo-bg"
+                            : "text-tokyo-fg-bright"
+                        }`}
+                      >
+                        {environment.name}
+                      </span>
+                      {selectedEnvironment === key && (
+                        <span
+                          className={`text-sm font-medium ${
+                            justSelectedEnvironment === key
+                              ? "text-tokyo-bg"
+                              : "text-tokyo-accent"
+                          }`}
+                        >
+                          {justSelectedEnvironment === key
+                            ? isSessionActive
+                              ? "Changing..."
+                              : "Saving..."
+                            : "Selected"}
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className={`text-sm mt-1 ${
+                        justSelectedEnvironment === key
+                          ? "text-tokyo-bg"
+                          : "text-tokyo-fg"
+                      }`}
+                    >
+                      {environment.description}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* AI Voice Selection */}
           <div>
             <h3 className="text-lg font-semibold text-tokyo-fg-bright mb-4">
               AI Voice Selection
@@ -104,68 +225,64 @@ export function SettingsModal({
                 ⚡ Voice will change immediately in your active session
               </p>
             )}
-          </div>
-        </div>
-
-        {/* Scrollable voice list */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
-          <div className="space-y-3">
-            {VOICE_OPTIONS.map((voice) => (
-              <label
-                key={voice.name}
-                className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all duration-300 ${
-                  justSelected === voice.name
-                    ? "bg-tokyo-fg-bright text-tokyo-bg border-tokyo-fg-bright"
-                    : "border-tokyo-selection hover:bg-tokyo-bg-lightest"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="voice"
-                  value={voice.name}
-                  checked={selectedVoice === voice.name}
-                  onChange={() => handleVoiceChange(voice.name)}
-                  className="mr-3 text-tokyo-accent"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={`font-medium ${
-                        justSelected === voice.name
-                          ? "text-tokyo-bg"
-                          : "text-tokyo-fg-bright"
-                      }`}
-                    >
-                      {voice.label}
-                    </span>
-                    {selectedVoice === voice.name && (
+            <div className="space-y-3">
+              {VOICE_OPTIONS.map((voice) => (
+                <label
+                  key={voice.name}
+                  className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all duration-300 ${
+                    justSelected === voice.name
+                      ? "bg-tokyo-fg-bright text-tokyo-bg border-tokyo-fg-bright"
+                      : "border-tokyo-selection hover:bg-tokyo-bg-lightest"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="voice"
+                    value={voice.name}
+                    checked={selectedVoice === voice.name}
+                    onChange={() => handleVoiceChange(voice.name)}
+                    className="mr-3 text-tokyo-accent"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
                       <span
-                        className={`text-sm font-medium ${
+                        className={`font-medium ${
                           justSelected === voice.name
                             ? "text-tokyo-bg"
-                            : "text-tokyo-accent"
+                            : "text-tokyo-fg-bright"
                         }`}
                       >
-                        {justSelected === voice.name
-                          ? isSessionActive
-                            ? "Changing..."
-                            : "Saving..."
-                          : "Selected"}
+                        {voice.label}
                       </span>
-                    )}
+                      {selectedVoice === voice.name && (
+                        <span
+                          className={`text-sm font-medium ${
+                            justSelected === voice.name
+                              ? "text-tokyo-bg"
+                              : "text-tokyo-accent"
+                          }`}
+                        >
+                          {justSelected === voice.name
+                            ? isSessionActive
+                              ? "Changing..."
+                              : "Saving..."
+                            : "Selected"}
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className={`text-sm mt-1 ${
+                        justSelected === voice.name
+                          ? "text-tokyo-bg"
+                          : "text-tokyo-fg"
+                      }`}
+                    >
+                      {voice.description}
+                    </p>
                   </div>
-                  <p
-                    className={`text-sm mt-1 ${
-                      justSelected === voice.name
-                        ? "text-tokyo-bg"
-                        : "text-tokyo-fg"
-                    }`}
-                  >
-                    {voice.description}
-                  </p>
-                </div>
-              </label>
-            ))}
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       </div>

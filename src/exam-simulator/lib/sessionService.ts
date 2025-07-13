@@ -3,12 +3,10 @@ const sessionService = {
 
   startReview() {
     this.isReviewActive = true;
-    console.log("Session review started.");
   },
 
   stopReview() {
     this.isReviewActive = false;
-    console.log("Session review stopped.");
   },
 };
 

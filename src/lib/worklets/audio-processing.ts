@@ -24,12 +24,18 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
   // current write index
   bufferWriteIndex = 0;
 
-  // Audio gate threshold to prevent feedback (adjust as needed)
-  volumeThreshold = 0.001; // Much lower threshold - reduced from 0.01 to 0.001
+  // Environment-aware audio gate thresholds - maximum responsiveness
+  volumeThreshold = 0.0001; // Further reduced for maximum responsiveness
   
   // Track recent volume to detect silence vs actual speech
   recentVolumes = [];
-  maxRecentVolumes = 5; // Reduced from 10 to 5 for faster response
+  maxRecentVolumes = 3; // Further reduced for faster pattern detection
+
+  // Speech detection parameters - maximum permissiveness
+  speechVariationThreshold = 0.02; // Further reduced for easier speech detection
+  silenceThreshold = 0.0001; // Reduced for faster silence detection
+  consecutiveSilenceFrames = 0; // Track consecutive silent frames
+  maxConsecutiveSilenceFrames = 12; // Increased to allow more silence during speech
 
   constructor() {
     super();
@@ -43,11 +49,7 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
   process(inputs) {
     if (inputs[0].length) {
       const channel0 = inputs[0][0];
-      // Temporarily disable advanced processing - just process all audio
-      this.processChunk(channel0);
       
-      // TODO: Re-enable smart processing once we confirm basic functionality
-      /*
       // Calculate RMS volume for this chunk
       const rms = this.calculateRMS(channel0);
       
@@ -57,11 +59,18 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
         this.recentVolumes.shift();
       }
       
-      // Only process if volume is above threshold and shows speech characteristics
-      if (rms > this.volumeThreshold && this.looksLikeSpeech()) {
+      // Check if this is a silent frame
+      if (rms < this.silenceThreshold) {
+        this.consecutiveSilenceFrames++;
+      } else {
+        this.consecutiveSilenceFrames = 0;
+      }
+      
+      // Maximum permissive processing logic - process almost everything
+      // Only block if we have many consecutive silent frames
+      if (this.consecutiveSilenceFrames < this.maxConsecutiveSilenceFrames) {
         this.processChunk(channel0);
       }
-      */
     }
     return true;
   }
@@ -75,16 +84,20 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
   }
 
   looksLikeSpeech() {
-    if (this.recentVolumes.length < 2) return true; // Reduced from 3 to 2, allow through faster
+    if (this.recentVolumes.length < 1) return true; // Reduced to 1 for fastest detection
     
     // Check for volume variation patterns typical of speech
     const avgVolume = this.recentVolumes.reduce((a, b) => a + b, 0) / this.recentVolumes.length;
     const maxVolume = Math.max(...this.recentVolumes);
     const minVolume = Math.min(...this.recentVolumes);
     
-    // Speech typically has more volume variation than AI feedback echoes
+    // Speech typically has more volume variation than background noise
     const variation = (maxVolume - minVolume) / (avgVolume + 0.001); // Add small value to prevent division by zero
-    return variation > 0.1; // Much lower requirement - reduced from 0.5 to 0.1
+    
+    // Maximum permissive speech detection - only check for any volume
+    const hasAnyVolume = avgVolume > this.volumeThreshold * 1.0; // Reduced to 1.0x for maximum permissiveness
+    
+    return hasAnyVolume;
   }
 
   sendAndClearBuffer(){

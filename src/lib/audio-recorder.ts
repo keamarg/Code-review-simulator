@@ -175,26 +175,24 @@ export class AudioRecorder extends EventEmitter {
   }
 
   stop() {
-    console.log("🎤 AudioRecorder: Stop called, setting recording to false");
     // Immediately set recording to false to prevent new data emission
     this.recording = false;
-    this.hasLoggedIgnoring = false; // Reset for next session
+    // Don't reset hasLoggedIgnoring here - let it persist to suppress messages during cleanup
+
+    // Immediately disconnect worklets to stop data flow
+    if (this.recordingWorklet) {
+      this.recordingWorklet.disconnect();
+      this.recordingWorklet = undefined;
+    }
+    if (this.vuWorklet) {
+      this.vuWorklet.disconnect();
+      this.vuWorklet = undefined;
+    }
 
     // its plausible that stop would be called before start completes
     // such as if the websocket immediately hangs up
     const handleStop = async () => {
-      console.log("🎤 AudioRecorder: Executing handleStop...");
-      // Disconnect the worklets first to stop data flow
-      if (this.recordingWorklet) {
-        console.log("🎤 AudioRecorder: Disconnecting recording worklet");
-        this.recordingWorklet.disconnect();
-        this.recordingWorklet = undefined;
-      }
-      if (this.vuWorklet) {
-        console.log("🎤 AudioRecorder: Disconnecting VU worklet");
-        this.vuWorklet.disconnect();
-        this.vuWorklet = undefined;
-      }
+      // Worklets are already disconnected above, just clean up the rest
 
       this.source?.disconnect();
       this.stream?.getTracks().forEach((track) => track.stop());
@@ -214,7 +212,6 @@ export class AudioRecorder extends EventEmitter {
       this.audioContext = undefined;
       this.source = undefined;
       this.recording = false; // Ensure recording flag is reset
-      console.log("🎤 AudioRecorder: Stop completed");
     };
 
     if (this.starting) {
