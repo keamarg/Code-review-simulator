@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.34] - 2025-07-16
+
+### Fixed
+
+- **Supabase GoTrueClient Multiple Instances Warning**: Fixed the warning about multiple GoTrueClient instances by implementing a proper singleton pattern for Supabase client creation.
+
+  - **Root Cause**: Multiple Supabase client instances were being created simultaneously due to race conditions and lack of proper singleton management
+  - **Warning Impact**: Browser console warning "Multiple GoTrueClient instances detected in the same browser context" indicating potential undefined behavior
+  - **Solution**: Implemented proper singleton pattern with initialization promise tracking to prevent multiple client creation
+  - **Technical Changes**:
+    - **Singleton Pattern**: Added `initializationPromise` tracking to prevent concurrent initialization
+    - **Race Condition Prevention**: Multiple simultaneous calls now wait for the same initialization promise
+    - **Error Handling**: Proper error handling with promise reset on initialization failure
+    - **AuthContext Enhancement**: Updated AuthContext to use the singleton pattern properly
+  - **Impact**: Eliminates GoTrueClient warning and ensures consistent Supabase client behavior
+
+### Technical Details
+
+- **Initialization Promise**: Tracks ongoing initialization to prevent duplicate client creation
+- **Error Recovery**: Resets promise on error to allow retry attempts
+- **Console Logging**: Added initialization logging for debugging
+- **Backward Compatibility**: Maintains existing API while fixing underlying issue
+
 ## [1.3.33] - 2025-07-16
 
 ### Fixed

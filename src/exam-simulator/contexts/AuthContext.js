@@ -9,27 +9,32 @@ export function AuthProvider({ children }) {
   const [supabaseClient, setSupabaseClient] = useState(null);
 
   useEffect(() => {
-    // Initialize Supabase client
+    // Initialize Supabase client using singleton pattern
     const initClient = async () => {
-      const client = await getSupabaseClient();
-      setSupabaseClient(client);
+      try {
+        const client = await getSupabaseClient();
+        setSupabaseClient(client);
 
-      // Check active sessions and sets the user
-      const {
-        data: { session },
-      } = await client.auth.getSession();
-      setUser(session?.user || null);
-      setLoading(false);
-
-      // Listen for auth changes
-      const {
-        data: { subscription },
-      } = client.auth.onAuthStateChange((_event, session) => {
+        // Check active sessions and sets the user
+        const {
+          data: { session },
+        } = await client.auth.getSession();
         setUser(session?.user || null);
         setLoading(false);
-      });
 
-      return () => subscription.unsubscribe();
+        // Listen for auth changes
+        const {
+          data: { subscription },
+        } = client.auth.onAuthStateChange((_event, session) => {
+          setUser(session?.user || null);
+          setLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
+      } catch (error) {
+        console.error("❌ AuthContext initialization failed:", error);
+        setLoading(false);
+      }
     };
 
     initClient();
