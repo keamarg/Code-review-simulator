@@ -1,13 +1,73 @@
-export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
-  const apiKeyResponse = await fetch(
-    "https://api-key-server-codereview.vercel.app/api/prompt1"
-  );
+// API key cache to prevent repeated Vercel API calls
+const apiKeyCache = {
+  prompt1: null,
+  prompt2: null,
+  database: null,
+  cacheTime: null,
+  cacheDuration: 5 * 60 * 1000, // 5 minutes cache duration
+};
 
-  if (!apiKeyResponse.ok) {
-    throw new Error("Failed to fetch API key");
+// Request deduplication to prevent multiple simultaneous API calls
+const pendingRequests = {
+  prompt1: null,
+  prompt2: null,
+  database: null,
+};
+
+export async function getCachedApiKey(endpoint) {
+  const now = Date.now();
+
+  // Check if we have a valid cached key
+  if (
+    apiKeyCache[endpoint] &&
+    apiKeyCache.cacheTime &&
+    now - apiKeyCache.cacheTime < apiKeyCache.cacheDuration
+  ) {
+    return apiKeyCache[endpoint];
   }
 
-  const apiKey = await apiKeyResponse.json();
+  // Check if there's already a pending request for this endpoint
+  if (pendingRequests[endpoint]) {
+    console.log(`🔄 Waiting for existing ${endpoint} API key request...`);
+    return await pendingRequests[endpoint];
+  }
+
+  // Create a new request promise
+  const requestPromise = (async () => {
+    try {
+      console.log(`🔑 Fetching ${endpoint} API key from Vercel...`);
+
+      // Fetch new API key
+      const apiKeyResponse = await fetch(
+        `https://api-key-server-codereview.vercel.app/api/${endpoint}`
+      );
+
+      if (!apiKeyResponse.ok) {
+        throw new Error("Failed to fetch API key");
+      }
+
+      const apiKey = await apiKeyResponse.json();
+
+      // Cache the key
+      apiKeyCache[endpoint] = apiKey;
+      apiKeyCache.cacheTime = now;
+
+      console.log(`✅ ${endpoint} API key cached successfully`);
+      return apiKey;
+    } finally {
+      // Clear the pending request
+      pendingRequests[endpoint] = null;
+    }
+  })();
+
+  // Store the pending request
+  pendingRequests[endpoint] = requestPromise;
+
+  return await requestPromise;
+}
+
+export async function getCompletion(prompt, systemPrompt, doesReturnJSON) {
+  const apiKey = await getCachedApiKey("prompt1");
 
   const payload = {
     model: "gpt-4o-mini",
@@ -75,15 +135,7 @@ export async function getSessionCompletion(messages, doesReturnJSON = false) {
     `🟢 OpenAI API Call - getSessionCompletion: ${messages.length} messages`
   );
 
-  const apiKeyResponse = await fetch(
-    "https://api-key-server-codereview.vercel.app/api/prompt1"
-  );
-
-  if (!apiKeyResponse.ok) {
-    throw new Error("Failed to fetch API key");
-  }
-
-  const apiKey = await apiKeyResponse.json();
+  const apiKey = await getCachedApiKey("prompt1");
 
   const payload = {
     model: "gpt-4o-mini",

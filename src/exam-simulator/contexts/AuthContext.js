@@ -1,39 +1,52 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
-import { supabase } from "../config/supabaseClient";
+import { getSupabaseClient } from "../config/supabaseClient";
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [supabaseClient, setSupabaseClient] = useState(null);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    const getSession = async () => {
+    // Initialize Supabase client
+    const initClient = async () => {
+      const client = await getSupabaseClient();
+      setSupabaseClient(client);
+
+      // Check active sessions and sets the user
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await client.auth.getSession();
       setUser(session?.user || null);
       setLoading(false);
+
+      // Listen for auth changes
+      const {
+        data: { subscription },
+      } = client.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user || null);
+        setLoading(false);
+      });
+
+      return () => subscription.unsubscribe();
     };
 
-    getSession();
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    initClient();
   }, []);
 
   // Expose the user and auth methods
   const value = {
-    signUp: (data) => supabase.auth.signUp(data),
-    signIn: (data) => supabase.auth.signInWithPassword(data),
+    signUp: async (data) => {
+      if (!supabaseClient)
+        return { error: new Error("Client not initialized") };
+      return await supabaseClient.auth.signUp(data);
+    },
+    signIn: async (data) => {
+      if (!supabaseClient)
+        return { error: new Error("Client not initialized") };
+      return await supabaseClient.auth.signInWithPassword(data);
+    },
     signOut: async () => {
       try {
         // Force clear all possible Supabase session data first
@@ -59,7 +72,9 @@ export function AuthProvider({ children }) {
 
         // Try to call Supabase logout (but don't fail if it errors)
         try {
-          await supabase.auth.signOut({ scope: "local" });
+          if (supabaseClient) {
+            await supabaseClient.auth.signOut({ scope: "local" });
+          }
         } catch (logoutError) {
           console.warn(
             "⚠️ Supabase logout failed (but local session cleared):",

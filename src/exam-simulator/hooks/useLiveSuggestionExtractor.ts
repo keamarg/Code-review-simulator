@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { getSessionCompletion } from "../utils/getCompletion.js";
 import prompts from "../../prompts.json";
+import { AI_CONFIG } from "../../config/aiConfig";
 
 export interface Suggestion {
   id: string;
@@ -108,6 +109,11 @@ export const useLiveSuggestionExtractor = () => {
 
   const extractSuggestions = useCallback(
     async (transcriptChunk: string) => {
+      // Skip if live suggestion extraction is disabled
+      if (!AI_CONFIG.FEATURES.LIVE_SUGGESTION_EXTRACTION) {
+        return; // Feature disabled - no API calls
+      }
+
       // Skip if empty or already processed
       if (
         !transcriptChunk.trim() ||

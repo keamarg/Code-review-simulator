@@ -214,11 +214,11 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   // Add manual reconnection method for user-initiated reconnection
   public async reconnectWithResumption(): Promise<boolean> {
     if (!this.config || !this._model) {
-      console.log("❌ Cannot reconnect: Missing config or model");
+      // Cannot reconnect: Missing config or model
       return false;
     }
 
-    console.log("🔄 Manual reconnection with session resumption...");
+    // Manual reconnection with session resumption
 
     // Use session resumption if we have a handle, just like automatic reconnection does
     const resumptionConfig = this.sessionResumptionHandle
@@ -228,23 +228,12 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         }
       : { ...this.config };
 
-    console.log(
-      this.sessionResumptionHandle
-        ? `🔄 Resuming with session handle: ${this.sessionResumptionHandle?.substring(
-            0,
-            20
-          )}...`
-        : "⚠️ No session handle available, starting fresh session"
-    );
+    // Resuming with session resumption
 
     try {
       const success = await this.connect(this._model, resumptionConfig);
       if (success) {
-        console.log(
-          this.sessionResumptionHandle
-            ? "✅ Session resumption successful - conversation context preserved"
-            : "✅ Fresh session created successfully"
-        );
+        // Session resumption successful - conversation context preserved
       }
       return success;
     } catch (error) {
@@ -346,7 +335,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       }
     } else {
       // No session resumption handle available - this is normal for early session changes
-      console.log(`🔄 Applying voice change with fresh connection`);
+      // Applying voice change with fresh connection
 
       try {
         // Disconnect if currently connected
@@ -364,17 +353,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
         const success = await this.connect(this._model, newConfig);
         if (success) {
-          console.log(
-            `✅ Voice changed to ${newVoiceName} (fresh connection - no conversation context to preserve)`
-          );
+          // Voice changed (fresh connection - no conversation context to preserve)
 
-          // Log the voice settings that were sent to the server
-          const voiceSettings =
-            newConfig.speechConfig?.voiceConfig?.prebuiltVoiceConfig;
-          console.log(`🎤 Voice Settings sent to server:`, {
-            voiceName: newVoiceName,
-            prebuiltVoiceConfig: voiceSettings,
-          });
+          // Voice settings sent to server
 
           // Send continuation message for fresh connection voice changes
           // Wait a moment for connection to fully establish before sending
@@ -388,7 +369,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
             }
           }, 1000); // 1 second delay to ensure connection is ready
         } else {
-          console.log(`❌ Failed to reconnect with new voice`);
+          // Failed to reconnect with new voice
         }
         // Clear flag before returning
         this.voiceChangeInProgress = false;
@@ -413,14 +394,26 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
     // Set flag to prevent ExamWorkflow from interfering
     this.voiceChangeInProgress = true; // Reuse the same flag since it serves the same purpose
+
+    // Update localStorage with the new environment immediately
+    localStorage.setItem("ai_vad_environment", newEnvironment);
+
     appLogger.user.changeEnvironment(newEnvironment);
 
-    // Import the VAD config function to get fresh settings
-    const { getVADConfig } = await import("../config/aiConfig");
+    // Import the VAD config function and environment settings
+    const { VAD_ENVIRONMENTS } = await import("../config/aiConfig");
     const { StartSensitivity, EndSensitivity } = await import("@google/genai");
 
     // Get the new VAD configuration based on the selected environment
-    const VAD_CONFIG = getVADConfig();
+    const environmentSettings =
+      VAD_ENVIRONMENTS[newEnvironment as keyof typeof VAD_ENVIRONMENTS]
+        ?.settings || VAD_ENVIRONMENTS.QUIET.settings;
+    const VAD_CONFIG = {
+      startOfSpeechSensitivity: environmentSettings.START_OF_SPEECH_SENSITIVITY,
+      endOfSpeechSensitivity: environmentSettings.END_OF_SPEECH_SENSITIVITY,
+      silenceDurationMs: environmentSettings.SILENCE_DURATION_MS,
+      prefixPaddingMs: environmentSettings.PREFIX_PADDING_MS,
+    };
 
     // Create new config with updated VAD settings but keep everything else the same
     const newConfig = {
@@ -512,7 +505,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       }
     } else {
       // No session resumption handle available - this is normal for early session changes
-      console.log(`🔄 Applying environment change with fresh connection`);
+      // Applying environment change with fresh connection
 
       try {
         // Disconnect if currently connected
@@ -530,20 +523,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
         const success = await this.connect(this._model, newConfig);
         if (success) {
-          console.log(
-            `✅ Environment changed to ${newEnvironment} (fresh connection - no conversation context to preserve)`
-          );
+          // Environment changed (fresh connection - no conversation context to preserve)
 
-          // Log the VAD settings that were sent to the server
-          const vadSettings =
-            newConfig.realtimeInputConfig?.automaticActivityDetection;
-          console.log(`🎤 VAD Settings sent to server:`, {
-            environment: newEnvironment,
-            startOfSpeechSensitivity: vadSettings?.startOfSpeechSensitivity,
-            endOfSpeechSensitivity: vadSettings?.endOfSpeechSensitivity,
-            silenceDurationMs: vadSettings?.silenceDurationMs,
-            prefixPaddingMs: vadSettings?.prefixPaddingMs,
-          });
+          // VAD settings sent to server
 
           // Send continuation message for fresh connection environment changes
           // Wait a moment for connection to fully establish before sending
@@ -557,7 +539,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
             }
           }, 1000); // 1 second delay to ensure connection is ready
         } else {
-          console.log(`❌ Failed to reconnect with new environment`);
+          // Failed to reconnect with new environment
         }
         // Clear flag before returning
         this.voiceChangeInProgress = false;
@@ -583,14 +565,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       !this.hasLoggedVadSettings &&
       this.config?.realtimeInputConfig?.automaticActivityDetection
     ) {
-      const vadSettings =
-        this.config.realtimeInputConfig.automaticActivityDetection;
-      console.log(`🎤 Current VAD Settings (connection established):`, {
-        startOfSpeechSensitivity: vadSettings.startOfSpeechSensitivity,
-        endOfSpeechSensitivity: vadSettings.endOfSpeechSensitivity,
-        silenceDurationMs: vadSettings.silenceDurationMs,
-        prefixPaddingMs: vadSettings.prefixPaddingMs,
-      });
+      // Current VAD settings logged (connection established)
       this.hasLoggedVadSettings = true;
     }
 

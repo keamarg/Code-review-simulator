@@ -61,6 +61,10 @@ export type ControlTrayProps = {
    */
   hideMainButton?: boolean;
   isReadyForAutoTrigger?: boolean;
+  /**
+   * Callback to update environment settings in the audio recorder
+   */
+  onEnvironmentChange?: (environment: string) => void;
 };
 
 function ControlTray({
@@ -77,6 +81,7 @@ function ControlTray({
   networkMuted = false,
   hideMainButton = false,
   isReadyForAutoTrigger = false,
+  onEnvironmentChange,
 }: ControlTrayProps) {
   const [activeVideoStream, setActiveVideoStream] =
     useState<MediaStream | null>(null);
@@ -278,22 +283,63 @@ function ControlTray({
   // Track if force stop is already in progress to prevent duplicates
   const forceStopInProgressRef = useRef(false);
 
+  // Create stable references for audioRecorder methods
+  const audioRecorderRef = useRef(audioRecorder);
+  audioRecorderRef.current = audioRecorder;
+
+  const updateEnvironmentCallback = useCallback((environment: string) => {
+    if (audioRecorderRef.current.recording) {
+      audioRecorderRef.current.updateEnvironment(environment);
+    }
+  }, []);
+
+  const stopAudioRecorderCallback = useCallback(() => {
+    audioRecorderRef.current.off("data", audioDataHandler);
+    audioRecorderRef.current.stop();
+  }, [audioDataHandler]);
+
+  // Create stable reference for cleanupAudioStream
+  const cleanupAudioStreamRef = useRef<(() => void) | null>(null);
+
+  // Effect to set environment when audio recorder starts or when environment changes
+  useEffect(() => {
+    if (audioRecorder.recording) {
+      const currentEnvironment =
+        localStorage.getItem("ai_vad_environment") || "QUIET";
+      updateEnvironmentCallback(currentEnvironment);
+    }
+  }, [audioRecorder.recording, onEnvironmentChange, updateEnvironmentCallback]);
+
+  // Listen for environment changes in localStorage
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "ai_vad_environment") {
+        const newEnvironment = e.newValue || "QUIET";
+        updateEnvironmentCallback(newEnvironment);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [updateEnvironmentCallback]);
+
   // Handle force stop audio/microphone
   useEffect(() => {
     if (forceStopAudio && !forceStopInProgressRef.current) {
       forceStopInProgressRef.current = true;
 
-      audioRecorder.off("data", audioDataHandler);
-      audioRecorder.stop();
+      stopAudioRecorderCallback();
 
       // Also stop the MediaStream tracks for complete cleanup
-      cleanupAudioStream();
+      if (cleanupAudioStreamRef.current) {
+        cleanupAudioStreamRef.current();
+      }
 
       setTimeout(() => {
         forceStopInProgressRef.current = false;
       }, 100);
     }
-  }, [forceStopAudio, audioRecorder, audioDataHandler]);
+  }, [forceStopAudio, stopAudioRecorderCallback]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -449,7 +495,7 @@ function ControlTray({
       setIsScreenSharing(true);
       setScreenSharingSource(getScreenSharingSourceName(videoStream));
 
-      // Try to request microphone immediately
+      // Try to request microphone immediately (same as quick mode)
       let audioStream: MediaStream | null = null;
       let micError: any = null;
       try {
@@ -469,19 +515,9 @@ function ControlTray({
         // Store audio stream for cleanup
         audioStreamRef.current = audioStream;
 
-        // Start audio recorder immediately for faster response (both modes)
-        try {
-          await audioRecorder.start(audioStream);
-          audioRecorder.on("data", audioDataHandler);
-          // Set flag for connection-based start as backup
-          setShouldStartAudioRecorder(true);
-        } catch (audioError) {
-          setButtonIsOn(false);
-          alert(
-            "Failed to start microphone. Please check permissions and try again."
-          );
-          return;
-        }
+        // Set flag for connection-based start (same as quick mode)
+        // Don't start audio recorder here - let it start when connection is established
+        setShouldStartAudioRecorder(true);
 
         // Start the review
         try {
@@ -533,6 +569,9 @@ function ControlTray({
       audioStreamRef.current = null;
     }
   };
+
+  // Store the cleanup function in ref for stable reference
+  cleanupAudioStreamRef.current = cleanupAudioStream;
 
   // Helper function to extract screen sharing source name
   const getScreenSharingSourceName = (videoStream: MediaStream): string => {

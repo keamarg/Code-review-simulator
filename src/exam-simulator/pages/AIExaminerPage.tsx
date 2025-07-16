@@ -11,7 +11,7 @@ import { useGenAILiveContext } from "../../contexts/GenAILiveContext";
 import { GenAILiveProvider } from "../../contexts/GenAILiveContext";
 import { ReviewSetupModal } from "../components/ui/ReviewSetupModal";
 import { ExamSimulator } from "../../types/ExamSimulator";
-import { supabase } from "../config/supabaseClient";
+import { getSupabaseClient } from "../config/supabaseClient";
 import {
   useLiveSuggestionExtractor,
   Suggestion,
@@ -22,6 +22,7 @@ import cn from "classnames";
 import { mediaStreamService } from "../lib/mediaStreamService";
 import sessionService from "../lib/sessionService";
 import { appLogger } from "../../lib/utils";
+import { AI_CONFIG } from "../../config/aiConfig";
 // supabase might not be needed here anymore if ExamWorkflow handles all supabase interactions
 // import { supabase } from "../config/supabaseClient";
 
@@ -82,12 +83,12 @@ function ExamPageContent({
   const handleVoiceChange = useCallback(
     async (newVoice: string) => {
       if (!connected) {
-        console.log(`🎤 Voice preference saved: ${newVoice} (not in session)`);
+        // Voice preference saved (not in session)
         return;
       }
 
       try {
-        console.log(`🎤 Changing voice to ${newVoice} during active session`);
+        // Changing voice during active session
 
         // Use the new changeVoice method that preserves session context
         const success = await client.changeVoice(newVoice);
@@ -106,16 +107,12 @@ function ExamPageContent({
   const handleEnvironmentChange = useCallback(
     async (newEnvironment: string) => {
       if (!connected) {
-        console.log(
-          `🎤 Environment preference saved: ${newEnvironment} (not in session)`
-        );
+        // Environment preference saved (not in session)
         return;
       }
 
       try {
-        console.log(
-          `🎤 Changing environment to ${newEnvironment} during active session`
-        );
+        // Changing environment during active session
 
         // Use the new changeEnvironment method that preserves session context
         const success = await client.changeEnvironment(newEnvironment);
@@ -189,10 +186,11 @@ function ExamPageContent({
           hideMainButton={!examIntentStarted}
           initialRepoUrl={initialRepoUrl}
           isReadyForAutoTrigger={isReadyForAutoTrigger}
+          onEnvironmentChange={handleEnvironmentChange}
         />
 
         {/* Live Suggestions Panel - Now shown inline when review is active */}
-        {examIntentStarted && (
+        {examIntentStarted && AI_CONFIG.FEATURES.LIVE_SUGGESTION_EXTRACTION && (
           <div className="mt-8">
             <LiveSuggestionsPanel
               suggestions={suggestions}
@@ -255,9 +253,7 @@ export default function LivePage() {
   useEffect(() => {
     const stream = mediaStreamService.getStream();
     if (stream && !videoStream) {
-      console.log(
-        "🚀 AIExaminerPage: Received video stream from media stream service."
-      );
+      // Received video stream from media stream service
       setVideoStream(stream);
     }
   }, [videoStream]);
@@ -581,17 +577,13 @@ export default function LivePage() {
   }, [forceStopVideo, videoStream]);
 
   useEffect(() => {
-    const apiKeyEndpoint =
-      "https://api-key-server-codereview.vercel.app/api/prompt2";
     const fetchApiKey = async () => {
       setIsLoadingKey(true);
       setApiKeyError(null);
       try {
-        const response = await fetch(apiKeyEndpoint);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch API key: ${response.statusText}`);
-        }
-        const key = await response.json();
+        // Import the cached API key function
+        const { getCachedApiKey } = await import("../utils/getCompletion.js");
+        const key = await getCachedApiKey("prompt2");
         if (!key || typeof key !== "string") {
           throw new Error("Invalid API key format received");
         }
@@ -622,18 +614,23 @@ export default function LivePage() {
   useEffect(() => {
     if (!quickStartData?.quickStart && id) {
       const fetchExam = async () => {
-        const { data, error } = await supabase
-          .from("exams")
-          .select("*")
-          .eq("id", id)
-          .single();
+        try {
+          const supabaseClient = await getSupabaseClient();
+          const { data, error } = await supabaseClient
+            .from("exams")
+            .select("*")
+            .eq("id", id)
+            .single();
 
-        if (!error && data) {
-          setCustomExam(data as ExamSimulator);
-          // Only open modal if we are not already in autoStart flow or exam started
-          if (!quickStartData?.autoStart && !examIntentStarted) {
-            setShowSetupModal(true);
+          if (!error && data) {
+            setCustomExam(data as ExamSimulator);
+            // Only open modal if we are not already in autoStart flow or exam started
+            if (!quickStartData?.autoStart && !examIntentStarted) {
+              setShowSetupModal(true);
+            }
           }
+        } catch (error) {
+          console.error("Error fetching exam data:", error);
         }
       };
       fetchExam();

@@ -39,10 +39,36 @@ export class AudioRecorder extends EventEmitter {
   vuWorklet: AudioWorkletNode | undefined;
 
   private starting: Promise<void> | null = null;
-  private hasLoggedIgnoring: boolean = false; // Track if we've already logged the ignoring message
 
   constructor(public sampleRate = 16000) {
     super();
+  }
+
+  // Helper method to get environment-specific thresholds
+  private getEnvironmentThreshold(
+    environment: string,
+    type: "volume" | "silence" | "frames"
+  ): number {
+    switch (environment) {
+      case "QUIET":
+        return type === "frames" ? 12 : 0.0001;
+      case "MODERATE":
+        return type === "frames" ? 10 : 0.0002;
+      case "NOISY":
+        return type === "frames" ? 8 : 0.0003;
+      default:
+        return type === "frames" ? 12 : 0.0001;
+    }
+  }
+
+  // Method to update environment settings in the worklet
+  updateEnvironment(environment: string) {
+    if (this.recordingWorklet && this.recording) {
+      this.recordingWorklet.port.postMessage({
+        type: "updateEnvironment",
+        environment: environment,
+      });
+    }
   }
 
   async start(existingStream?: MediaStream) {
@@ -87,8 +113,40 @@ export class AudioRecorder extends EventEmitter {
         // Create source node
         this.source = this.audioContext.createMediaStreamSource(this.stream);
 
-        const workletName = "audio-recorder-worklet";
-        const src = createWorketFromSrc(workletName, AudioRecordingWorklet);
+        // Get current environment from localStorage
+        const currentEnvironment =
+          localStorage.getItem("ai_vad_environment") || "QUIET";
+
+        // Create unique worklet name to avoid caching issues on refresh
+        const workletName = `audio-recorder-worklet-${Date.now()}`;
+
+        // Create environment-specific worklet source with correct initial thresholds
+        const environmentSpecificWorklet = AudioRecordingWorklet.replace(
+          "volumeThreshold = 0.0001;",
+          `volumeThreshold = ${this.getEnvironmentThreshold(
+            currentEnvironment,
+            "volume"
+          )};`
+        )
+          .replace(
+            "silenceThreshold = 0.0001;",
+            `silenceThreshold = ${this.getEnvironmentThreshold(
+              currentEnvironment,
+              "silence"
+            )};`
+          )
+          .replace(
+            "maxConsecutiveSilenceFrames = 12;",
+            `maxConsecutiveSilenceFrames = ${this.getEnvironmentThreshold(
+              currentEnvironment,
+              "frames"
+            )};`
+          );
+
+        const src = createWorketFromSrc(
+          workletName,
+          environmentSpecificWorklet
+        );
 
         // Register worklet, ignore "already registered" errors
         try {
@@ -113,13 +171,6 @@ export class AudioRecorder extends EventEmitter {
         this.recordingWorklet.port.onmessage = async (ev: MessageEvent) => {
           // Check if recording is still active before emitting data
           if (!this.recording) {
-            // Only log this message once to prevent console spam
-            if (!this.hasLoggedIgnoring) {
-              console.log(
-                "🎤 AudioRecorder: Worklet received data but recording is false, ignoring (suppressing further messages)"
-              );
-              this.hasLoggedIgnoring = true;
-            }
             return;
           }
 
@@ -160,7 +211,6 @@ export class AudioRecorder extends EventEmitter {
 
         this.source.connect(this.vuWorklet);
         this.recording = true;
-        this.hasLoggedIgnoring = false; // Reset logging flag for new recording session
         resolve();
         this.starting = null;
       } catch (error) {
@@ -177,7 +227,6 @@ export class AudioRecorder extends EventEmitter {
   stop() {
     // Immediately set recording to false to prevent new data emission
     this.recording = false;
-    // Don't reset hasLoggedIgnoring here - let it persist to suppress messages during cleanup
 
     // Immediately disconnect worklets to stop data flow
     if (this.recordingWorklet) {
@@ -201,10 +250,7 @@ export class AudioRecorder extends EventEmitter {
         try {
           await this.audioContext.close();
         } catch (closeError) {
-          console.warn(
-            "🎤 AudioRecorder: Error closing AudioContext:",
-            closeError
-          );
+          // Error closing AudioContext
         }
       }
       this.stream = undefined;
@@ -215,9 +261,7 @@ export class AudioRecorder extends EventEmitter {
     };
 
     if (this.starting) {
-      console.log(
-        "🎤 AudioRecorder: Start in progress, will stop after start completes"
-      );
+      // Start in progress, will stop after start completes
       this.starting.then(handleStop);
       return;
     }

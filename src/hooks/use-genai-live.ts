@@ -32,12 +32,42 @@ export type UseGenAILiveResults = {
   status: "connected" | "disconnected" | "connecting";
 };
 
+// Global client instance to prevent multiple WebSocket connections
+let globalClient: GenAILiveClient | null = null;
+let globalApiKey: string | null = null;
+
 export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
-  const client = useMemo(
-    () => new GenAILiveClient(options),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [options.apiKey] // Only recreate if API key changes, not on every render to prevent infinite loops
-  );
+  const client = useMemo(() => {
+    // If we already have a client with the same API key, reuse it
+    if (globalClient && globalApiKey === options.apiKey) {
+      console.log(
+        `🔄 Reusing existing GenAI Live Client for API key: ${options.apiKey?.substring(
+          0,
+          10
+        )}...`
+      );
+      return globalClient;
+    }
+
+    // If we have a different API key, terminate the old client first
+    if (globalClient && globalApiKey !== options.apiKey) {
+      console.log(`🔄 Terminating old GenAI Live Client for API key change`);
+      globalClient.terminateSession();
+      globalClient = null;
+      globalApiKey = null;
+    }
+
+    // Create new client only if no client exists or API key changed
+    console.log(
+      `🔄 Creating new GenAI Live Client for API key: ${options.apiKey?.substring(
+        0,
+        10
+      )}...`
+    );
+    globalClient = new GenAILiveClient(options);
+    globalApiKey = options.apiKey;
+    return globalClient;
+  }, [options.apiKey]); // Only depend on apiKey, not the entire options object
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
 
   const [connected, setConnected] = useState(false);
@@ -110,6 +140,20 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
     // Stop audio streamer immediately to cut off AI voice
     audioStreamerRef.current?.stop();
   }, []);
+
+  // Cleanup effect to terminate global client when component unmounts
+  useEffect(() => {
+    return () => {
+      // Only terminate if this is the last component using the client
+      // This is a simple approach - in a more complex app you might want reference counting
+      if (globalClient && globalApiKey === options.apiKey) {
+        console.log(`🔄 Terminating global GenAI Live Client on unmount`);
+        globalClient.terminateSession();
+        globalClient = null;
+        globalApiKey = null;
+      }
+    };
+  }, [options.apiKey]);
 
   return {
     client,

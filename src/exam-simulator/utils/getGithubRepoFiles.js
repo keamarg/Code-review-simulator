@@ -263,12 +263,119 @@ async function getRepoFilesRecursive(
   }
 }
 
+// API key cache to prevent repeated Vercel API calls
+const apiKeyCache = {
+  prompt1: null,
+  prompt2: null,
+  database: null,
+  cacheTime: null,
+  cacheDuration: 5 * 60 * 1000, // 5 minutes cache duration
+};
+
+// Request deduplication to prevent multiple simultaneous API calls
+const pendingRequests = {
+  prompt1: null,
+  prompt2: null,
+  database: null,
+};
+
+// Repository cache to avoid re-processing the same repository
+const repositoryCache = {
+  data: new Map(),
+  cacheDuration: 10 * 60 * 1000, // 10 minutes cache duration
+};
+
+export async function getCachedApiKey(endpoint) {
+  const now = Date.now();
+
+  // Check if we have a valid cached key
+  if (
+    apiKeyCache[endpoint] &&
+    apiKeyCache.cacheTime &&
+    now - apiKeyCache.cacheTime < apiKeyCache.cacheDuration
+  ) {
+    return apiKeyCache[endpoint];
+  }
+
+  // Check if there's already a pending request for this endpoint
+  if (pendingRequests[endpoint]) {
+    console.log(`🔄 Waiting for existing ${endpoint} API key request...`);
+    return await pendingRequests[endpoint];
+  }
+
+  // Create a new request promise
+  const requestPromise = (async () => {
+    try {
+      console.log(`🔑 Fetching ${endpoint} API key from Vercel...`);
+
+      // Fetch new API key
+      const apiKeyResponse = await fetch(
+        `https://api-key-server-codereview.vercel.app/api/${endpoint}`
+      );
+
+      if (!apiKeyResponse.ok) {
+        throw new Error("Failed to fetch API key");
+      }
+
+      const apiKey = await apiKeyResponse.json();
+
+      // Cache the key
+      apiKeyCache[endpoint] = apiKey;
+      apiKeyCache.cacheTime = now;
+
+      console.log(`✅ ${endpoint} API key cached successfully`);
+      return apiKey;
+    } finally {
+      // Clear the pending request
+      pendingRequests[endpoint] = null;
+    }
+  })();
+
+  // Store the pending request
+  pendingRequests[endpoint] = requestPromise;
+
+  return await requestPromise;
+}
+
+// Function to get cached repository data
+function getCachedRepositoryData(repoUrl, options = {}) {
+  const cacheKey = `${repoUrl}-${JSON.stringify(options)}`;
+  const now = Date.now();
+
+  const cached = repositoryCache.data.get(cacheKey);
+  if (cached && now - cached.timestamp < repositoryCache.cacheDuration) {
+    console.log(`📦 Using cached repository data for: ${repoUrl}`);
+    return cached.data;
+  }
+
+  return null;
+}
+
+// Function to cache repository data
+function cacheRepositoryData(repoUrl, options = {}, data) {
+  const cacheKey = `${repoUrl}-${JSON.stringify(options)}`;
+  const now = Date.now();
+
+  repositoryCache.data.set(cacheKey, {
+    data,
+    timestamp: now,
+  });
+
+  console.log(`📦 Cached repository data for: ${repoUrl}`);
+}
+
 async function getRepoFiles(repoUrl, options = {}) {
   const {
     fullScan = false,
     maxFiles = fullScan ? 20 : 5,
     maxDepth = 3,
   } = options;
+
+  // Check cache first
+  const cachedData = getCachedRepositoryData(repoUrl, options);
+  if (cachedData) {
+    return cachedData;
+  }
 
   try {
     // Parse and normalize the URL
@@ -304,32 +411,31 @@ async function getRepoFiles(repoUrl, options = {}) {
       );
     }
 
-    // Check for other errors
     if (!testResponse.ok) {
       if (testResponse.status === 404) {
         throw new Error(
           `❌ Repository '${owner}/${repoName}' not found.\n\n` +
             `Please check:\n` +
-            `• Repository name is spelled correctly\n` +
-            `• Repository exists and is public\n` +
-            `• You have permission to access it`
+            `• Repository name is correct\n` +
+            `• Repository is public (private repos not supported)\n` +
+            `• Repository exists and is accessible\n\n` +
+            `Try: https://github.com/${owner}/${repoName}`
         );
       } else if (testResponse.status === 403) {
         throw new Error(
-          `❌ Repository '${owner}/${repoName}' is private or access denied.\n\n` +
-            `This tool only works with public repositories.`
+          `❌ Repository '${owner}/${repoName}' is private or access is restricted.\n\n` +
+            `Only public repositories are supported for code reviews.\n\n` +
+            `Please use a public repository or make this repository public.`
         );
       } else {
         throw new Error(
-          `❌ Failed to access repository (HTTP ${testResponse.status}).\n\n` +
+          `❌ Failed to access repository '${owner}/${repoName}' (HTTP ${testResponse.status}).\n\n` +
             `Please try again later.`
         );
       }
     }
 
-    console.log(`✅ Repository accessible, getting files...`);
-
-    let codeFiles;
+    let codeFiles = [];
 
     if (fullScan) {
       // Full repository scan
@@ -545,6 +651,9 @@ async function getRepoFiles(repoUrl, options = {}) {
     const depthInfo = fullScan ? ` (up to ${maxDepth} levels deep)` : "";
     result += `\n\n📋 **Processing Summary**: Processed ${processedCount} files from ${scanMode}${depthInfo}.\n`;
 
+    // Cache the result
+    cacheRepositoryData(repoUrl, options, result);
+
     return result;
   } catch (error) {
     throw new Error(`Repository Processing Error: ${error.message}`);
@@ -553,6 +662,17 @@ async function getRepoFiles(repoUrl, options = {}) {
 
 // Function to get exam questions based on repoContents and developer level
 export async function getRepoQuestions(repoUrl, developerLevel, options = {}) {
+  // Create a cache key that includes all parameters
+  const cacheKey = `${repoUrl}-${developerLevel}-${JSON.stringify(options)}`;
+  const now = Date.now();
+
+  // Check if we have cached questions
+  const cached = repositoryCache.data.get(cacheKey);
+  if (cached && now - cached.timestamp < repositoryCache.cacheDuration) {
+    console.log(`🤖 Using cached AI questions for: ${repoUrl}`);
+    return cached.data;
+  }
+
   const repoContents = await getRepoFiles(repoUrl, options);
 
   // Get level-specific guidance based on developer level
@@ -582,14 +702,9 @@ export async function getRepoQuestions(repoUrl, developerLevel, options = {}) {
     ],
   };
 
-  const apiKeyResponse = await fetch(
-    "https://api-key-server-codereview.vercel.app/api/prompt1"
-  );
-  if (!apiKeyResponse.ok) {
-    throw new Error("Failed to fetch API key");
-  }
-
-  const apiKey = await apiKeyResponse.json();
+  // Import the cached API key function
+  const { getCachedApiKey } = await import("./getCompletion.js");
+  const apiKey = await getCachedApiKey("prompt1");
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -610,6 +725,15 @@ export async function getRepoQuestions(repoUrl, developerLevel, options = {}) {
     data.choices[0] &&
     data.choices[0].message &&
     data.choices[0].message.content;
+
+  // Cache the AI-generated questions
+  repositoryCache.data.set(cacheKey, {
+    data: answer,
+    timestamp: now,
+  });
+
+  console.log(`🤖 Cached AI questions for: ${repoUrl}`);
+
   return answer;
 }
 

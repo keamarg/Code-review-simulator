@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
-import { supabase } from "./../config/supabaseClient";
+import { getSupabaseClient } from "./../config/supabaseClient";
 import Layout from "../layout/Layout"; // Import Layout
 
 const SignUp = () => {
@@ -28,7 +28,8 @@ const SignUp = () => {
     e.preventDefault();
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const supabaseClient = await getSupabaseClient();
+      const { error } = await supabaseClient.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {

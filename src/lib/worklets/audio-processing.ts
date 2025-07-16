@@ -17,29 +17,64 @@
 const AudioRecordingWorklet = `
 class AudioProcessingWorklet extends AudioWorkletProcessor {
 
-  // send and clear buffer every 1024 samples, 
-  // which at 16khz is about 16 times a second (reduced from 2048 for faster response)
-  buffer = new Int16Array(1024);
+  // Reduced buffer size for faster response - 512 samples instead of 1024
+  // At 16kHz this is ~32ms chunks (vs 64ms before) for faster voice registration
+  buffer = new Int16Array(512);
 
   // current write index
   bufferWriteIndex = 0;
 
-  // Environment-aware audio gate thresholds - maximum responsiveness
-  volumeThreshold = 0.0001; // Further reduced for maximum responsiveness
+  // Environment-aware audio gate thresholds - will be set in constructor
+  volumeThreshold = 0.0001;
+  silenceThreshold = 0.0001;
+  maxConsecutiveSilenceFrames = 8; // Reduced from 12 for faster response
   
   // Track recent volume to detect silence vs actual speech
   recentVolumes = [];
-  maxRecentVolumes = 3; // Further reduced for faster pattern detection
+  maxRecentVolumes = 2; // Reduced from 3 for faster pattern detection
 
-  // Speech detection parameters - maximum permissiveness
-  speechVariationThreshold = 0.02; // Further reduced for easier speech detection
-  silenceThreshold = 0.0001; // Reduced for faster silence detection
+  // Speech detection parameters
+  speechVariationThreshold = 0.01; // Reduced from 0.02 for easier speech detection
   consecutiveSilenceFrames = 0; // Track consecutive silent frames
-  maxConsecutiveSilenceFrames = 12; // Increased to allow more silence during speech
 
   constructor() {
     super();
     this.hasAudio = false;
+    
+    // Listen for environment parameter updates (for runtime changes)
+    this.port.onmessage = (event) => {
+      if (event.data.type === 'updateEnvironment') {
+        this.updateEnvironmentSettings(event.data.environment);
+      }
+    };
+  }
+
+  updateEnvironmentSettings(environment) {
+    switch(environment) {
+      case 'QUIET':
+        // High sensitivity for quiet environments - even more permissive
+        this.volumeThreshold = 0.00005; // Reduced from 0.0001 - more sensitive
+        this.silenceThreshold = 0.00005; // Reduced from 0.0001 - more sensitive
+        this.maxConsecutiveSilenceFrames = 6; // Reduced from 12 - faster response
+        break;
+      case 'MODERATE':
+        // More permissive for moderate noise environments
+        this.volumeThreshold = 0.0001; // Reduced from 0.0002 - more permissive
+        this.silenceThreshold = 0.0001; // Reduced from 0.0002 - more permissive
+        this.maxConsecutiveSilenceFrames = 5; // Reduced from 10 - faster response
+        break;
+      case 'NOISY':
+        // More permissive for noisy environments
+        this.volumeThreshold = 0.0002; // Reduced from 0.0003 - more permissive
+        this.silenceThreshold = 0.0002; // Reduced from 0.0003 - more permissive
+        this.maxConsecutiveSilenceFrames = 4; // Reduced from 8 - faster response
+        break;
+      default:
+        // Default to quiet environment
+        this.volumeThreshold = 0.00005;
+        this.silenceThreshold = 0.00005;
+        this.maxConsecutiveSilenceFrames = 6;
+    }
   }
 
   /**
@@ -66,9 +101,11 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
         this.consecutiveSilenceFrames = 0;
       }
       
-      // Maximum permissive processing logic - process almost everything
-      // Only block if we have many consecutive silent frames
-      if (this.consecutiveSilenceFrames < this.maxConsecutiveSilenceFrames) {
+      // More permissive processing - process more audio for faster response
+      const shouldProcess = this.consecutiveSilenceFrames < this.maxConsecutiveSilenceFrames || 
+                           rms > this.volumeThreshold * 0.2; // Reduced from 0.3 - even more permissive
+      
+      if (shouldProcess) {
         this.processChunk(channel0);
       }
     }
@@ -94,8 +131,8 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
     // Speech typically has more volume variation than background noise
     const variation = (maxVolume - minVolume) / (avgVolume + 0.001); // Add small value to prevent division by zero
     
-    // Maximum permissive speech detection - only check for any volume
-    const hasAnyVolume = avgVolume > this.volumeThreshold * 1.0; // Reduced to 1.0x for maximum permissiveness
+    // More permissive speech detection - just check if there's any volume above threshold
+    const hasAnyVolume = avgVolume > this.volumeThreshold * 0.3; // Reduced from 0.5 - even more permissive
     
     return hasAnyVolume;
   }

@@ -107,7 +107,7 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
       if (evt.data instanceof Blob) {
         this.receive(evt.data);
       } else {
-        console.log("non blob message", evt);
+        // Non-blob message received
       }
     });
     return new Promise((resolve, reject) => {
@@ -136,7 +136,7 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
 
         ws.removeEventListener("error", onError);
         ws.addEventListener("close", (ev: CloseEvent) => {
-          console.log(ev);
+          // Error event received
           this.disconnect(ws);
           let reason = ev.reason || "";
           if (reason.toLowerCase().includes("error")) {
@@ -145,13 +145,13 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
             if (preludeIndex > 0) {
               reason = reason.slice(
                 preludeIndex + prelude.length + 1,
-                Infinity,
+                Infinity
               );
             }
           }
           this.log(
             `server.${ev.type}`,
-            `disconnected ${reason ? `with reason: ${reason}` : ``}`,
+            `disconnected ${reason ? `with reason: ${reason}` : ``}`
           );
           this.emit("close", ev);
         });
@@ -174,7 +174,7 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
 
   protected async receive(blob: Blob) {
     const response: LiveIncomingMessage = (await blobToJSON(
-      blob,
+      blob
     )) as LiveIncomingMessage;
     if (isToolCallMessage(response)) {
       this.log("server.toolCall", response);
@@ -191,7 +191,7 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
       this.log("server.send", "setupComplete");
       // Attempt to extract sessionId from the response
       const receivedSessionId = (response.setupComplete as any)?.sessionId;
-      if (receivedSessionId && typeof receivedSessionId === 'string') {
+      if (receivedSessionId && typeof receivedSessionId === "string") {
         this.sessionId = receivedSessionId;
         this.log("client.session", `Session ID received: ${this.sessionId}`);
       }
@@ -219,7 +219,7 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
 
         // when its audio that is returned for modelTurn
         const audioParts = parts.filter(
-          (p) => p.inlineData && p.inlineData.mimeType.startsWith("audio/pcm"),
+          (p) => p.inlineData && p.inlineData.mimeType.startsWith("audio/pcm")
         );
         const base64s = audioParts.map((p) => p.inlineData?.data);
 
@@ -245,7 +245,7 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
         this.log(`server.content`, response);
       }
     } else {
-      console.log("received unmatched message", response);
+      // Received unmatched message
     }
   }
 
@@ -271,10 +271,10 @@ export class MultimodalLiveClient extends EventEmitter<MultimodalLiveClientEvent
       hasAudio && hasVideo
         ? "audio + video"
         : hasAudio
-          ? "audio"
-          : hasVideo
-            ? "video"
-            : "unknown";
+        ? "audio"
+        : hasVideo
+        ? "video"
+        : "unknown";
 
     const data: RealtimeInputMessage = {
       realtimeInput: {

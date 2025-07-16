@@ -1,15 +1,33 @@
 import { createClient } from "@supabase/supabase-js";
+import { getCachedApiKey } from "../utils/getCompletion.js";
 
-const apiKeyResponse = await fetch(
-  "https://api-key-server-codereview.vercel.app/api/database"
-);
-if (!apiKeyResponse.ok) {
-  throw new Error("Failed to fetch API key");
+// Initialize Supabase client with cached API key
+let supabaseInstance: any = null;
+
+export async function getSupabaseClient() {
+  if (supabaseInstance) {
+    return supabaseInstance;
+  }
+
+  const apiKey = await getCachedApiKey("database");
+
+  supabaseInstance = createClient(
+    "https://gzoltpvnxwjoeycomcby.supabase.co",
+    apiKey
+  );
+
+  return supabaseInstance;
 }
 
-const apiKey = await apiKeyResponse.json();
-
-export const supabase = createClient(
-  "https://gzoltpvnxwjoeycomcby.supabase.co",
-  apiKey
+// Create a synchronous supabase export for backward compatibility
+export const supabase = new Proxy(
+  {},
+  {
+    get(target, prop) {
+      return async (...args: any[]) => {
+        const client = await getSupabaseClient();
+        return client[prop](...args);
+      };
+    },
+  }
 );

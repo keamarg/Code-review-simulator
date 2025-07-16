@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../layout/Layout";
-import { supabase } from "../config/supabaseClient";
+import { getSupabaseClient } from "../config/supabaseClient";
 import { ExamSimulator } from "../../types/ExamSimulator";
 
 // Duration formatter
@@ -75,7 +75,8 @@ function ExamSimulatorCard({
       )
     ) {
       try {
-        const { error } = await supabase
+        const supabaseClient = await getSupabaseClient();
+        const { error } = await supabaseClient
           .from("exams")
           .delete()
           .eq("id", sim.id);
@@ -355,7 +356,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function getExamSimulators() {
-      const { data: fetchedExamSimulators, error } = await supabase
+      const supabaseClient = await getSupabaseClient();
+      const { data: fetchedExamSimulators, error } = await supabaseClient
         .from("exams")
         .select()
         .order("created_at", { ascending: false });

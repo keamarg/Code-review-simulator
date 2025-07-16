@@ -11,8 +11,8 @@ export const VAD_ENVIRONMENTS = {
     settings: {
       START_OF_SPEECH_SENSITIVITY: "START_SENSITIVITY_HIGH" as const,
       END_OF_SPEECH_SENSITIVITY: "END_SENSITIVITY_LOW" as const,
-      SILENCE_DURATION_MS: 300, // Restored to original fast settings and made even faster
-      PREFIX_PADDING_MS: 10, // Restored to original fast settings
+      SILENCE_DURATION_MS: 200, // Reduced from 300 for faster response
+      PREFIX_PADDING_MS: 5, // Reduced from 10 for faster response
     },
   },
   MODERATE: {
@@ -21,8 +21,8 @@ export const VAD_ENVIRONMENTS = {
     settings: {
       START_OF_SPEECH_SENSITIVITY: "START_SENSITIVITY_LOW" as const,
       END_OF_SPEECH_SENSITIVITY: "END_SENSITIVITY_LOW" as const,
-      SILENCE_DURATION_MS: 500, // Restored to original fast settings
-      PREFIX_PADDING_MS: 20, // Restored to original fast settings
+      SILENCE_DURATION_MS: 300, // Reduced from 500 for faster response
+      PREFIX_PADDING_MS: 10, // Reduced from 20 for faster response
     },
   },
   NOISY: {
@@ -31,8 +31,8 @@ export const VAD_ENVIRONMENTS = {
     settings: {
       START_OF_SPEECH_SENSITIVITY: "START_SENSITIVITY_LOW" as const,
       END_OF_SPEECH_SENSITIVITY: "END_SENSITIVITY_LOW" as const,
-      SILENCE_DURATION_MS: 700, // Restored to original fast settings
-      PREFIX_PADDING_MS: 50, // Restored to original fast settings
+      SILENCE_DURATION_MS: 400, // Reduced from 700 for faster response
+      PREFIX_PADDING_MS: 20, // Reduced from 50 for faster response
     },
   },
 } as const;
@@ -63,6 +63,11 @@ export const AI_CONFIG = {
 
   // Response settings
   DEFAULT_RESPONSE_MODALITY: "audio" as const,
+
+  // Feature flags
+  FEATURES: {
+    LIVE_SUGGESTION_EXTRACTION: true, // Set to true to enable live suggestions
+  },
 
   // Legacy aliases for backward compatibility
   get DEFAULT_SILENCE_DURATION_MS() {

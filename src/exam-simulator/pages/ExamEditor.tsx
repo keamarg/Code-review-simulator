@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import Layout from "../layout/Layout";
-import { supabase } from "../config/supabaseClient";
+import { getSupabaseClient } from "../config/supabaseClient";
 import { ExamSimulator } from "../../types/ExamSimulator";
 
 export default function ExamEditor() {
@@ -19,7 +19,8 @@ export default function ExamEditor() {
   useEffect(() => {
     const fetchExam = async () => {
       if (examId) {
-        const { data, error } = await supabase
+        const supabaseClient = await getSupabaseClient();
+        const { data, error } = await supabaseClient
           .from("exams")
           .select("*")
           .eq("id", examId)
@@ -91,10 +92,11 @@ export default function ExamEditor() {
     setIsSaving(true);
 
     try {
-      // Assuming 'supabase' is your Supabase client instance available in this scope
+      // Get Supabase client instance
+      const supabaseClient = await getSupabaseClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await supabaseClient.auth.getUser();
 
       if (!user) {
         showToast("Error: Could not save. User information missing.");
@@ -118,7 +120,7 @@ export default function ExamEditor() {
           user_id: user.id,
         };
 
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseClient
           .from("exams")
           .update(updatedExam)
           .eq("id", examId);
@@ -152,7 +154,7 @@ export default function ExamEditor() {
           user_id: user.id,
         };
         // create newExam to supabase
-        const { data: createdExam, error: insertError } = await supabase
+        const { data: createdExam, error: insertError } = await supabaseClient
           .from("exams") // Ensure 'exams' is the correct table name
           .insert([newExam])
           .select()
@@ -193,7 +195,8 @@ export default function ExamEditor() {
     if (window.confirm("Are you sure you want to delete this custom review?")) {
       // delete exam using supabase
       const deleteExam = async () => {
-        const { error } = await supabase
+        const supabaseClient = await getSupabaseClient();
+        const { error } = await supabaseClient
           .from("exams")
           .delete()
           .eq("id", examId);

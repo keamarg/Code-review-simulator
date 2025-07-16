@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "../config/supabaseClient";
+import { getSupabaseClient } from "../config/supabaseClient";
 import Layout from "../layout/Layout";
 
 const LoginPage = () => {
@@ -24,7 +24,8 @@ const LoginPage = () => {
     e.preventDefault();
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const supabaseClient = await getSupabaseClient();
+      const { error } = await supabaseClient.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });

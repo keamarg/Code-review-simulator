@@ -14,11 +14,42 @@
  * limitations under the License.
  */
 
-import React from "react";
+import React, { useEffect } from "react";
 import "./App.scss";
 import { AppRouter } from "./exam-simulator/navigation/AppRouter";
 
 function App() {
+  useEffect(() => {
+    // Handle browser refresh - redirect to home page
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Store a flag to indicate this was a refresh
+      sessionStorage.setItem("wasRefreshed", "true");
+    };
+
+    // Check if this page load was from a refresh
+    const wasRefreshed = sessionStorage.getItem("wasRefreshed");
+    if (wasRefreshed) {
+      // Clear the flag
+      sessionStorage.removeItem("wasRefreshed");
+
+      // Get the basename from the current URL to match the router configuration
+      const basename = new URL(
+        process.env.PUBLIC_URL || "",
+        window.location.origin
+      ).pathname;
+      const homePath = basename + "/";
+
+      // Redirect to home page using the correct path
+      window.location.href = homePath;
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
   return (
     <div className="bg-neutral-dark">
       <AppRouter />

@@ -5,7 +5,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import { supabase } from "../../config/supabaseClient";
+import { getSupabaseClient } from "../../config/supabaseClient";
 import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
 import { ExamSimulator } from "../../../types/ExamSimulator";
 import { getExaminerQuestions } from "../../utils/getExaminerQuestions";
@@ -51,6 +51,10 @@ interface ExamWorkflowProps {
    */
   initialRepoUrl?: string;
   isReadyForAutoTrigger?: boolean;
+  /**
+   * Callback to update environment settings in the audio recorder
+   */
+  onEnvironmentChange?: (environment: string) => void;
 }
 
 export function ExamWorkflow({
@@ -73,6 +77,7 @@ export function ExamWorkflow({
   hideMainButton = false,
   initialRepoUrl,
   isReadyForAutoTrigger,
+  onEnvironmentChange,
 }: ExamWorkflowProps) {
   const { client, connected, connect, stopAudio } = useGenAILiveContext();
   const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(
@@ -167,9 +172,7 @@ export function ExamWorkflow({
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
           reconnectTimeoutRef.current = null;
-          console.log(
-            "✅ AI responded - cleared reconnection timeout and reset flags"
-          );
+          // AI responded - cleared reconnection timeout and reset flags
         }
       };
 
@@ -364,6 +367,16 @@ export function ExamWorkflow({
       // Reset connection guards
       isConnectingRef.current = false;
       activeConnectionRef.current = false;
+      isPreparingContentRef.current = false; // Reset content preparation flag
+
+      // Force terminate any active session immediately
+      if (client) {
+        try {
+          client.terminateSession();
+        } catch (error) {
+          console.warn("Error terminating session:", error);
+        }
+      }
 
       // Don't terminate session here - let parent handle it to avoid double termination
       // The parent will call shutdownSession() which includes terminateSession()
@@ -416,6 +429,7 @@ export function ExamWorkflow({
       onLoadingStateChange,
       onTimerExpired,
       onManualStop,
+      client,
     ]
   );
 
@@ -481,7 +495,8 @@ export function ExamWorkflow({
       setIsLoadingExamData(true);
       setExamError("");
       try {
-        const { data, error } = await supabase
+        const supabaseClient = await getSupabaseClient();
+        const { data, error } = await supabaseClient
           .from("exams")
           .select("*")
           .eq("id", examId)
@@ -614,7 +629,12 @@ export function ExamWorkflow({
   // Effect to trigger prompt preparation when examSimulator is loaded
   // and for standard exams, or when repoUrl is set for GitHub exams.
   useEffect(() => {
-    if (examSimulator && !prompt && !isLoadingPrompt) {
+    if (
+      examSimulator &&
+      !prompt &&
+      !isLoadingPrompt &&
+      !isPreparingContentRef.current
+    ) {
       if (examSimulator.type === "Github Repo") {
         // For quick start GitHub repos, prepare immediately when repoUrl is available
         // For normal GitHub repos, wait for examIntentStarted
@@ -628,11 +648,11 @@ export function ExamWorkflow({
         prepareExamContent();
       }
     }
-  }, [examSimulator, repoUrl, prompt, isLoadingPrompt, prepareExamContent]);
+  }, [examSimulator, repoUrl, prompt, isLoadingPrompt]); // Removed prepareExamContent from dependencies
 
   // Effect for when exam intent starts (user clicks start button)
   useEffect(() => {
-    if (examIntentStarted && examSimulator) {
+    if (examIntentStarted && examSimulator && !isPreparingContentRef.current) {
       if (examSimulator.type === "Github Repo") {
         const isQuickStart = examSimulator.duration === 0;
 
@@ -670,14 +690,7 @@ export function ExamWorkflow({
         }
       }
     }
-  }, [
-    examIntentStarted,
-    examSimulator,
-    repoUrl,
-    prompt,
-    isLoadingPrompt,
-    prepareExamContent,
-  ]);
+  }, [examIntentStarted, examSimulator, repoUrl, prompt, isLoadingPrompt]); // Removed prepareExamContent from dependencies
 
   // Extract complex expression to avoid linter warning
   const liveConfigText = liveConfig?.systemInstruction?.parts?.[0]?.text;
@@ -948,6 +961,7 @@ export function ExamWorkflow({
           onEndReview={handleManualStopInternal}
           hideMainButton={hideMainButton}
           isReadyForAutoTrigger={isReadyForAutoTrigger}
+          onEnvironmentChange={onEnvironmentChange}
         />
       )}
 

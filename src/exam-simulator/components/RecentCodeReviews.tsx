@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "../config/supabaseClient";
+import { getSupabaseClient } from "../config/supabaseClient";
 import { ExamSimulator } from "../../types/ExamSimulator";
 
 // Duration formatter
@@ -24,7 +24,8 @@ const RecentCodeReviews: React.FC = () => {
 
   useEffect(() => {
     async function getRecentReviews() {
-      const { data: fetchedReviews, error } = await supabase
+      const supabaseClient = await getSupabaseClient();
+      const { data: fetchedReviews, error } = await supabaseClient
         .from("exams")
         .select()
         .order("created_at", { ascending: false })
