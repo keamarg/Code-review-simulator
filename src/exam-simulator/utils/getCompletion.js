@@ -1,3 +1,6 @@
+// Import API server configuration
+import { getApiEndpoint } from "../config/apiServerConfig";
+
 // API key cache to prevent repeated Vercel API calls
 const apiKeyCache = {
   prompt1: null,
@@ -39,7 +42,13 @@ export async function getCachedApiKey(endpoint) {
 
       // Fetch new API key
       const apiKeyResponse = await fetch(
-        `https://api-key-server-codereview.vercel.app/api/${endpoint}`
+        getApiEndpoint(
+          endpoint === "prompt1"
+            ? "OPENAI"
+            : endpoint === "prompt2"
+            ? "GEMINI"
+            : "SUPABASE"
+        )
       );
 
       if (!apiKeyResponse.ok) {

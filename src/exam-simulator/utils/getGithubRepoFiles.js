@@ -1,4 +1,5 @@
 import prompts from "../../prompts.json";
+import { getApiEndpoint } from "../config/apiServerConfig";
 
 // Function to get level-specific guidance for repo questions
 function getLevelSpecificGuidance(level) {
@@ -310,7 +311,13 @@ export async function getCachedApiKey(endpoint) {
 
       // Fetch new API key
       const apiKeyResponse = await fetch(
-        `https://api-key-server-codereview.vercel.app/api/${endpoint}`
+        getApiEndpoint(
+          endpoint === "prompt1"
+            ? "OPENAI"
+            : endpoint === "prompt2"
+            ? "GEMINI"
+            : "SUPABASE"
+        )
       );
 
       if (!apiKeyResponse.ok) {
