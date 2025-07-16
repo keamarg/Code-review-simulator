@@ -1,5 +1,4 @@
 import prompts from "../../prompts.json";
-import { getApiEndpoint } from "../config/apiServerConfig";
 
 // Function to get level-specific guidance for repo questions
 function getLevelSpecificGuidance(level) {
@@ -81,18 +80,18 @@ function parseGitHubUrl(url) {
 }
 
 // Enhanced function to check for rate limit errors
-function isRateLimitError(response) {
-  if (response.status === 403) {
-    // Check for rate limit in response headers or body
-    const remainingHeader = response.headers.get("X-RateLimit-Remaining");
-    const resetHeader = response.headers.get("X-RateLimit-Reset");
-
-    if (remainingHeader === "0" || resetHeader) {
-      return true;
-    }
-  }
-  return response.status === 429; // Too Many Requests
-}
+// function isRateLimitError(response) {
+//   if (response.status === 403) {
+//     // Check for rate limit in response headers or body
+//     const remainingHeader = response.headers.get("X-RateLimit-Remaining");
+//     const resetHeader = response.headers.get("X-RateLimit-Reset");
+//
+//     if (remainingHeader === "0" || resetHeader) {
+//       return true;
+//     }
+//   }
+//   return response.status === 429; // Too Many Requests
+// }
 
 // Enhanced function to get human-readable reset time
 function getRateLimitResetTime(response) {
@@ -158,6 +157,9 @@ function isCodeFile(filename) {
   return codeExtensions.some((ext) => filename.toLowerCase().endsWith(ext));
 }
 
+// Global flag to prevent multiple simultaneous repository processing
+let isProcessingRepository = false;
+
 // Function to recursively get all files from a repository
 async function getRepoFilesRecursive(
   owner,
@@ -184,13 +186,22 @@ async function getRepoFilesRecursive(
       return [];
     }
 
-    if (isRateLimitError(response)) {
-      const resetMinutes = getRateLimitResetTime(response);
-      throw new Error(
-        `🚨 GitHub API rate limit exceeded during recursive scan.\n\n` +
-          `Please try again in ${resetMinutes} minutes.\n\n` +
-          `Consider using root-only mode to reduce API usage.`
-      );
+    // Enhanced error handling for 403
+    if (response.status === 403) {
+      const remaining = response.headers.get("X-RateLimit-Remaining");
+      const resetHeader = response.headers.get("X-RateLimit-Reset");
+      if (remaining === "0" || resetHeader) {
+        const resetMinutes = getRateLimitResetTime(response);
+        throw new Error(
+          `GitHub API rate limit exceeded during recursive scan.\n\n` +
+            `Please try again in ${resetMinutes} minutes.\n\n` +
+            `Consider using root-only mode to reduce API usage.`
+        );
+      } else {
+        throw new Error(
+          `❌ Repository '${owner}/${repoName}' is private or access is restricted.\n\nOnly public repositories are supported for code reviews.`
+        );
+      }
     }
 
     if (!response.ok) {
@@ -256,8 +267,12 @@ async function getRepoFilesRecursive(
 
     return allFiles;
   } catch (error) {
-    if (error.message.includes("rate limit")) {
-      throw error; // Re-throw rate limit errors
+    if (
+      error.message.includes("rate limit") ||
+      error.message.includes("private") ||
+      error.message.includes("restricted")
+    ) {
+      throw error; // Re-throw fatal errors
     }
     console.warn(`⚠️ Error scanning ${path}:`, error.message);
     return [];
@@ -311,13 +326,7 @@ export async function getCachedApiKey(endpoint) {
 
       // Fetch new API key
       const apiKeyResponse = await fetch(
-        getApiEndpoint(
-          endpoint === "prompt1"
-            ? "OPENAI"
-            : endpoint === "prompt2"
-            ? "GEMINI"
-            : "SUPABASE"
-        )
+        `https://api-key-server-codereview.vercel.app/api/${endpoint}`
       );
 
       if (!apiKeyResponse.ok) {
@@ -372,23 +381,28 @@ function cacheRepositoryData(repoUrl, options = {}, data) {
 }
 
 async function getRepoFiles(repoUrl, options = {}) {
-  const {
-    fullScan = false,
-    maxFiles = fullScan ? 20 : 5,
-    maxDepth = 3,
-  } = options;
-
-  // Check cache first
-  const cachedData = getCachedRepositoryData(repoUrl, options);
-  if (cachedData) {
-    return cachedData;
+  // Prevent multiple simultaneous calls
+  if (isProcessingRepository) {
+    throw new Error("Repository processing already in progress. Please wait.");
   }
 
+  isProcessingRepository = true;
+
   try {
+    const {
+      fullScan = false,
+      maxFiles = fullScan ? 20 : 5,
+      maxDepth = 3,
+    } = options;
+
+    // Check cache first
+    const cachedData = getCachedRepositoryData(repoUrl, options);
+    if (cachedData) {
+      return cachedData;
+    }
+
     // Parse and normalize the URL
     const { owner, repoName } = parseGitHubUrl(repoUrl);
-
-    // Simple approach: try once, fail cleanly
 
     // Test repository access with better error handling
     let testResponse;
@@ -408,14 +422,20 @@ async function getRepoFiles(repoUrl, options = {}) {
       );
     }
 
-    // Check for rate limit
-    if (isRateLimitError(testResponse)) {
-      const resetMinutes = getRateLimitResetTime(testResponse);
-      throw new Error(
-        `🚨 GitHub API rate limit exceeded.\n\n` +
-          `Please try again in ${resetMinutes} minutes.\n\n` +
-          `GitHub allows 60 requests per hour for unauthenticated users.`
-      );
+    // Enhanced error handling for 403
+    if (testResponse.status === 403) {
+      const remaining = testResponse.headers.get("X-RateLimit-Remaining");
+      const resetHeader = testResponse.headers.get("X-RateLimit-Reset");
+      if (remaining === "0" || resetHeader) {
+        const resetMinutes = getRateLimitResetTime(testResponse);
+        throw new Error(
+          `GitHub API rate limit exceeded.\n\nPlease try again in ${resetMinutes} minutes.`
+        );
+      } else {
+        throw new Error(
+          `❌ Repository '${owner}/${repoName}' is private or access is restricted.\n\nOnly public repositories are supported for code reviews.`
+        );
+      }
     }
 
     if (!testResponse.ok) {
@@ -427,12 +447,6 @@ async function getRepoFiles(repoUrl, options = {}) {
             `• Repository is public (private repos not supported)\n` +
             `• Repository exists and is accessible\n\n` +
             `Try: https://github.com/${owner}/${repoName}`
-        );
-      } else if (testResponse.status === 403) {
-        throw new Error(
-          `❌ Repository '${owner}/${repoName}' is private or access is restricted.\n\n` +
-            `Only public repositories are supported for code reviews.\n\n` +
-            `Please use a public repository or make this repository public.`
         );
       } else {
         throw new Error(
@@ -473,13 +487,20 @@ async function getRepoFiles(repoUrl, options = {}) {
         );
       }
 
-      // Check for rate limit on second call
-      if (isRateLimitError(rootResponse)) {
-        const resetMinutes = getRateLimitResetTime(rootResponse);
-        throw new Error(
-          `🚨 GitHub API rate limit exceeded.\n\n` +
-            `Please try again in ${resetMinutes} minutes.`
-        );
+      // Enhanced error handling for 403
+      if (rootResponse.status === 403) {
+        const remaining = rootResponse.headers.get("X-RateLimit-Remaining");
+        const resetHeader = rootResponse.headers.get("X-RateLimit-Reset");
+        if (remaining === "0" || resetHeader) {
+          const resetMinutes = getRateLimitResetTime(rootResponse);
+          throw new Error(
+            `GitHub API rate limit exceeded.\n\nPlease try again in ${resetMinutes} minutes.`
+          );
+        } else {
+          throw new Error(
+            `❌ Repository '${owner}/${repoName}' is private or access is restricted.\n\nOnly public repositories are supported for code reviews.`
+          );
+        }
       }
 
       if (!rootResponse.ok) {
@@ -581,6 +602,7 @@ async function getRepoFiles(repoUrl, options = {}) {
 
     let result = "";
     let processedCount = 0;
+    let fatalError = null;
 
     for (const item of codeFiles) {
       try {
@@ -592,12 +614,22 @@ async function getRepoFiles(repoUrl, options = {}) {
           continue; // Skip this file and continue with others
         }
 
-        if (isRateLimitError(fileResponse)) {
-          const resetMinutes = getRateLimitResetTime(fileResponse);
-          throw new Error(
-            `🚨 GitHub API rate limit exceeded.\n\n` +
-              `Please try again in ${resetMinutes} minutes.`
-          );
+        // Enhanced error handling for 403
+        if (fileResponse.status === 403) {
+          const remaining = fileResponse.headers.get("X-RateLimit-Remaining");
+          const resetHeader = fileResponse.headers.get("X-RateLimit-Reset");
+          if (remaining === "0" || resetHeader) {
+            const resetMinutes = getRateLimitResetTime(fileResponse);
+            fatalError = new Error(
+              `GitHub API rate limit exceeded.\n\nPlease try again in ${resetMinutes} minutes.`
+            );
+            break;
+          } else {
+            fatalError = new Error(
+              `❌ Repository '${owner}/${repoName}' is private or access is restricted.\n\nOnly public repositories are supported for code reviews.`
+            );
+            break;
+          }
         }
 
         if (!fileResponse.ok) {
@@ -639,11 +671,20 @@ async function getRepoFiles(repoUrl, options = {}) {
         result += "```\n" + item.path + "\n```\n" + content + "\n```\n\n";
         processedCount++;
       } catch (error) {
-        if (error.message.includes("rate limit")) {
-          throw error; // Stop on rate limit
+        if (
+          error.message.includes("rate limit") ||
+          error.message.includes("private") ||
+          error.message.includes("restricted")
+        ) {
+          fatalError = error;
+          break;
         }
         console.warn(`⚠️ Error processing ${item.name}:`, error.message);
       }
+    }
+
+    if (fatalError) {
+      throw fatalError;
     }
 
     if (result.trim() === "") {
@@ -664,6 +705,8 @@ async function getRepoFiles(repoUrl, options = {}) {
     return result;
   } catch (error) {
     throw new Error(`Repository Processing Error: ${error.message}`);
+  } finally {
+    isProcessingRepository = false;
   }
 }
 

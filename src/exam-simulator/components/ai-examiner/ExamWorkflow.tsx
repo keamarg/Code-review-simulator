@@ -84,9 +84,9 @@ export function ExamWorkflow({
     null
   );
   const [isLoadingExamData, setIsLoadingExamData] = useState(false);
-  const [examError, setExamError] = useState("");
+  const [examError, setExamError] = useState<string>("");
   const [repoUrl, setRepoUrl] = useState(""); // State to manage GitHub repository URL
-  const [githubQuestions, setGithubQuestions] = useState("");
+  const [githubQuestions, setGithubQuestions] = useState<string>("");
   const [prompt, setPrompt] = useState("");
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
   const [studentTask, setStudentTask] = useState("");
@@ -109,9 +109,6 @@ export function ExamWorkflow({
 
   // Track deliberate pause to avoid showing network banner
   const [isDeliberatelyPaused, setIsDeliberatelyPaused] = useState(false);
-
-  // Add a trigger to force connection useEffect to re-run
-  const [connectionTrigger, setConnectionTrigger] = useState(0);
 
   // Track previous pause state for resume detection
   const previousPauseStateRef = useRef(isDeliberatelyPaused);
@@ -222,9 +219,6 @@ export function ExamWorkflow({
       isConnectingRef.current = false;
       activeConnectionRef.current = false;
 
-      // Force the connection useEffect to re-run by changing the trigger
-      setConnectionTrigger((prev) => prev + 1);
-
       // The normal connection useEffect will now run and establish the connection
       // This is the same flow that works when the user speaks
 
@@ -266,13 +260,7 @@ export function ExamWorkflow({
         }
       }, 5000);
     }
-  }, [
-    connected,
-    client,
-    showReconnectionBanner,
-    isDeliberatelyPaused,
-    setConnectionTrigger,
-  ]);
+  }, [connected, client, showReconnectionBanner, isDeliberatelyPaused]);
 
   // Network connectivity monitoring - automatic reconnection with spinner
   useEffect(() => {
@@ -550,13 +538,99 @@ export function ExamWorkflow({
     }
   }, [initialRepoUrl, repoUrl]);
 
+  // Add a ref to track fatal errors and prevent retries
+  const fatalErrorRef = useRef<string | null>(null);
+  const lastErrorTimeRef = useRef<number>(0);
+  const previousRepoUrlRef = useRef<string>("");
+
+  // Global flag to completely disable GitHub processing
+  const [isGitHubDisabled, setIsGitHubDisabled] = useState(false);
+
+  // Helper function to check if an error is fatal
+  const isFatalError = useCallback((errorMessage: string) => {
+    return (
+      errorMessage.includes("rate limit") ||
+      errorMessage.includes("private") ||
+      errorMessage.includes("restricted")
+    );
+  }, []);
+
+  // Manual reset function for users
+  const resetGitHubError = useCallback(() => {
+    console.log("🔄 Manual reset of GitHub error state");
+    setExamError("");
+    fatalErrorRef.current = null;
+    lastErrorTimeRef.current = 0;
+    isPreparingContentRef.current = false;
+    setIsGitHubDisabled(false);
+    hasTriggeredInitialLoad.current = false; // Reset trigger flag
+  }, []);
+
+  // Reset error state and processing flag when repository URL changes
+  useEffect(() => {
+    // Only reset if the URL actually changed (not just when error state changes)
+    if (repoUrl !== previousRepoUrlRef.current) {
+      console.log(
+        "Repository URL actually changed from",
+        previousRepoUrlRef.current,
+        "to",
+        repoUrl
+      );
+      previousRepoUrlRef.current = repoUrl;
+
+      if (examError && isFatalError(examError)) {
+        console.log("Repository URL changed, resetting error state");
+        setExamError("");
+        isPreparingContentRef.current = false;
+        fatalErrorRef.current = null;
+        lastErrorTimeRef.current = 0;
+        setIsGitHubDisabled(false);
+        hasTriggeredInitialLoad.current = false; // Reset trigger flag
+      }
+    }
+  }, [repoUrl, examError, isFatalError]);
+
+  // Reset trigger flags when exam simulator changes
+  useEffect(() => {
+    if (examSimulator?.id !== lastExamSimulatorId.current) {
+      console.log("Exam simulator changed, resetting trigger flags");
+      hasTriggeredInitialLoad.current = false;
+      lastExamSimulatorId.current = examSimulator?.id || null;
+    }
+  }, [examSimulator?.id]);
+
   // Prepare exam content (questions, prompt)
   const prepareExamContent = useCallback(async () => {
-    if (isPreparingContentRef.current || !examSimulator) return;
+    if (isPreparingContentRef.current || !examSimulator) {
+      return;
+    }
+
+    // Check global GitHub disabled flag
+    if (isGitHubDisabled) {
+      return;
+    }
+
+    // Check for fatal errors that should prevent retries
+    if (fatalErrorRef.current) {
+      return;
+    }
+
+    // Check for rate limit cooldown (wait 5 minutes after rate limit error)
+    const now = Date.now();
+    if (
+      lastErrorTimeRef.current > 0 &&
+      now - lastErrorTimeRef.current < 5 * 60 * 1000
+    ) {
+      return;
+    }
 
     isPreparingContentRef.current = true;
     setIsLoadingPrompt(true);
-    setExamError(""); // Clear any previous errors
+
+    // Only clear non-fatal errors
+    if (examError && !isFatalError(examError)) {
+      setExamError(""); // Clear any previous errors
+    }
 
     try {
       let finalPrompt = "";
@@ -614,51 +688,97 @@ export function ExamWorkflow({
       }
       setPrompt(finalPrompt);
     } catch (error) {
-      console.error("Failed to prepare exam content:", error);
-      setExamError(
+      console.error("❌ Failed to prepare exam content:", error);
+      const errorMessage =
         error instanceof Error
-          ? `Error: ${error.message}`
-          : "Failed to load exam questions/prompt"
-      );
+          ? error.message
+          : "Failed to load exam questions/prompt";
+      setExamError(`Error: ${errorMessage}`);
+
+      // If it's a fatal error (rate limit or private repo), set up prevention
+      if (isFatalError(errorMessage)) {
+        fatalErrorRef.current = errorMessage;
+        lastErrorTimeRef.current = Date.now();
+        setIsGitHubDisabled(true); // Set global flag
+        // Keep the error state and don't reset isPreparingContentRef to prevent retries
+        return;
+      }
     } finally {
       setIsLoadingPrompt(false);
       isPreparingContentRef.current = false;
     }
-  }, [examSimulator, repoUrl, examDurationInMinutes]);
+  }, [
+    examSimulator,
+    repoUrl,
+    examDurationInMinutes,
+    isGitHubDisabled,
+    examError,
+    isFatalError,
+  ]);
 
-  // Effect to trigger prompt preparation when examSimulator is loaded
-  // and for standard exams, or when repoUrl is set for GitHub exams.
+  // Add refs to track state changes and prevent unnecessary triggers
+  const hasTriggeredInitialLoad = useRef(false);
+  const lastExamSimulatorId = useRef<string | null>(null);
+  const lastExamIntentStarted = useRef(false);
+  const lastPrompt = useRef<string | null>(null);
+
+  // Consolidated effect for content preparation and exam intent handling
   useEffect(() => {
-    if (
+    // Don't trigger if there's a fatal error or GitHub is disabled
+    if (fatalErrorRef.current || isGitHubDisabled) {
+      return;
+    }
+
+    // Handle exam simulator changes
+    if (examSimulator?.id !== lastExamSimulatorId.current) {
+      hasTriggeredInitialLoad.current = false;
+      lastExamSimulatorId.current = examSimulator?.id || null;
+    }
+
+    // Handle exam intent changes
+    if (examIntentStarted !== lastExamIntentStarted.current) {
+      lastExamIntentStarted.current = examIntentStarted;
+      if (examIntentStarted) {
+        hasTriggeredInitialLoad.current = false;
+      }
+    }
+
+    // Determine if we should prepare content
+    const shouldPrepareContent =
       examSimulator &&
-      !prompt &&
+      !hasTriggeredInitialLoad.current &&
       !isLoadingPrompt &&
-      !isPreparingContentRef.current
-    ) {
+      !isPreparingContentRef.current;
+
+    if (shouldPrepareContent) {
+      hasTriggeredInitialLoad.current = true;
+
       if (examSimulator.type === "Github Repo") {
-        // For quick start GitHub repos, prepare immediately when repoUrl is available
-        // For normal GitHub repos, wait for examIntentStarted
         const isQuickStart = examSimulator.duration === 0;
         if (isQuickStart && repoUrl) {
           prepareExamContent();
+        } else if (examIntentStarted) {
+          prepareExamContent();
         }
-        // For normal GitHub repos, prompt preparation will be triggered by the examIntentStarted effect.
       } else {
         // Standard exam types - prepare immediately
         prepareExamContent();
       }
     }
-  }, [examSimulator, prompt, isLoadingPrompt, repoUrl, prepareExamContent]);
 
-  // Effect for when exam intent starts (user clicks start button)
-  useEffect(() => {
+    // Handle exam intent for content setup (when content is already prepared)
     if (examIntentStarted && examSimulator && !isPreparingContentRef.current) {
       if (examSimulator.type === "Github Repo") {
         const isQuickStart = examSimulator.duration === 0;
 
         if (isQuickStart) {
           // For quick start, the content should already be prepared
-          if (prompt) {
+          if (prompt && prompt !== lastPrompt.current) {
+            lastPrompt.current = prompt;
+            const newConfig = createLiveConfig(prompt);
+            setLiveConfig(newConfig);
+          } else if (prompt && prompt === lastPrompt.current) {
+            // Prompt is already set and processed, but liveConfig might not be set
             const newConfig = createLiveConfig(prompt);
             setLiveConfig(newConfig);
           } else if (!repoUrl) {
@@ -671,11 +791,18 @@ export function ExamWorkflow({
           }
         } else {
           // Normal GitHub repo - prepare content when exam starts
-          prepareExamContent();
+          if (!prompt) {
+            prepareExamContent();
+          } else if (prompt && prompt !== lastPrompt.current) {
+            lastPrompt.current = prompt;
+            const newConfig = createLiveConfig(prompt);
+            setLiveConfig(newConfig);
+          }
         }
       } else {
         // Standard exam types - content should already be prepared
-        if (prompt) {
+        if (prompt && prompt !== lastPrompt.current) {
+          lastPrompt.current = prompt;
           const newConfig = createLiveConfig(prompt);
           setLiveConfig(newConfig);
         } else if (!isLoadingPrompt) {
@@ -687,14 +814,24 @@ export function ExamWorkflow({
   }, [
     examIntentStarted,
     examSimulator,
+    repoUrl,
+    isGitHubDisabled,
     prompt,
     isLoadingPrompt,
-    repoUrl,
     prepareExamContent,
   ]);
 
   // Extract complex expression to avoid linter warning
   const liveConfigText = liveConfig?.systemInstruction?.parts?.[0]?.text;
+
+  // Effect to set live config when prompt is available (for quick start scenarios)
+  useEffect(() => {
+    if (prompt && prompt !== lastPrompt.current && !isLoadingPrompt) {
+      lastPrompt.current = prompt;
+      const newConfig = createLiveConfig(prompt);
+      setLiveConfig(newConfig);
+    }
+  }, [prompt, isLoadingPrompt, examSimulator?.type, examSimulator?.duration]);
 
   // Effect to connect and start timers when config is set and intent is active
   useEffect(() => {
@@ -732,11 +869,9 @@ export function ExamWorkflow({
     liveConfigText,
     connected,
     connect,
-    examDurationActiveExamMs,
-    connectionTrigger,
     isDeliberatelyPaused,
     liveConfig,
-  ]);
+  ]); // Added missing liveConfig dependency
 
   // Separate effect for cleanup when exam intent stops
   useEffect(() => {
@@ -863,7 +998,50 @@ export function ExamWorkflow({
   }
 
   if (examError) {
-    return <div className="text-red-500">Error: {examError}</div>;
+    const isRateLimitError = examError.includes("rate limit");
+    const isPrivateRepoError =
+      examError.includes("private") || examError.includes("restricted");
+
+    const handleRetry = () => {
+      console.log("User requested retry, resetting error state");
+      resetGitHubError();
+    };
+
+    return (
+      <div className="my-6 p-4 border border-tokyo-red bg-tokyo-red/10 rounded-lg">
+        <div className="text-red-500 mb-3">
+          <strong>Error:</strong> {examError}
+        </div>
+
+        {isPrivateRepoError && (
+          <div className="text-sm text-tokyo-fg-dim mb-3">
+            <p>Only public repositories are supported. Please:</p>
+            <ul className="list-disc list-inside mt-1 space-y-1">
+              <li>Use a public repository</li>
+              <li>Make the repository public if you own it</li>
+              <li>Try a different repository</li>
+            </ul>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={handleRetry}
+            className="px-3 py-1 bg-tokyo-blue text-white rounded text-sm hover:bg-tokyo-blue/80 transition-colors"
+          >
+            Try Again
+          </button>
+          {isRateLimitError && (
+            <button
+              onClick={() => window.location.reload()}
+              className="px-3 py-1 bg-tokyo-orange text-white rounded text-sm hover:bg-tokyo-orange/80 transition-colors"
+            >
+              Refresh Page
+            </button>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (

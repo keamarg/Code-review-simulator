@@ -2,58 +2,63 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.3.35] - 2025-07-16
+## [1.3.36] - 2025-07-16
 
-### Added
+### Optimized
 
-- **Git Submodule Integration**: Added API key server as a git submodule for better project organization and independent deployment.
+- **useEffect Trigger Optimization**: Significantly reduced unnecessary useEffect triggers in ExamWorkflow to improve performance and prevent cascading state updates.
 
-  - **Submodule Structure**: API key server now lives in `backend/api-key-server/` as a git submodule
-  - **Independent Version Control**: Each project maintains its own git history and can be updated independently
-  - **Deployment Flexibility**: Main app and API key server can be deployed separately on Vercel
-  - **Development Scripts**: Added `scripts/dev.sh` and `scripts/deploy.sh` for streamlined development and deployment
-  - **Local Development**: API key server runs on port 3001 for local development alongside main app on port 3000
-
-### Enhanced
-
-- **JWT Authentication for API Key Server**: Implemented secure JWT authentication for all API key endpoints.
-
-  - **Security Enhancement**: All API endpoints now require valid Supabase JWT tokens
-  - **Authentication Middleware**: Added `withAuth()` middleware function to protect API routes
-  - **Token Validation**: JWT tokens are validated against Supabase using service role key
-  - **CORS Headers**: Updated CORS headers to include Authorization header support
-  - **Environment Setup**: Added comprehensive environment variable documentation
-  - **Error Handling**: Proper error responses for unauthorized requests
-
-### Changed
-
-- **API Server Configuration**: Centralized API server URL management with environment-based configuration.
-
-  - **Configuration File**: Created `src/exam-simulator/config/apiServerConfig.ts` for centralized URL management
-  - **Environment Detection**: Automatically switches between localhost (development) and production URLs
-  - **Endpoint Management**: Centralized endpoint URLs for OpenAI, Gemini, and Supabase services
-  - **Development Setup**: Local development uses `http://localhost:3001` for API key server
-  - **Production Setup**: Production uses deployed Vercel URL for API key server
+  - **Consolidated Effects**: Combined separate prompt preparation and exam intent effects into a single consolidated effect to reduce redundant triggers
+  - **Reduced Dependencies**: Removed unnecessary dependencies from useEffect arrays that were causing cascading triggers
+  - **Better State Tracking**: Added refs to track previous state values and prevent triggers when state hasn't meaningfully changed
+  - **Connection Effect Optimization**: Reduced connection effect dependencies and added better logging for debugging
+  - **Performance Impact**: Eliminated redundant effect triggers that were causing unnecessary re-renders and API calls
+  - **Console Logging**: Enhanced logging to better track when and why effects are triggered
 
 ### Technical Details
 
-- **JWT Authentication Flow**:
+- **Consolidated Effect**: Single effect now handles both content preparation and exam intent logic with better state management
+- **State Tracking Refs**: Added `lastExamIntentStarted`, `lastPrompt` refs to prevent unnecessary triggers
+- **Dependency Reduction**: Removed `examDurationActiveExamMs`, `connectionTrigger`, `liveConfig` from connection effect
+- **Better Guards**: Enhanced guards to prevent processing when conditions haven't meaningfully changed
+- **Logging Enhancement**: Added detailed logging for each effect to track trigger patterns
 
-  - Client sends JWT token in Authorization header
-  - Server validates token with Supabase using service role key
-  - Unauthorized requests return 401 status with error message
-  - Preflight requests are handled properly for CORS
+### User Experience
 
-- **Development Environment**:
+- **Faster Response**: Reduced unnecessary re-renders and API calls improve overall app responsiveness
+- **Stable Performance**: Eliminated cascading state updates that could cause performance issues
+- **Better Debugging**: Enhanced console logging makes it easier to track effect trigger patterns
+- **Consistent Behavior**: More predictable effect behavior reduces edge cases and bugs
 
-  - Main app: `http://localhost:3000`
-  - API key server: `http://localhost:3001`
-  - Run `npm run dev` to start both servers simultaneously
+## [1.3.35] - 2025-07-16
 
-- **Deployment Process**:
-  - Run `npm run deploy-prep` to build both projects
-  - Deploy API key server separately: `cd backend/api-key-server && vercel --prod`
-  - Deploy main app: `vercel --prod`
+### Fixed
+
+- **GitHub Repository Error Handling**: Significantly improved error handling for GitHub repository processing to prevent repeated API calls and provide clearer error messages.
+
+  - **Root Cause**: Multiple API calls were being made when encountering rate limits or private repositories, causing hundreds of repeated errors
+  - **Error Types**: Now properly distinguishes between rate limit errors (403 with rate limit headers) and private repository errors (403 without rate limit headers)
+  - **Repeated Calls**: Added global flag to prevent multiple simultaneous repository processing calls
+  - **Error Messages**:
+    - Rate limit: "🚨 GitHub API rate limit exceeded. Please try again in X minutes."
+    - Private repo: "❌ Repository is private or access is restricted. Only public repositories are supported."
+  - **Processing Guards**: Added guards in ExamWorkflow to prevent retries when fatal errors are detected
+  - **User Experience**: Users can now try a different repository by changing the URL, which resets the error state
+
+### Technical Details
+
+- **Global Processing Flag**: `isProcessingRepository` prevents multiple simultaneous calls to `getRepoFiles`
+- **Enhanced Error Detection**: Checks `X-RateLimit-Remaining` and `X-RateLimit-Reset` headers to distinguish error types
+- **Fatal Error Handling**: Rate limit and private repo errors are treated as fatal and prevent retries
+- **Error State Reset**: Repository URL changes automatically reset error state to allow trying different repos
+- **Recursive Function Updates**: `getRepoFilesRecursive` now uses the same improved error handling
+
+### User Experience
+
+- **Single Error Message**: Users now see one clear error message instead of hundreds of repeated errors
+- **Clear Guidance**: Specific error messages tell users exactly what the problem is and how to fix it
+- **Easy Recovery**: Changing the repository URL allows users to try again with a different repo
+- **No More Spam**: Eliminated the flood of repeated error messages in the console
 
 ## [1.3.34] - 2025-07-16
 
