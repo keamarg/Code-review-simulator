@@ -644,11 +644,11 @@ export function ExamWorkflow({
         }
         // For normal GitHub repos, prompt preparation will be triggered by the examIntentStarted effect.
       } else {
-        // Standard exam - prepare content immediately
+        // Standard exam types - prepare immediately
         prepareExamContent();
       }
     }
-  }, [examSimulator, repoUrl, prompt, isLoadingPrompt]); // Removed prepareExamContent from dependencies
+  }, [examSimulator, prompt, isLoadingPrompt, repoUrl, prepareExamContent]);
 
   // Effect for when exam intent starts (user clicks start button)
   useEffect(() => {
@@ -670,27 +670,28 @@ export function ExamWorkflow({
             prepareExamContent();
           }
         } else {
-          // Normal GitHub repo flow
-          if (repoUrl && !prompt) {
-            prepareExamContent(); // This will set the prompt
-          } else if (prompt) {
-            const newConfig = createLiveConfig(prompt);
-            setLiveConfig(newConfig);
-          } else if (!repoUrl) {
-            setExamError(
-              "Please enter a GitHub repository URL before starting."
-            );
-          }
+          // Normal GitHub repo - prepare content when exam starts
+          prepareExamContent();
         }
       } else {
-        // Standard Exam
+        // Standard exam types - content should already be prepared
         if (prompt) {
           const newConfig = createLiveConfig(prompt);
           setLiveConfig(newConfig);
+        } else if (!isLoadingPrompt) {
+          // Fallback: if somehow content wasn't prepared, prepare it now
+          prepareExamContent();
         }
       }
     }
-  }, [examIntentStarted, examSimulator, repoUrl, prompt, isLoadingPrompt]); // Removed prepareExamContent from dependencies
+  }, [
+    examIntentStarted,
+    examSimulator,
+    prompt,
+    isLoadingPrompt,
+    repoUrl,
+    prepareExamContent,
+  ]);
 
   // Extract complex expression to avoid linter warning
   const liveConfigText = liveConfig?.systemInstruction?.parts?.[0]?.text;

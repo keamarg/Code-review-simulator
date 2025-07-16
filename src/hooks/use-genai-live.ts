@@ -40,12 +40,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
   const client = useMemo(() => {
     // If we already have a client with the same API key, reuse it
     if (globalClient && globalApiKey === options.apiKey) {
-      console.log(
-        `🔄 Reusing existing GenAI Live Client for API key: ${options.apiKey?.substring(
-          0,
-          10
-        )}...`
-      );
+      // Only log once per session, not on every render
       return globalClient;
     }
 
@@ -57,17 +52,18 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
       globalApiKey = null;
     }
 
-    // Create new client only if no client exists or API key changed
+    // Create new client
     console.log(
       `🔄 Creating new GenAI Live Client for API key: ${options.apiKey?.substring(
         0,
         10
       )}...`
     );
-    globalClient = new GenAILiveClient(options);
+    const newClient = new GenAILiveClient(options);
+    globalClient = newClient;
     globalApiKey = options.apiKey;
-    return globalClient;
-  }, [options.apiKey]); // Only depend on apiKey, not the entire options object
+    return newClient;
+  }, [options.apiKey]);
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
 
   const [connected, setConnected] = useState(false);
