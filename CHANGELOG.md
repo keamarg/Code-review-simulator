@@ -2,6 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.35] - 2025-07-16
+
+### Added
+
+- **Git Submodule Integration**: Added API key server as a git submodule for better project organization and independent deployment.
+
+  - **Submodule Structure**: API key server now lives in `backend/api-key-server/` as a git submodule
+  - **Independent Version Control**: Each project maintains its own git history and can be updated independently
+  - **Deployment Flexibility**: Main app and API key server can be deployed separately on Vercel
+  - **Development Scripts**: Added `scripts/dev.sh` and `scripts/deploy.sh` for streamlined development and deployment
+  - **Local Development**: API key server runs on port 3001 for local development alongside main app on port 3000
+
+### Enhanced
+
+- **JWT Authentication for API Key Server**: Implemented secure JWT authentication for all API key endpoints.
+
+  - **Security Enhancement**: All API endpoints now require valid Supabase JWT tokens
+  - **Authentication Middleware**: Added `withAuth()` middleware function to protect API routes
+  - **Token Validation**: JWT tokens are validated against Supabase using service role key
+  - **CORS Headers**: Updated CORS headers to include Authorization header support
+  - **Environment Setup**: Added comprehensive environment variable documentation
+  - **Error Handling**: Proper error responses for unauthorized requests
+
+### Changed
+
+- **API Server Configuration**: Centralized API server URL management with environment-based configuration.
+
+  - **Configuration File**: Created `src/exam-simulator/config/apiServerConfig.ts` for centralized URL management
+  - **Environment Detection**: Automatically switches between localhost (development) and production URLs
+  - **Endpoint Management**: Centralized endpoint URLs for OpenAI, Gemini, and Supabase services
+  - **Development Setup**: Local development uses `http://localhost:3001` for API key server
+  - **Production Setup**: Production uses deployed Vercel URL for API key server
+
+### Technical Details
+
+- **JWT Authentication Flow**:
+
+  - Client sends JWT token in Authorization header
+  - Server validates token with Supabase using service role key
+  - Unauthorized requests return 401 status with error message
+  - Preflight requests are handled properly for CORS
+
+- **Development Environment**:
+
+  - Main app: `http://localhost:3000`
+  - API key server: `http://localhost:3001`
+  - Run `npm run dev` to start both servers simultaneously
+
+- **Deployment Process**:
+  - Run `npm run deploy-prep` to build both projects
+  - Deploy API key server separately: `cd backend/api-key-server && vercel --prod`
+  - Deploy main app: `vercel --prod`
+
 ## [1.3.34] - 2025-07-16
 
 ### Fixed
