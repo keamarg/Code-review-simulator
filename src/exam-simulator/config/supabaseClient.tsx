@@ -26,10 +26,7 @@ export async function getSupabaseClient() {
       if (!res.ok) throw new Error("Failed to fetch Supabase anon key");
       const apiKey = await res.json();
 
-      supabaseInstance = createClient(
-        "https://gzoltpvnxwjoeycomcby.supabase.co",
-        apiKey
-      );
+      supabaseInstance = createClient("https://gzoltpvnxwjoeycomcby.supabase.co", apiKey);
 
       // eslint-disable-next-line no-console
       console.log("✅ Supabase client initialized successfully");
@@ -55,5 +52,5 @@ export const supabase = new Proxy(
         return client[prop](...args);
       };
     },
-  }
+  },
 );

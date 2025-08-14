@@ -20,9 +20,7 @@ export type GetAudioContextOptions = AudioContextOptions & {
 
 const map: Map<string, AudioContext> = new Map();
 
-export const audioContext: (
-  options?: GetAudioContextOptions
-) => Promise<AudioContext> = (() => {
+export const audioContext: (options?: GetAudioContextOptions) => Promise<AudioContext> = (() => {
   const didInteract = new Promise((res) => {
     window.addEventListener("pointerdown", res, { once: true });
     window.addEventListener("keydown", res, { once: true });
@@ -77,8 +75,8 @@ export const blobToJSON = (blob: Blob) =>
   });
 
 export function base64ToArrayBuffer(base64: string) {
-  var binaryString = atob(base64);
-  var bytes = new Uint8Array(binaryString.length);
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
@@ -102,11 +100,9 @@ const levelToWeight: Record<Exclude<LogLevel, "silent">, number> = {
   debug: 4,
 };
 
-const currentWeight =
-  LOG_LEVEL === "silent" ? 0 : levelToWeight[LOG_LEVEL] || 0;
+const currentWeight = LOG_LEVEL === "silent" ? 0 : levelToWeight[LOG_LEVEL] || 0;
 
-const canLog = (needed: keyof typeof levelToWeight) =>
-  currentWeight >= levelToWeight[needed];
+const canLog = (needed: keyof typeof levelToWeight) => currentWeight >= levelToWeight[needed];
 
 const logInfo = (...args: any[]) => {
   if (canLog("info")) console.log(...args);
@@ -143,18 +139,15 @@ export const appLogger = {
     pauseReview: () => logInfo("👤 User paused review"),
     resumeReview: () => logInfo("👤 User resumed review"),
     changeVoice: (voice: string) => logInfo(`🎤 Voice changed to: ${voice}`),
-    changeEnvironment: (env: string) =>
-      logInfo(`🎤 Environment changed to: ${env}`),
-    changeScreen: (screenName: string) =>
-      logInfo(`🖥️ Screen changed to: ${screenName}`),
+    changeEnvironment: (env: string) => logInfo(`🎤 Environment changed to: ${env}`),
+    changeScreen: (screenName: string) => logInfo(`🖥️ Screen changed to: ${screenName}`),
     mute: () => logInfo("🔇 User muted microphone"),
     unmute: () => logInfo("🔊 User unmuted microphone"),
   },
 
   // Timer events
   timer: {
-    started: (duration: number) =>
-      logInfo(`⏱️ Timer started (${Math.round(duration / 60000)}min)`),
+    started: (duration: number) => logInfo(`⏱️ Timer started (${Math.round(duration / 60000)}min)`),
     paused: () => logInfo("⏱️ Timer paused"),
     resumed: () => logInfo("⏱️ Timer resumed"),
     expired: () => logInfo("⏱️ Timer expired"),

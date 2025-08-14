@@ -34,7 +34,9 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build && cp build/index.html build/404.html",
-    "deploy": "gh-pages -d build"
+    "deploy": "gh-pages -d build",
+    "lint": "eslint src --ext .ts,.tsx",
+    "format": "prettier --write ."
   },
   "eslintConfig": {
     "extends": [
@@ -67,6 +69,14 @@
     "@types/react-dom": "^18.3.1",
     "@types/react-syntax-highlighter": "^15.5.13",
     "gh-pages": "^6.3.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.3.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.3"
   },

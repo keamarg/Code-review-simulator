@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { getSessionCompletion } from "../utils/getCompletion.js";
+import { getSessionCompletion } from "../utils/getCompletion";
 import prompts from "../../prompts.json";
 import { AI_CONFIG } from "../../config/aiConfig";
 
@@ -16,9 +16,7 @@ interface Message {
 
 export const useLiveSuggestionExtractor = () => {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [persistedSuggestions, setPersistedSuggestions] = useState<
-    Suggestion[]
-  >([]);
+  const [persistedSuggestions, setPersistedSuggestions] = useState<Suggestion[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const conversationHistory = useRef<Message[]>([]);
   const isSessionInitialized = useRef(false);
@@ -63,36 +61,33 @@ export const useLiveSuggestionExtractor = () => {
   }, []);
 
   // Levenshtein distance calculation
-  const levenshteinDistance = useCallback(
-    (str1: string, str2: string): number => {
-      const matrix = [];
+  const levenshteinDistance = useCallback((str1: string, str2: string): number => {
+    const matrix = [];
 
-      for (let i = 0; i <= str2.length; i++) {
-        matrix[i] = [i];
-      }
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
 
-      for (let j = 0; j <= str1.length; j++) {
-        matrix[0][j] = j;
-      }
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
 
-      for (let i = 1; i <= str2.length; i++) {
-        for (let j = 1; j <= str1.length; j++) {
-          if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-            matrix[i][j] = matrix[i - 1][j - 1];
-          } else {
-            matrix[i][j] = Math.min(
-              matrix[i - 1][j - 1] + 1,
-              matrix[i][j - 1] + 1,
-              matrix[i - 1][j] + 1
-            );
-          }
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1,
+          );
         }
       }
+    }
 
-      return matrix[str2.length][str1.length];
-    },
-    []
-  );
+    return matrix[str2.length][str1.length];
+  }, []);
 
   // Simple similarity calculation for duplicate detection
   const calculateSimilarity = useCallback(
@@ -105,7 +100,7 @@ export const useLiveSuggestionExtractor = () => {
       const editDistance = levenshteinDistance(longer, shorter);
       return (longer.length - editDistance) / longer.length;
     },
-    [levenshteinDistance]
+    [levenshteinDistance],
   );
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,10 +112,7 @@ export const useLiveSuggestionExtractor = () => {
       }
 
       // Skip if empty or already processed
-      if (
-        !transcriptChunk.trim() ||
-        processedChunks.current.has(transcriptChunk)
-      ) {
+      if (!transcriptChunk.trim() || processedChunks.current.has(transcriptChunk)) {
         return;
       }
 
@@ -177,9 +169,7 @@ export const useLiveSuggestionExtractor = () => {
           content: chunkPrompt,
         });
 
-        const response = await getSessionCompletion(
-          conversationHistory.current
-        );
+        const response = await getSessionCompletion(conversationHistory.current);
 
         // Add assistant response to conversation history
         conversationHistory.current.push({
@@ -207,30 +197,22 @@ export const useLiveSuggestionExtractor = () => {
             bulletPoints = lines
               .filter(
                 (line: string) =>
-                  line.startsWith("-") ||
-                  line.startsWith("*") ||
-                  /^\d+[).]/.test(line)
+                  line.startsWith("-") || line.startsWith("*") || /^\d+[).]/.test(line),
               )
-              .map((line: string) =>
-                line.replace(/^([•*-]|\d+[).])\s*/, "").trim()
-              )
+              .map((line: string) => line.replace(/^([•*-]|\d+[).])\s*/, "").trim())
               .filter((text: string) => text.length > 0);
           }
 
           if (bulletPoints.length > 0) {
-            const newSuggestions: Suggestion[] = bulletPoints.map(
-              (text: string) => ({
-                id: Date.now() + "-" + Math.random().toString(36).substr(2, 9),
-                text,
-                timestamp: new Date(),
-              })
-            );
+            const newSuggestions: Suggestion[] = bulletPoints.map((text: string) => ({
+              id: Date.now() + "-" + Math.random().toString(36).substr(2, 9),
+              text,
+              timestamp: new Date(),
+            }));
 
             // Add to suggestions list with intelligent duplicate handling
             setSuggestions((prev) => {
-              const existingTexts = new Set(
-                prev.map((s) => s.text.toLowerCase())
-              );
+              const existingTexts = new Set(prev.map((s) => s.text.toLowerCase()));
 
               // More sophisticated duplicate detection
               const uniqueNew = newSuggestions.filter((newSugg) => {
@@ -240,15 +222,10 @@ export const useLiveSuggestionExtractor = () => {
                 if (existingTexts.has(newText)) return false;
 
                 // Check for very similar suggestions (avoid minor variations)
-                const isTooSimilar = Array.from(existingTexts).some(
-                  (existingText) => {
-                    const similarity = calculateSimilarity(
-                      newText,
-                      existingText
-                    );
-                    return similarity > 0.8; // 80% similarity threshold
-                  }
-                );
+                const isTooSimilar = Array.from(existingTexts).some((existingText) => {
+                  const similarity = calculateSimilarity(newText, existingText);
+                  return similarity > 0.8; // 80% similarity threshold
+                });
 
                 return !isTooSimilar;
               });
@@ -270,10 +247,7 @@ export const useLiveSuggestionExtractor = () => {
           // Network issues are expected during disconnections - no logging needed
         } else if (error instanceof Error && error.name === "AbortError") {
           // Request cancellation is normal - no logging needed
-        } else if (
-          error instanceof Error &&
-          error.message.includes("timeout")
-        ) {
+        } else if (error instanceof Error && error.message.includes("timeout")) {
           console.log("🟡 Live suggestions API timeout - continuing normally");
         } else {
           console.error("Error extracting suggestions:", error);
@@ -287,7 +261,7 @@ export const useLiveSuggestionExtractor = () => {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [initializeSession, calculateSimilarity]
+    [initializeSession, calculateSimilarity],
   );
 
   const clearSuggestions = useCallback(() => {

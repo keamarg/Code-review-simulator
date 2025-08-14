@@ -1,15 +1,9 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { getSupabaseClient } from "../../config/supabaseClient";
 import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
 import { ExamSimulator } from "../../../types/ExamSimulator";
 import { getExaminerQuestions } from "../../utils/getExaminerQuestions";
-import getRepoQuestions from "../../utils/getGithubRepoFiles.js"; // Assuming .js is correct
+import getRepoQuestions from "../../utils/getGithubRepoFiles";
 import getPrompt from "../../utils/prompt";
 import { createLiveConfig } from "../../utils/liveConfigUtils"; // Import the new utility
 import { LoadingAnimation } from "../ui/LoadingAnimation"; // Check path
@@ -80,9 +74,7 @@ export function ExamWorkflow({
   onEnvironmentChange,
 }: ExamWorkflowProps) {
   const { client, connected, connect, stopAudio } = useGenAILiveContext();
-  const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(
-    null
-  );
+  const [examSimulator, setExamSimulator] = useState<ExamSimulator | null>(null);
   const [isLoadingExamData, setIsLoadingExamData] = useState(false);
   const [examError, setExamError] = useState<string>("");
   const [repoUrl, setRepoUrl] = useState(""); // State to manage GitHub repository URL
@@ -121,7 +113,7 @@ export function ExamWorkflow({
   const { getConversationSummary, clearConversation } = useConversationTracker(
     client,
     onTranscriptChunk,
-    onTranscriptChunk
+    onTranscriptChunk,
   );
 
   // Immediately stop AI voice when forceStopAudio is triggered
@@ -292,9 +284,7 @@ export function ExamWorkflow({
       // Don't reset isReconnecting here - let the AI response handle it
       return;
     } catch (error) {
-      appLogger.error.connection(
-        error instanceof Error ? error.message : String(error)
-      );
+      appLogger.error.connection(error instanceof Error ? error.message : String(error));
       setIsReconnecting(false);
 
       // Retry after 5 seconds
@@ -378,12 +368,7 @@ export function ExamWorkflow({
     return () => {
       client.off("close", handleClose);
     };
-  }, [
-    client,
-    examIntentStarted,
-    isDeliberatelyPaused,
-    handleAutomaticReconnect,
-  ]);
+  }, [client, examIntentStarted, isDeliberatelyPaused, handleAutomaticReconnect]);
   // ------------------------------------------------------------
 
   // Unified handler for both timer expiration and manual stop
@@ -405,9 +390,7 @@ export function ExamWorkflow({
         try {
           client.terminateSession();
         } catch (error) {
-          appLogger.error.session(
-            error instanceof Error ? error.message : String(error)
-          );
+          appLogger.error.session(error instanceof Error ? error.message : String(error));
         }
       }
 
@@ -426,14 +409,12 @@ export function ExamWorkflow({
             description: examSimulator?.description,
             duration: examSimulator?.duration,
           },
-          liveSuggestions
+          liveSuggestions,
         );
         setReviewSummary(summary);
         setShowSummaryModal(true);
       } catch (error) {
-        appLogger.error.general(
-          error instanceof Error ? error.message : String(error)
-        );
+        appLogger.error.general(error instanceof Error ? error.message : String(error));
         setReviewSummary("Error generating summary. Please try again.");
         setShowSummaryModal(true);
       } finally {
@@ -465,7 +446,7 @@ export function ExamWorkflow({
       onTimerExpired,
       onManualStop,
       client,
-    ]
+    ],
   );
 
   // Handle timer expiration - now calls unified handler
@@ -540,12 +521,8 @@ export function ExamWorkflow({
         if (error) throw error;
         setExamSimulator(data as ExamSimulator); // Cast if necessary, ensure type alignment
       } catch (err) {
-        appLogger.error.general(
-          err instanceof Error ? err.message : String(err)
-        );
-        setExamError(
-          err instanceof Error ? err.message : "An unknown error occurred"
-        );
+        appLogger.error.general(err instanceof Error ? err.message : String(err));
+        setExamError(err instanceof Error ? err.message : "An unknown error occurred");
       } finally {
         setIsLoadingExamData(false);
       }
@@ -568,7 +545,7 @@ export function ExamWorkflow({
           ({
             ...prev,
             fullScan: quickStartExam.fullScan,
-          } as ExamSimulator)
+          }) as ExamSimulator,
       );
     }
   }, [quickStartExam?.fullScan, quickStartExam?.type, examSimulator]);
@@ -623,7 +600,7 @@ export function ExamWorkflow({
         "Repository URL actually changed from",
         previousRepoUrlRef.current,
         "to",
-        repoUrl
+        repoUrl,
       );
       previousRepoUrlRef.current = repoUrl;
 
@@ -666,10 +643,7 @@ export function ExamWorkflow({
 
     // Check for rate limit cooldown (wait 5 minutes after rate limit error)
     const now = Date.now();
-    if (
-      lastErrorTimeRef.current > 0 &&
-      now - lastErrorTimeRef.current < 5 * 60 * 1000
-    ) {
+    if (lastErrorTimeRef.current > 0 && now - lastErrorTimeRef.current < 5 * 60 * 1000) {
       return;
     }
 
@@ -687,9 +661,7 @@ export function ExamWorkflow({
       if (examSimulator.type === "Github Repo") {
         if (!repoUrl) {
           setIsLoadingPrompt(false);
-          setExamError(
-            "GitHub repository URL is required to start this exam type."
-          );
+          setExamError("GitHub repository URL is required to start this exam type.");
           return;
         }
 
@@ -702,19 +674,13 @@ export function ExamWorkflow({
                 maxFiles: examSimulator.fullScan ? 20 : 5,
                 maxDepth: 3,
               }
-            : undefined
+            : undefined,
         );
         setGithubQuestions(githubQuestionsResult);
 
-        finalPrompt = getPrompt.github(
-          examSimulator,
-          examDurationInMinutes,
-          githubQuestionsResult
-        );
+        finalPrompt = getPrompt.github(examSimulator, examDurationInMinutes, githubQuestionsResult);
 
-        setStudentTask(
-          "Review the provided GitHub repository based on the learning goals."
-        );
+        setStudentTask("Review the provided GitHub repository based on the learning goals.");
       } else if (isQuickStart) {
         // Quick start general review - no questions generation needed
         const studentTaskAnswer =
@@ -725,24 +691,15 @@ export function ExamWorkflow({
         // Standard exam type
         const examContent = await getExaminerQuestions(examSimulator);
         const studentTaskAnswer =
-          (examContent && (examContent as any)["task-student"]) ||
-          "No task defined.";
+          (examContent && (examContent as any)["task-student"]) || "No task defined.";
         setStudentTask(studentTaskAnswer);
-        finalPrompt = getPrompt.standard(
-          examSimulator,
-          examDurationInMinutes,
-          studentTaskAnswer
-        );
+        finalPrompt = getPrompt.standard(examSimulator, examDurationInMinutes, studentTaskAnswer);
       }
       setPrompt(finalPrompt);
     } catch (error) {
-      appLogger.error.general(
-        error instanceof Error ? error.message : String(error)
-      );
+      appLogger.error.general(error instanceof Error ? error.message : String(error));
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Failed to load exam questions/prompt";
+        error instanceof Error ? error.message : "Failed to load exam questions/prompt";
       setExamError(`Error: ${errorMessage}`);
 
       // If it's a fatal error (rate limit or private repo), set up prevention
@@ -757,13 +714,7 @@ export function ExamWorkflow({
       setIsLoadingPrompt(false);
       isPreparingContentRef.current = false;
     }
-  }, [
-    examSimulator,
-    repoUrl,
-    examDurationInMinutes,
-    isGitHubDisabled,
-    isFatalError,
-  ]);
+  }, [examSimulator, repoUrl, examDurationInMinutes, isGitHubDisabled, isFatalError]);
 
   // Add refs to track state changes and prevent unnecessary triggers
   const hasTriggeredInitialLoad = useRef(false);
@@ -830,9 +781,7 @@ export function ExamWorkflow({
             const newConfig = createLiveConfig(prompt);
             setLiveConfig(newConfig);
           } else if (!repoUrl) {
-            setExamError(
-              "Please enter a GitHub repository URL before starting."
-            );
+            setExamError("Please enter a GitHub repository URL before starting.");
           } else if (!isLoadingPrompt) {
             // Fallback: if somehow content wasn't prepared, prepare it now
             prepareExamContent();
@@ -896,9 +845,7 @@ export function ExamWorkflow({
       connect(getCurrentModel(), liveConfig)
         .then((ok) => {
           if (!ok) {
-            throw new Error(
-              "Client refused to connect (already connecting/connected)"
-            );
+            throw new Error("Client refused to connect (already connecting/connected)");
           }
           activeConnectionRef.current = true;
           setExamStarted(true);
@@ -914,14 +861,7 @@ export function ExamWorkflow({
           activeConnectionRef.current = false;
         });
     }
-  }, [
-    examIntentStarted,
-    liveConfigText,
-    connected,
-    connect,
-    isDeliberatelyPaused,
-    liveConfig,
-  ]); // Added missing liveConfig dependency
+  }, [examIntentStarted, liveConfigText, connected, connect, isDeliberatelyPaused, liveConfig]); // Added missing liveConfig dependency
 
   // Separate effect for cleanup when exam intent stops
   useEffect(() => {
@@ -939,13 +879,7 @@ export function ExamWorkflow({
       activeConnectionRef.current = false;
       hasLoggedConnectionRef.current = false;
     }
-  }, [
-    examIntentStarted,
-    connected,
-    client,
-    isReconnecting,
-    showReconnectionBanner,
-  ]);
+  }, [examIntentStarted, connected, client, isReconnecting, showReconnectionBanner]);
 
   // Notify parent of loading state changes
   useEffect(() => {
@@ -994,9 +928,7 @@ export function ExamWorkflow({
         awaitingPostIntroNudgeRef.current = true;
         hasSentIntroRef.current = true;
       } catch (error) {
-        appLogger.error.session(
-          "Failed to send introduction message: " + error
-        );
+        appLogger.error.session("Failed to send introduction message: " + error);
         // Don't set flag if message failed - CountdownTimer will handle retry logic
       }
     } else {
@@ -1056,8 +988,7 @@ export function ExamWorkflow({
 
   if (examError) {
     const isRateLimitError = examError.includes("rate limit");
-    const isPrivateRepoError =
-      examError.includes("private") || examError.includes("restricted");
+    const isPrivateRepoError = examError.includes("private") || examError.includes("restricted");
 
     const handleRetry = () => {
       appLogger.generic.info("User requested retry, resetting error state");
@@ -1153,10 +1084,7 @@ export function ExamWorkflow({
 
       {/* Display student task area for standard exams */}
       {examSimulator.type !== "Github Repo" && (
-        <AIExaminerDisplay
-          studentTask={studentTask}
-          isLoading={isLoadingPrompt}
-        />
+        <AIExaminerDisplay studentTask={studentTask} isLoading={isLoadingPrompt} />
       )}
 
       {/* Code Review Summary Modal */}
@@ -1202,22 +1130,17 @@ export function ExamWorkflow({
       )}
 
       {/* Show helper text when GitHub URL is required but not provided */}
-      {examSimulator?.type === "Github Repo" &&
-        !isValidGitHubUrl(repoUrl) &&
-        !isLoadingPrompt && (
-          <div className="text-center text-tokyo-fg-dim mt-4 p-4 bg-tokyo-bg-lighter rounded-lg border border-tokyo-selection">
-            <p className="mb-2">
-              <span className="material-symbols-outlined text-tokyo-orange mr-2">
-                info
-              </span>
-              Please enter a valid GitHub repository URL above to start the code
-              review
-            </p>
-            <p className="text-sm text-tokyo-fg-dim">
-              Supported formats: github.com/user/repo, user/repo, or API URLs
-            </p>
-          </div>
-        )}
+      {examSimulator?.type === "Github Repo" && !isValidGitHubUrl(repoUrl) && !isLoadingPrompt && (
+        <div className="text-center text-tokyo-fg-dim mt-4 p-4 bg-tokyo-bg-lighter rounded-lg border border-tokyo-selection">
+          <p className="mb-2">
+            <span className="material-symbols-outlined text-tokyo-orange mr-2">info</span>
+            Please enter a valid GitHub repository URL above to start the code review
+          </p>
+          <p className="text-sm text-tokyo-fg-dim">
+            Supported formats: github.com/user/repo, user/repo, or API URLs
+          </p>
+        </div>
+      )}
     </div>
   );
 }

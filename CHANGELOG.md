@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2025-08-14
+
+### Added
+
+- ESLint and Prettier configuration for consistent code quality across the repo (`.eslintrc.cjs`, `.prettierrc.json`), plus `npm run lint` and `npm run format` scripts
+- TypeScript versions of remaining JS utilities and context:
+  - `src/exam-simulator/contexts/AuthContext.tsx`
+  - `src/exam-simulator/utils/getCompletion.ts`
+  - `src/exam-simulator/utils/getGithubRepoFiles.ts`
+  - `src/exam-simulator/utils/prompt.ts`
+- Converted backend API routes to TypeScript in `backend/api-key-server/pages/api/`:
+  - `prompt1.ts`, `prompt2.ts`, `database.ts`
+
+### Changed
+
+- Updated all imports to reference TypeScript modules without `.js` extensions
+- Unified API URLs to use `src/config/urls.ts` and removed the duplicate JS variant
+
+### Removed
+
+- Deleted JS files replaced by TypeScript to avoid duplication and import ambiguity:
+  - `src/exam-simulator/contexts/AuthContext.js`
+  - `src/exam-simulator/utils/getCompletion.js`
+  - `src/exam-simulator/utils/getGithubRepoFiles.js`
+  - `src/exam-simulator/utils/prompt.js`
+  - `src/config/urls.js`
+  - Backend: `backend/api-key-server/pages/api/{prompt1.js,prompt2.js,database.js}`
+
+---
+
 ## [1.4.2] - 2025-08-14
 
 ### Fixed
@@ -65,7 +95,6 @@ All notable changes to this project will be documented in this file.
 ### Optimized
 
 - **useEffect Trigger Optimization**: Significantly reduced unnecessary useEffect triggers in ExamWorkflow to improve performance and prevent cascading state updates.
-
   - **Consolidated Effects**: Combined separate prompt preparation and exam intent effects into a single consolidated effect to reduce redundant triggers
   - **Reduced Dependencies**: Removed unnecessary dependencies from useEffect arrays that were causing cascading triggers
   - **Better State Tracking**: Added refs to track previous state values and prevent triggers when state hasn't meaningfully changed
@@ -93,7 +122,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **GitHub Repository Error Handling**: Significantly improved error handling for GitHub repository processing to prevent repeated API calls and provide clearer error messages.
-
   - **Root Cause**: Multiple API calls were being made when encountering rate limits or private repositories, causing hundreds of repeated errors
   - **Error Types**: Now properly distinguishes between rate limit errors (403 with rate limit headers) and private repository errors (403 without rate limit headers)
   - **Repeated Calls**: Added global flag to prevent multiple simultaneous repository processing calls
@@ -123,7 +151,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **Supabase GoTrueClient Multiple Instances Warning**: Fixed the warning about multiple GoTrueClient instances by implementing a proper singleton pattern for Supabase client creation.
-
   - **Root Cause**: Multiple Supabase client instances were being created simultaneously due to race conditions and lack of proper singleton management
   - **Warning Impact**: Browser console warning "Multiple GoTrueClient instances detected in the same browser context" indicating potential undefined behavior
   - **Solution**: Implemented proper singleton pattern with initialization promise tracking to prevent multiple client creation
@@ -146,7 +173,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **GitHub Repository Mode Audio Timing**: Fixed voice input delay in GitHub repository mode by aligning audio recorder startup timing with quick mode.
-
   - **Root Cause**: GitHub repository mode was starting the audio recorder AFTER the AI connection was established, while quick mode started it BEFORE connection
   - **Timing Issue**: Audio recorder startup timing difference caused ~2-3 second delays in voice input registration for GitHub mode
   - **Solution**: Modified GitHub repository mode to use the same deferred audio startup pattern as quick mode
@@ -166,7 +192,6 @@ All notable changes to this project will be documented in this file.
 ### Enhanced
 
 - **Voice Input Responsiveness Optimization**: Significantly improved voice input registration speed to reduce conversation delays.
-
   - **Audio Buffer Optimization**: Reduced audio processing buffer from 1024 to 512 samples (32ms vs 64ms chunks) for faster voice registration
   - **Speech Detection Enhancement**: Improved speech detection algorithm with more permissive thresholds for faster response
   - **VAD Settings Optimization**: Reduced silence duration and prefix padding across all environments for faster conversation flow
@@ -193,7 +218,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **CRITICAL: GitHub Repository Mode Session Termination**: Fixed issues where GitHub repository mode sessions were difficult to stop due to multiple WebSocket connections and processing delays.
-
   - **Multiple WebSocket Connections**: Fixed global client management to ensure only one GenAI Live Client instance exists per API key
   - **Processing Race Conditions**: Added guards to prevent multiple simultaneous calls to `prepareExamContent` function
   - **Dependency Array Issues**: Removed `prepareExamContent` from useEffect dependency arrays to prevent infinite loops
@@ -221,7 +245,6 @@ All notable changes to this project will be documented in this file.
 ### Enhanced
 
 - **GitHub Repository Performance Optimization**: Implemented comprehensive caching system to significantly reduce GitHub mode startup delays.
-
   - **Repository Content Caching**: Added 10-minute cache for repository file contents to avoid re-downloading the same files
   - **AI Question Caching**: Cached AI-generated review questions to avoid re-processing the same repository content
   - **Cache Key Strategy**: Uses repository URL + developer level + options as cache key for precise caching
@@ -249,7 +272,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **Duplicate Vercel API Calls**: Implemented request deduplication to prevent multiple simultaneous API calls for the same endpoint during app initialization.
-
   - **Root Cause**: Race condition during app initialization where AuthContext and RecentCodeReviews both called `getCachedApiKey("database")` simultaneously
   - **Network Impact**: Two identical requests to `https://api-key-server-codereview.vercel.app/api/database` on app load
   - **Solution**: Added request deduplication mechanism with pending request tracking
@@ -272,7 +294,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **Supabase Client TypeScript Errors**: Fixed all TypeScript compilation errors by updating all Supabase imports and usages to use the new async client pattern.
-
   - **Root Cause**: Multiple files were still importing the old synchronous `supabase` export, causing TypeScript errors
   - **Error Impact**: TypeScript compilation failures in ExamWorkflow, Dashboard, Login, Signup, ExamEditor, RecentCodeReviews, and AuthContext
   - **Solution**: Updated all files to use `getSupabaseClient()` async function instead of synchronous `supabase` import
@@ -297,7 +318,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **Supabase API Key Source**: Reverted Supabase client to use Vercel API key fetching like other services, ensuring consistent API key management across the application.
-
   - **Root Cause**: Supabase was using environment variables while other services (OpenAI, Gemini) were using Vercel API key server
   - **Inconsistency**: Mixed API key sources causing confusion and requiring different setup methods
   - **Solution**: Updated Supabase client to use `getCachedApiKey("database")` from Vercel server
@@ -318,7 +338,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **Supabase Client TypeScript Errors**: Reverted Supabase client to synchronous export to fix all TypeScript compilation errors.
-
   - **Root Cause**: The async Proxy-based Supabase client export was incompatible with existing code patterns (`supabase.from()`, `supabase.auth`)
   - **Error Impact**: Multiple TypeScript errors across all files using Supabase (ExamWorkflow, Dashboard, Login, etc.)
   - **Solution**: Reverted to standard synchronous Supabase client using environment variables
@@ -339,7 +358,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **API Key Caching System**: Implemented centralized API key caching to prevent repeated Vercel API calls that were causing unnecessary network requests and potential delays.
-
   - **Root Cause**: Multiple functions (`getCompletion`, `getSessionCompletion`, `getRepoQuestions`, `AIExaminerPage`) were fetching API keys from Vercel server on every call
   - **Performance Impact**: Each OpenAI API call triggered a separate Vercel API request, causing network overhead and potential rate limiting
   - **Solution**: Created centralized `getCachedApiKey` function with 5-minute cache duration to reuse API keys
@@ -361,7 +379,6 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - **CRITICAL: Multiple WebSocket Connections Causing Delays**: Fixed the root cause of GitHub repo mode delays by preventing multiple GenAI Live Client instances from creating separate WebSocket connections.
-
   - **Root Cause**: Each component using `useGenAILiveContext()` was creating its own `GenAILiveClient` instance, resulting in 3+ simultaneous WebSocket connections to Google's API
   - **Network Tab Evidence**: Multiple `wss://generativelanguage.googleapis.com` connections were active simultaneously, with one "constantly processing data"
   - **Performance Impact**: Multiple connections caused resource conflicts, timing issues, and excessive API usage
@@ -652,14 +669,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Infinite Session Termination Loop**: Fixed critical regression introduced during linter cleanup that caused infinite "🛑 Terminating session completely - no resumption possible" console flooding when starting reviews.
-
   - **Root Cause**: During linter cleanup, changed `useMemo` dependency in `use-genai-live.ts` from `[options.apiKey]` to `[options]`, causing GenAI client to be recreated on every render
   - **Chain Reaction**: Client recreation → ExamWorkflow cleanup effect → `terminateSession()` → render → repeat infinitely (300,000+ instances/second)
   - **Solution**: Reverted `useMemo` dependency back to `[options.apiKey]` to only recreate client when API key actually changes
   - **Impact**: Reviews now start normally without console flooding or infinite session termination loops
 
 - **Code Quality: Complete Linter Cleanup**: Completed comprehensive ESLint error and warning cleanup across all files to achieve zero linter errors and significantly improved code maintainability.
-
   - **Final Cleanup Phase**: Removed remaining unused variables and fixed all missing React Hook dependencies
     - **ControlTrayCustom.tsx**: Removed final unused state variables (`setPermissionsGranted`, `setIsRequestingPermissions`), fixed missing useEffect dependencies (`videoRef`, `handleMainButtonClick`)
     - **useLiveSuggestionExtractor.ts**: Fixed template string expression (replaced `${transcriptChunk}` with `{{transcriptChunk}}`), added missing `calculateSimilarity` dependency to useCallback, refactored functions to use useCallback for proper dependency management
@@ -696,7 +711,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Voice Changes with Session Resumption Now Work**: Fixed the core issue where voice changes were not properly using session resumption, causing conversations to restart instead of continuing.
-
   - **Root Cause**: ExamWorkflow was interfering with voice change reconnections by immediately starting its own reconnection flow when it detected any connection close
   - **Technical Issue**: Voice change method would correctly disconnect and attempt session resumption, but ExamWorkflow would see the disconnect and override it with a fresh connection
   - **Solution**: Added `voiceChangeInProgress` flag to GenAILiveClient and modified ExamWorkflow to not interfere when voice changes are happening
@@ -723,7 +737,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Voice Change Context Clarity**: Improved voice change functionality with better logging and user feedback to clarify session resumption behavior.
-
   - **Root Cause**: Users were unclear about when session resumption is available vs when fresh connections are created
   - **Solution**: Enhanced logging to explain that session resumption handles are only available after some interaction with the AI
   - **User Feedback**: Added clear messages explaining when conversation context is preserved vs when fresh connections are created
@@ -750,7 +763,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Voice Change Error and Early Session Handling**: Fixed voice change failures and improved handling for voice changes at the beginning of sessions.
-
   - **Root Cause**: Voice change method was too restrictive, requiring session resumption handles even for early session voice changes
   - **Solution**: Enhanced `changeVoice()` method to handle both scenarios:
     - **With session resumption**: Preserves conversation context for mid-session changes
@@ -769,7 +781,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Restored Original Navigation Structure**: Fixed navigation to match the original design, removing the unwanted "Welcome" message and restoring proper navigation flow.
-
   - **Root Cause**: Previous fixes added a new navigation structure that wasn't what the user wanted
   - **Solution**: Restored the original navigation with Create/Dashboard/Logout for logged-in users and Login/Sign Up for guests
   - **Impact**: Navigation now matches the original design and user expectations
@@ -799,7 +810,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: GenAI Context Provider Error**: Fixed critical error where `useGenAILiveContext` was being called outside of its provider, causing the application to crash on pages without GenAI functionality.
-
   - **Root Cause**: The Layout component was trying to use `useGenAILiveContext` for mid-session voice changes, but the provider was only available on the AI Examiner page
   - **Solution**: Removed the GenAI context dependency from Layout component and simplified the voice change functionality to work across all pages
   - **Impact**: Application now loads successfully on all pages without context provider errors
@@ -854,7 +864,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Navigation Text**: Updated navigation labels for better clarity
-
   - "Create" → "Create Review" - More descriptive of the action
   - "Dashboard" → "Saved Reviews" - Better reflects the content (saved code reviews)
   - **Impact**: Improved user understanding of navigation destinations
@@ -946,7 +955,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Full Repository Scan Option**: Added the ability to scan entire repositories including all subdirectories and files, not just the root directory.
-
   - **UI Toggle**: Added a toggle switch in both QuickStartModal and ReviewSetupModal to enable/disable full repository scanning
   - **Recursive Directory Traversal**: Implemented recursive scanning that explores all subdirectories up to a configurable depth (default: 3 levels)
   - **Intelligent File Limits**:
@@ -968,7 +976,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: GitHub Repository Network Error Handling**: Fixed "Failed to fetch" errors when processing repositories with only folders or unusual structures.
-
   - **Root Cause**: The fetch() calls themselves were failing with network errors before reaching HTTP status code checking, causing generic "Failed to fetch" errors that weren't properly handled.
   - **Network Error Handling**: Added comprehensive try-catch blocks around all fetch() operations to distinguish between network errors and HTTP errors.
   - **Specific Error Messages**: Now provides detailed error messages for different failure scenarios:
@@ -1064,7 +1071,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Quick Start GitHub Repo Change Screen Button**: Fixed the simple but crucial useCallback dependency issue preventing screen sharing state restoration after component remounting
-
   - **Root Cause Found**: The debug wrappers `debugSetActiveVideoStream` and `debugSetIsScreenSharing` had dependencies on `activeVideoStream` in their useCallback, causing them to be recreated constantly and interfering with state management
   - **Simple Solution**: Use refs (`activeVideoStreamRef`) to access current `activeVideoStream` value in debug wrappers without creating useCallback dependencies
   - **Circular Dependency**: The `[activeVideoStream]` dependency caused debug wrappers to recreate every time the state changed, leading to timing issues throughout the component
@@ -1092,7 +1098,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **GitHub Repository URL Validation**: Improved user experience for GitHub repository reviews by requiring valid URL before showing start button
-
   - **Smart Button Display**: "Share screen & start review" button now only appears when a valid GitHub repository URL is entered
   - **Multiple URL Format Support**: Validates various GitHub URL formats including web URLs, API URLs, SSH URLs, and short format (user/repo)
   - **Real-time Validation**: Button visibility updates immediately as user types or modifies the repository URL
@@ -1119,7 +1124,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Component Remounting Issue Resolved**: Fixed the actual root cause where "Change Screen" button wasn't appearing during GitHub repository reviews
-
   - **Root Cause Found**: ControlTrayCustom component was being unmounted and remounted during GitHub repository processing, resetting all state to defaults
   - **Evidence**: Debug logging showed component ID changing from `spjimc8hx` → `i6lafra5x` during processing, proving component recreation
   - **State Reset**: When component remounted, `useState` values reset to defaults: `isScreenSharing: false` even though screen sharing was still active
@@ -1170,7 +1174,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Change Screen Button State Variable Issue**: Fixed the root cause where "Change Screen" button wasn't appearing during GitHub repository reviews due to incorrect state management
-
   - **Root Cause Confirmed**: Screen sharing was working perfectly and AI was connected, but `isScreenSharing` variable was being incorrectly set to `false`
   - **State Protection**: Added safeguard to prevent `setIsScreenSharing(false)` when video stream is still active
   - **Debug Enhancement**: Added stack trace logging to identify what code was incorrectly setting the state
@@ -1206,7 +1209,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Change Screen Button Issue Root Cause Identified**: Determined that the "Change Screen" button not appearing during GitHub repository reviews is due to AI connection failure, not button visibility logic
-
   - **Debug Results**: Debug logging confirmed that screen sharing works correctly (`isScreenSharing: true`) but AI connection fails (`connected: false`)
   - **Button Logic Confirmed**: The button appears when `connected && isScreenSharing` - screen sharing works but AI connection doesn't establish
   - **GitHub Repo Processing Issue**: The problem is in the GitHub repository processing pipeline that should generate the prompt and establish the AI connection
@@ -1233,7 +1235,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Debug Logging for Change Screen Button**: Added comprehensive debugging to investigate why the "Change Screen" button isn't appearing during GitHub repository reviews
-
   - **State Tracking**: Added useEffect logging to track `connected` and `isScreenSharing` states in real-time
   - **Visibility Conditions**: Logs show exactly when the button should/shouldn't appear based on current state
   - **Console Output**: Debug messages appear as "🔍 DEBUG: Change Screen button conditions" with current state values
@@ -1251,7 +1252,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Clarified
 
 - **"Change Screen" Button Available for GitHub Repository Reviews**: Confirmed that the "Change Screen" button already appears for GitHub repository reviews in both quick start and custom modes
-
   - **Button Location**: Appears in the control tray next to microphone and stop buttons when screen sharing is active
   - **Visibility Conditions**: Shows when `connected` (AI review active) and `isScreenSharing` (screen sharing active) are both true
   - **Works For All Review Types**: Quick start GitHub repos, custom GitHub repos, and standard code reviews
@@ -1269,7 +1269,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Infinite Loop Actually Fixed**: Found and fixed the real root cause of thousands of repeated API calls
-
   - **Actual Root Cause**: `isLoadingPrompt` was in the dependency array of the second useEffect that calls `prepareExamContent`
   - **The Loop**: prepareExamContent() → setIsLoadingPrompt(true) → useEffect sees isLoadingPrompt changed → calls prepareExamContent() again → repeat thousands of times
   - **Debug Process**: Added logging to identify which useEffect was causing the loop - it was the "EXAM INTENT USEEFFECT" firing every 2-3ms
@@ -1298,7 +1297,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Infinite Loop Finally Fixed**: Identified and fixed the actual root cause of thousands of repeated API calls
-
   - **Real Root Cause**: `prepareExamContent` was in the useEffect dependency arrays, creating an infinite loop
   - **The Loop**: prepareExamContent() called → useEffect sees function changed → calls prepareExamContent() again → repeat thousands of times
   - **Simple Fix**: Removed `prepareExamContent` from both useEffect dependency arrays
@@ -1307,7 +1305,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Real Solution**: Fixed the calling code that was triggering the function repeatedly, not the function itself
 
 - **CRITICAL: Additional Performance Issues Fixed**: Resolved multiple other causes of excessive re-renders and component instability
-
   - **Debug Logging Spam**: Removed debug useEffect that was running on every state change with 7 different dependencies
   - **Unmemoized Function Issue**: Fixed `handleAutomaticReconnect` function that was being recreated on every render
   - **Missing Dependencies**: Added proper useCallback memoization and dependency management
@@ -1335,7 +1332,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Infinite Loop Causing Thousands of API Calls**: Fixed React render cycle issue that was causing infinite loops and thousands of GitHub API calls
-
   - **Root Cause**: `examDurationInMinutes` was recalculated on every render, recreating `prepareExamContent` callback, triggering useEffect infinite loops
   - **The Loop**: Component renders → examDurationInMinutes recalculated → prepareExamContent recreated → useEffect triggers → API calls → state changes → re-render → repeat thousands of times
   - **Memoization Fix**: Used `useMemo` to memoize `examDurationInMinutes` and `examDurationActiveExamMs` so they only change when `examSimulator.duration` actually changes
@@ -1372,7 +1368,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Clean Console**: No more thousands of repeated console messages
 
 - **CRITICAL: Eliminated Thousands of Repeated API Calls**: Completely simplified GitHub repository processing to prevent excessive API usage
-
   - **Root Cause**: Complex retry/caching logic was still allowing thousands of calls to be triggered by the calling code
   - **Simple Solution**: Try once, fail cleanly, let user retry manually
   - **No Automatic Retries**: Removed all automatic retry logic that was causing thousands of calls
@@ -1381,14 +1376,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **User Control**: User decides whether to retry with a different repository or try again later
 
 - **Simplified Error Handling**: Streamlined error messages for better user experience
-
   - **Rate Limit Errors**: Clear message about waiting and trying again later
   - **Repository Not Found**: Helpful guidance about checking repository name and accessibility
   - **Private Repository**: Clear explanation that only public repositories are supported
   - **No Code Files**: Simple explanation about root directory limitation with suggestion to try different repository
 
 - **Removed Complex Infrastructure**: Eliminated unnecessary caching, blocking, and state management systems
-
   - **No Global State**: Removed complex global rate limit tracking
   - **No Caching**: Removed repository-level caching that added complexity
   - **No Processing Flags**: Removed in-progress tracking that was overengineered
@@ -1424,7 +1417,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Ultra-Conservative API Usage**: Implemented single-call testing and minimal processing to prevent thousands of wasted API calls
-
   - **Root Cause**: Previous approach was still making too many API calls, leading to rapid rate limit exhaustion
   - **Ultra-Conservative Approach**: Now makes only 2-7 total API calls maximum (vs hundreds before)
   - **Single Test Call**: Makes ONE test call first to check rate limits and repository access
@@ -1435,7 +1427,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Quota Protection**: Preserves 90%+ of user's API quota for other repositories
 
 - **Eliminated Recursive Processing**: Removed deep directory traversal that caused excessive API calls
-
   - **No Subdirectories**: Only looks at root directory to minimize API calls
   - **No Recursion**: Eliminated recursive `processDirectory` function that made hundreds of calls
   - **Selective Processing**: Only downloads actual code files, skips directories entirely
@@ -1443,7 +1434,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Streamlined Logic**: Removed complex failure tracking and retry mechanisms
 
 - **Single-Point-of-Failure Protection**: Any API error stops all processing immediately
-
   - **First Call Test**: If first call fails, no additional calls are made
   - **Rate Limit Detection**: Immediate detection and stopping on any rate limit error
   - **Error Propagation**: All rate limit errors immediately stop processing
@@ -1453,7 +1443,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Minimal API Usage Strategy**: Completely redesigned to use minimal GitHub API calls
-
   - **2-7 Total Calls**: Repository test (1) + root directory (1) + files (max 5) = 2-7 calls total
   - **No Directory Scanning**: Eliminates expensive directory traversal operations
   - **Conservative File Limits**: Strict 5-file maximum to prevent quota exhaustion
@@ -1461,7 +1450,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Immediate Feedback**: Fast failure detection prevents unnecessary API usage
 
 - **User Experience**: Clear communication about the ultra-conservative approach
-
   - **Processing Summary**: Shows exactly how many files were processed and why
   - **Quota Protection Messages**: Explains that minimal processing protects API quota
   - **Clear Limitations**: Informs users that only root directory is checked
@@ -1482,7 +1470,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **GitHub Repository URL Handling**: Comprehensive improvements to URL parsing, validation, and user experience
-
   - **Multiple URL Format Support**: Now accepts various GitHub URL formats automatically
     - Standard web URLs: `https://github.com/owner/repo`
     - API URLs: `https://api.github.com/repos/owner/repo`
@@ -1506,7 +1493,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Format errors: Examples of correct URL formats
 
 - **QuickStartModal URL Input Enhancement**: Significant improvements to GitHub repository input experience
-
   - **Smart Placeholder**: Updated to show multiple format examples
   - **Format Examples**: Added visual list of all supported URL formats
   - **Real-time Validation**: Validates URLs as user types with immediate feedback
@@ -1535,7 +1521,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **MAJOR: Timer System Integration**: Unified the visual countdown timer and message timing system to eliminate synchronization issues
-
   - **Root Cause**: Two separate timer systems were running independently:
     - `CountdownTimer` (visual) - correctly paused/resumed with user actions
     - `useExamTimers` (messages) - used wall-clock time, ignored pauses
@@ -1549,7 +1534,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Simplified Architecture**: Removed duplicate timer system, single source of truth
 
 - **Timer System Safeguards**: Added robust error handling and state management
-
   - **State Reset**: Flags reset when timer restarts for new sessions
   - **Error Handling**: Failed message sends don't prevent retries
   - **Network Resilience**: Messages work correctly after reconnections
@@ -1568,7 +1552,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Countdown Timer Connected to Wrong Pause Button**: Fixed major issue where timer pause functionality was connected to a legacy pause system instead of the actual pause button
-
   - **Root Cause**: CountdownTimer was listening to `!examIntentStarted` (legacy system) instead of `isDeliberatelyPaused` (actual pause button state)
   - **Two Disconnected Systems**:
     - Legacy system: `examIntentStarted` controlled by parent component (no longer has pause functionality)
@@ -1578,7 +1561,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **User Experience**: Timer now properly pauses when "Pause" button is clicked and resumes when "Resume" button is clicked
 
 - **Pause Button State Synchronization**: Fixed timer pause detection to use the correct pause state from ControlTray
-
   - **Before**: `pauseTrigger={!examIntentStarted || showReconnectionBanner}` and `isDeliberatePause={!examIntentStarted}`
   - **After**: `pauseTrigger={isDeliberatelyPaused || showReconnectionBanner}` and `isDeliberatePause={isDeliberatelyPaused}`
   - **ControlTray Integration**: Timer now responds to the same pause state that the ControlTray pause/resume button manages
@@ -1596,7 +1578,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Timer Pause During Network Disconnections**: Fixed countdown timer to pause during network disconnections, not just deliberate user pauses
-
   - **Previous Issue**: Timer kept running during network disconnections, causing users to lose exam time
   - **Root Cause**: `CountdownTimer` only paused when `!examIntentStarted` (deliberate pause), not during network issues
   - **Solution**: Modified `pauseTrigger` to include `showReconnectionBanner` for network disconnections
@@ -1604,7 +1585,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **User Experience**: Users don't lose exam time during network interruptions
 
 - **Timer UI Enhancement**: Removed "PAUSED" overlay during network disconnections - only shows for deliberate user pauses
-
   - **Previous Issue**: "PAUSED" overlay appeared during network disconnections, which was confusing
   - **Solution**: Added `isDeliberatePause` prop to distinguish deliberate pauses from network issues
   - **Result**: Clean UI showing only network status banner during disconnections, "PAUSED" overlay only for user pauses
@@ -1614,7 +1594,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Network Reconnection Timing**: Fixed issue where reconnection banner would disappear before AI was actually ready to respond
-
   - **Previous Issue**: Banner would disappear as soon as connection was established, but AI wasn't ready to respond yet
   - **Root Cause**: Transcript handler was hiding banner on ANY transcript, not waiting for AI response to reconnection prompt
   - **Solution**: Modified transcript handler to only hide banner when not actively reconnecting - waits for AI to respond to reconnection prompt
@@ -1622,7 +1601,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Better UX**: Users see banner until AI is truly ready and speaking, not just technically connected
 
 - **Pause Button Auto-Prompt**: Added automatic "Let's continue" prompt when resuming from deliberate pause
-
   - **Previous Issue**: When resuming from pause, users had to speak first to get AI's attention
   - **Solution**: Added detection for pause-to-resume transition that automatically sends "Let's continue with the code review" prompt
   - **Automatic Resume**: AI immediately acknowledges resume without requiring user to speak first
@@ -1649,7 +1627,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Two Conflicting Reconnection Systems**: Fixed major issue where two different connection systems were running simultaneously, causing automatic reconnection to fail while voice-triggered reconnection worked
-
   - **Root Cause**: Automatic reconnection was calling `client.reconnectWithResumption()` which doesn't work for network disconnections, while voice input triggered the normal connection flow which worked perfectly
   - **Two Systems Conflict**: The failing `reconnectWithResumption()` system kept logging "Session resumption failed - will retry" while the working voice-triggered system operated independently
   - **Solution**: Replaced automatic reconnection with normal connection flow trigger by resetting connection guards and forcing the working connection useEffect to re-run
@@ -1658,7 +1635,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Seamless Reconnection**: Automatic reconnection now works exactly like voice-triggered reconnection - immediately and reliably
 
 - **Reconnection Banner Auto-Hide**: Fixed issue where reconnection banner required voice input to disappear
-
   - **Previous Issue**: Banner showed "Reconnecting..." but only disappeared when user spoke, not when AI was ready
   - **Root Cause**: Automatic reconnection wasn't properly triggering the AI introduction message that hides the banner
   - **Solution**: Added connection trigger state to force useEffect re-evaluation and ensure AI sends introduction message
@@ -1688,7 +1664,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: AI Reconnection Acknowledgment**: Fixed issue where session resumption worked but banner kept showing "reconnecting" because AI wasn't speaking after reconnection
-
   - **Root Cause**: Session resumption was successful but AI didn't automatically speak, so no transcript event was triggered to hide the banner
   - **Solution**: After successful session resumption, automatically send a prompt to make AI acknowledge the reconnection: "I notice we had a brief connection interruption, but I'm back now. Let's continue with your code review where we left off."
   - **Result**: AI now speaks immediately after reconnection, triggering the transcript event that hides the banner
@@ -1696,7 +1671,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **No More False Retries**: Eliminates the "Session resumption failed - will retry" error messages when resumption actually worked
 
 - **Second Network Disconnection State Reset**: Fixed issue where the second network disconnection in the same session would skip "offline" state and go directly to "reconnecting"
-
   - **Root Cause**: Reconnection flags (`isReconnecting`, `showReconnectButton`) weren't being properly reset after the first reconnection, causing inconsistent state
   - **Solution**: Added proper state reset in multiple places:
     - Transcript handler now resets `isReconnecting` when banner is hidden
@@ -1735,7 +1709,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **CRITICAL: Automatic Reconnection with Spinner UI**: Replaced manual reconnect button with automatic reconnection and spinner interface for much better user experience
-
   - **No More Manual Button**: Removed the reconnect button that didn't work properly and confused users
   - **Automatic Reconnection**: Network restoration now automatically triggers session resumption without any user action required
   - **Spinner with Progress**: Shows animated spinner with "Reconnecting..." message and progress text about session restoration
@@ -1747,7 +1720,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Network Reconnection UI Flow**: Fixed the flow where reconnect button appeared before AI was ready and didn't actually start the AI properly
-
   - **Previous Issue**: Button appeared immediately when network was restored, but clicking it didn't make the AI start responding
   - **Root Cause**: The AI needed time to fully reconnect and process the session resumption before being ready to respond
   - **Solution**: Automatic reconnection starts immediately when network is restored, and UI waits for the AI to actually respond (transcript) before hiding the banner
@@ -1775,7 +1747,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Network Reconnection Session Resumption Now Works**: Fixed the fundamental issue where network disconnections were losing session handles and falling back to fresh sessions
-
   - **Root Cause**: Session handles were only preserved for automatic reconnection when WebSocket closed with code `1011`, but network disconnections typically close with different codes (like `1006` for abnormal closure)
   - **Session Handle Preservation**: Now preserves session handles for manual reconnection regardless of WebSocket close code
   - **Network Disconnection Support**: WiFi cuts, network timeouts, and other connection issues now properly preserve session data for reconnection
@@ -1805,7 +1776,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Session Resumption Finally Working**: Fixed the root cause of all session resumption failures by enabling session resumption in the initial connection configuration
-
   - **Root Cause Identified**: Session resumption was never enabled in the `createLiveConfig` function, so the server never sent session resumption handles
   - **Missing Configuration**: Added `sessionResumption: {}` to the initial `LiveConnectConfig` to enable the server to send session handles
   - **API Documentation Confirmed**: Session resumption IS supported by the Gemini Live API and works as documented
@@ -1814,7 +1784,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **No More "Missing session data"**: Eliminates all "❌ No session handle available" errors
 
 - **Complete Functionality Restored**: Both pause/resume and network reconnection now work as originally intended
-
   - **Pause Button**: Clicking pause now preserves session data, clicking resume continues from exact same point
   - **Network Reconnection**: WiFi cuts and reconnections preserve entire conversation history
   - **Conversation Context**: AI remembers everything from the session when resuming
@@ -1842,7 +1811,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Session Resumption Actually Works Now**: Fixed the fundamental issue where session resumption was completely disabled despite the API supporting it
-
   - **Root Cause**: The `reconnectWithResumption()` method was explicitly NOT using session resumption, just creating fresh sessions
   - **API Works Fine**: Session resumption IS supported by the Gemini Live API - the server sends session handles and automatic reconnection uses them correctly
   - **Manual Reconnection Fixed**: Updated `reconnectWithResumption()` to actually use session resumption handles like the automatic reconnection does
@@ -1851,7 +1819,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Previous Working Code**: Restored the working session resumption logic that was mentioned in the documentation and changelog
 
 - **Removed Client-Side Network Interference**: Eliminated complex client-side network monitoring that was interfering with natural session resumption
-
   - **No More WebSocket Meddling**: Removed client-side WebSocket event handling (`close`, `open`) that was manually disconnecting sessions
   - **Let API Handle Reconnection**: Natural session resumption now works as designed without client-side interference
   - **Simplified Network Detection**: Only show offline banner for user awareness, don't interfere with session management
@@ -1860,7 +1827,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Better Reliability**: Eliminated race conditions and timing issues caused by competing client-side logic
 
 - **Restored Pause Button Functionality**: Brought back the working pause/resume button using session resumption
-
   - **Dynamic Button Text**: Main button shows "Share screen & start review" → "Pause" → "Resume" based on session state
   - **Session Preservation**: Pause button uses `client.disconnect()` to preserve session data for resumption
   - **True Resume**: Resume button uses `client.reconnectWithResumption()` to continue conversation from where it left off
@@ -1893,7 +1859,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Network Detection Restored and Working Reconnection**: Fixed network disconnection detection and implemented reliable reconnection that works with the current API limitations
-
   - **Network Detection Fixed**: Restored browser `offline`/`online` event listeners that detect WiFi disconnection
   - **Reconnection Banner**: Banner now appears when network connection is lost and shows reconnect button when restored
   - **API Reality Check**: Session resumption configuration is not supported by current Gemini Live API version
@@ -1903,14 +1868,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **No API Errors**: Eliminated attempts to use unsupported session resumption configuration
 
 - **Session Resumption API Limitations**: Acknowledged that current Gemini Live API doesn't support session resumption features
-
   - **API Compatibility**: The `sessionResumption: { handle: ... }` configuration causes API errors
   - **Fresh Session Approach**: Reconnections create new sessions which works reliably with current API
   - **Future Ready**: Code structure ready for when session resumption becomes available in API
   - **Consistent Behavior**: All reconnections now use the same reliable fresh session approach
 
 - **Enhanced Network Handling**: Improved network event detection and reconnection flow
-
   - **WiFi Disconnection**: Browser offline events reliably detect when WiFi is cut
   - **Reconnection Button**: Manual reconnect button appears when network comes back online
   - **Mic Management**: Microphone muted during network issues, unmuted after successful reconnection
@@ -1937,7 +1900,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: API Compatibility Error**: Fixed "transparent parameter is not supported in Gemini API" error that was preventing connections
-
   - **Root Cause**: Session resumption configuration used unsupported `transparent: true` parameter for this version of the Gemini Live API
   - **Error**: Connection attempts failed with "Error connecting to GenAI Live: Error: transparent parameter is not supported in Gemini API"
   - **Solution**: Removed session resumption configuration as it's not supported in the current API version being used
@@ -1946,7 +1908,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Status**: Session resumption is not available in this API version, reverting to previous working approach
 
 - **API Version Compatibility**: Confirmed current Gemini Live API version doesn't support session resumption features
-
   - **Previous Implementation**: Session resumption code was based on newer API documentation that isn't available in production
   - **Current Reality**: The API version in use doesn't support the session resumption configuration options
   - **Fresh Session Approach**: Network reconnections will start fresh sessions which works reliably
@@ -1971,7 +1932,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Session Resumption Not Working**: Fixed the root cause of session resumption failure - we were never enabling session resumption in the initial connection configuration
-
   - **Root Cause**: Session resumption was never enabled in the `createLiveConfig` function, so the server never sent us session resumption handles
   - **Solution**: Added `sessionResumption: { transparent: true }` to the initial connection configuration to enable session resumption capability
   - **Server Communication**: Server now sends `sessionResumptionUpdate` messages with session handles that can be used for reconnection
@@ -1979,7 +1939,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Debug Logging**: Temporarily re-enabled session resumption handle logging to verify server communication
 
 - **Session Handle Reception**: Fixed missing session resumption handles that were preventing all reconnection attempts
-
   - **Previous State**: All reconnection attempts showed `hasSessionHandle: false` and `sessionHandle: ''`
   - **Enhanced Logging**: Added logging to track when session handles are received from server: handle value, resumable status, and last consumed message index
   - **Verification**: Console will now show when session resumption handles are received and stored
@@ -1988,7 +1947,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Connection Configuration**: Enhanced initial connection setup to support Google AI Live API session resumption features
-
   - **Transparent Mode**: Enabled transparent session resumption for better reconnection state tracking
   - **Server Integration**: Proper integration with Google's session resumption mechanism
   - **API Compatibility**: Uses the correct `SessionResumptionConfig` interface with `transparent: true` instead of invalid `enabled` property
@@ -2013,7 +1971,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Session Resumption Restored**: Reverted to session resumption as the primary reconnection strategy after user feedback that fresh session approach was ineffective
-
   - **Primary Approach**: Session resumption using `client.reconnectWithResumption()` preserves conversation context and AI session state
   - **Fallback Strategy**: Fresh session restart if resumption fails for any reason
   - **Session Preservation**: Network disconnections now use `client.disconnect()` instead of `terminateSession()` to preserve session data
@@ -2049,7 +2006,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Session Resumption During Network Issues**: Implemented clean session resumption approach that maintains session continuity during network disconnections
-
   - **No Session Disconnection**: Network issues no longer trigger session termination, preventing unwanted navigation to summary page
   - **Session Resumption**: Uses `client.reconnectWithResumption()` to restore session state when network returns
   - **Stays on Live Page**: Users remain on the code review page throughout network interruptions
@@ -2057,7 +2013,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Clean State Management**: Session state is preserved during network issues, avoiding session restart loops
 
 - **Improved Network Handling Logic**: Enhanced network event handling to work seamlessly with session resumption
-
   - **Conditional Disconnection**: Only disconnects session when exam intent stops, not during network issues
   - **Network State Tracking**: Monitors network connectivity without disrupting active sessions
   - **Graceful Degradation**: If resumption fails, system continues gracefully without showing errors
@@ -2066,13 +2021,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Navigation Issues During Network Problems**: Fixed issue where network disconnections would sometimes navigate to summary page and then home page
-
   - **Root Cause**: Previous approach used `client.disconnect()` during network issues, which triggered session termination and navigation logic
   - **Solution**: Completely eliminated session disconnection during network problems, using only session resumption
   - **Result**: Users stay on the code review page throughout network interruptions
 
 - **Session State Preservation**: Fixed session state being lost during network disconnections
-
   - **Continuous Session**: AI session remains active throughout network interruptions
   - **State Continuity**: Conversation history, timers, and session context are preserved
   - **Seamless Recovery**: When network returns, session resumes exactly where it left off
@@ -2089,21 +2042,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: AI Conversational Responses to Network Issues**: Fixed issue where AI would respond conversationally to network interruption messages with phrases like "yes, I remember" or "no problem at all"
-
   - **Root Cause**: Sending interruption messages to AI was treating them as user input, causing conversational responses instead of system instructions
   - **Solution**: Completely removed AI messaging approach and returned to simple network status banner without sending any messages to AI
   - **Natural Interruption**: Network disconnection naturally interrupts AI speech, and users can simply continue talking normally when network is restored
   - **Clean User Experience**: No more unwanted AI responses to network restoration events
 
 - **Reconnection Banner Not Disappearing**: Fixed issue where network status banner would not disappear when network connection was restored
-
   - **Root Cause**: Complex connection state logic was preventing banner from hiding properly
   - **Solution**: Simplified to basic `navigator.onLine` status monitoring with direct banner state management
   - **Simple Logic**: Banner shows when offline, hides when online - no complex dependency on AI connection states
   - **Reliable Behavior**: Banner now consistently appears/disappears based on actual network connectivity
 
 - **Simplified Network Status Banner**: Removed all complex reconnection logic and returned to basic network connectivity indicator
-
   - **Back to Basics**: Network banner is now just a simple connectivity status indicator
   - **No AI Messaging**: Eliminated all attempts to send interruption or reconnection messages to AI
   - **Clean State Management**: Removed hundreds of lines of complex state tracking that was causing timing issues
@@ -2129,7 +2079,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Smart Reconnection Timing**: Improved reconnection message delivery to be triggered by AI readiness instead of fixed delays
-
   - **AI-Ready Detection**: Reconnection message now sends immediately when AI is actually connected and ready, not after arbitrary 3-second delay
   - **Faster Response**: Users get reconnection message as soon as AI is prepared, which can be faster or slower than the old fixed delay
   - **Connection State Monitoring**: System watches for `connected` state to become true after network restoration
@@ -2138,7 +2087,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Better User Experience**: No more waiting for arbitrary delays when AI is already ready to continue
 
 - **AI Speech Interruption on Network Issues**: Fixed critical issue where reconnection messages were delayed because AI was still talking from before disconnect
-
   - **No Session Disconnection**: Avoids disconnecting the AI session during network issues, which was causing unwanted navigation to summary page
   - **Interruption Messages**: When network is restored, sends direct interruption message to AI to stop current speech and acknowledge the network issue
   - **Better User Experience**: Banner appears during network issues without redirecting to different pages or ending the session prematurely
@@ -2158,7 +2106,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Reconnection Banner Not Showing**: Fixed issue where network offline banner wasn't appearing reliably
-
   - **Root Cause**: Banner state wasn't being set consistently in all network state changes
   - **Solution**: Added explicit banner state management in both online and offline handlers
   - **Enhanced Logging**: Added detailed console logging to track banner state changes for debugging
@@ -2242,7 +2189,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Microphone Muting During Network Issues**: Added intelligent microphone management during network connectivity problems
-
   - **Auto-Mute Offline**: Microphone is automatically muted (not disabled) when network goes offline to prevent AI from trying to respond to speech while disconnected
   - **Safe Muting Approach**: Uses audio track enable/disable instead of stopping the entire audio stream to avoid permission and stream issues
   - **Clear User Feedback**: Banner shows "Microphone muted - AI won't respond to speech while offline" when network is down
@@ -2330,7 +2276,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Screen Sharing Control**: Improved user control over screen sharing during active review sessions
-
   - **Better Flexibility**: Users no longer need to end and restart reviews to change what they're sharing
   - **Improved Workflow**: Supports common scenarios like switching between IDE, browser, and terminal windows
   - **Professional Experience**: Matches the flexibility expected from professional screen sharing tools
@@ -2369,7 +2314,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Quick Start Sign-in Redirect Issue**: Fixed issue where unauthenticated users clicking "Share screen & start" would be redirected to dashboard after signing in instead of returning to quick start
-
   - **Root Cause**: Protected route system was redirecting all authenticated users to dashboard regardless of their original intent
   - **Solution**: Added quick start intent tracking that survives the authentication flow
   - **User Journey**: Quick Start button → Sign In prompt → Authentication → Return to Quick Start modal
@@ -2399,7 +2343,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Multiple Force Stop Audio Calls**: Fixed issue where force stop audio was being called 4-5 times during session cleanup causing excessive logging and potential performance issues
-
   - **Root Cause**: The `forceStopAudio` useEffect had unstable dependencies (`audioDataHandler` and `audioVolumeHandler`) that were recreated on every render, causing the effect to run multiple times
   - **Solution**: Used `useCallback` to make handler functions stable and added `forceStopInProgressRef` guard to prevent duplicate calls
   - **Impact**: Eliminates console log spam showing "🎛️ ControlTray: Force stopping audio recording..." appearing 4-5 times
@@ -2407,7 +2350,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Clean Logs**: Force stop now runs only once per session end instead of multiple times
 
 - **Audio Worklet Console Spam**: Reduced excessive console logging from audio worklet after recording stops
-
   - **Root Cause**: Audio worklet continues sending data for a brief period after recording is stopped, causing 15+ identical log messages
   - **Solution**: Added `hasLoggedIgnoring` flag to only log the worklet data ignoring message once per session
   - **Impact**: Eliminates repetitive "🎤 AudioRecorder: Worklet received data but recording is false, ignoring" messages
@@ -2415,7 +2357,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Better Debugging**: Console remains readable without being flooded with expected worklet cleanup messages
 
 - **Multiple Auto-Trigger Calls**: Fixed issue where auto-trigger mechanism was being called multiple times during connection state changes
-
   - **Root Cause**: `onButtonReady` effect in ControlTray was resetting notification flag during connection state changes, allowing multiple auto-trigger calls
   - **Solution**: Removed notification flag reset during connection state changes, letting parent component handle auto-trigger prevention
   - **Impact**: Eliminates "🚫 Auto-trigger already completed - ignoring subsequent calls" spam messages
@@ -2425,7 +2366,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Audio Handler Stability**: Improved audio recording cleanup reliability
-
   - **Stable Dependencies**: Using `useCallback` for `audioDataHandler` and `audioVolumeHandler` prevents unnecessary effect re-runs
   - **Cleanup Guards**: Added proper guards to prevent duplicate cleanup operations
   - **Session Isolation**: Each recording session now has proper state isolation and cleanup
@@ -2440,7 +2380,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Clarified
 
 - **Automatic Reconnection Skip Messages**: Clarified that "🚫 Automatic reconnection skipped" messages are normal and expected behavior
-
   - **WebSocket Error 1007**: When WebSocket closes with error 1007 ("Request contains an invalid argument"), the system correctly skips reconnection
   - **Expected Behavior**: Only WebSocket error 1011 triggers automatic reconnection; all other errors are handled by skipping reconnection
   - **No Action Required**: These messages indicate the system is working correctly and preventing inappropriate reconnection attempts
@@ -2464,7 +2403,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Landing Page Layout**: Removed top padding from research section entirely for better visual flow
-
   - **No Top Padding**: Changed from `py-8 md:py-10` to `pb-8 md:pb-10` to eliminate gap between hero and research sections
   - **Seamless Transition**: Creates immediate visual connection between quick start area and research information
   - **Better Visual Flow**: Eliminates awkward spacing that was breaking the page's visual rhythm
@@ -2484,7 +2422,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Refined
 
 - **Quick Start Button Interaction**: Refined the hover effect for better user experience
-
   - **Toned Down Zoom**: Reduced hover scale from `hover:scale-110` to `hover:scale-105` for more subtle, polished interaction
   - **Better Balance**: Maintains visual engagement without being overwhelming or excessive
   - **Improved UX**: More refined hover feedback that feels professional and appropriate
@@ -2549,7 +2486,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Double Session Termination**: Fixed issue where "Terminating session completely" message appeared twice during session cleanup
-
   - **Root Cause**: Both `shutdownSession()` and `handleSessionEnd()` were calling `terminateSession()`
   - **Solution**: Removed `terminateSession()` call from `handleSessionEnd()` to let parent handle session termination
   - **Clean Session End**: Session termination now happens only once through the parent's `shutdownSession()` function
@@ -2579,7 +2515,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Session Resumption Not Working**: Fixed the root cause of session resumption failure - we were never enabling session resumption in the initial connection configuration
-
   - **Root Cause**: Session resumption was never enabled in the `createLiveConfig` function, so the server never sent us session resumption handles
   - **Solution**: Added `sessionResumption: { transparent: true }` to the initial connection configuration to enable session resumption capability
   - **Server Communication**: Server now sends `sessionResumptionUpdate` messages with session handles that can be used for reconnection
@@ -2587,7 +2522,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Debug Logging**: Temporarily re-enabled session resumption handle logging to verify server communication
 
 - **Session Handle Reception**: Fixed missing session resumption handles that were preventing all reconnection attempts
-
   - **Previous State**: All reconnection attempts showed `hasSessionHandle: false` and `sessionHandle: ''`
   - **Enhanced Logging**: Added logging to track when session handles are received from server: handle value, resumable status, and last consumed message index
   - **Verification**: Console will now show when session resumption handles are received and stored
@@ -2596,7 +2530,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Connection Configuration**: Enhanced initial connection setup to support Google AI Live API session resumption features
-
   - **Transparent Mode**: Enabled transparent session resumption for better reconnection state tracking
   - **Server Integration**: Proper integration with Google's session resumption mechanism
   - **API Compatibility**: Uses the correct `SessionResumptionConfig` interface with `transparent: true` instead of invalid `enabled` property
@@ -2631,7 +2564,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Landing Page Enhancement**: Added quick start functionality to improve user experience for immediate code reviews
-
   - **Prominent CTA**: "Share screen & Start" button with clear description for instant access
   - **Modal Interface**: Clean, focused modal for quick session configuration
   - **Navigation Flow**: Quick start sessions integrate seamlessly with existing review infrastructure
@@ -2673,7 +2605,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **CRITICAL: Automatic Reconnection Issue**: Fixed major bug where stopping a review would immediately start a new one
-
   - **Root Cause**: ExamWorkflow was automatically reconnecting because examIntentStarted was still true when session ended
   - **Immediate State Reset**: Now calls onManualStop() immediately when session ends, not when modal closes
   - **Prevents Restart Loop**: examIntentStarted is set to false before reconnection effect can trigger
@@ -2681,7 +2612,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Modal Timing Fix**: Removed duplicate onManualStop() call from modal close handler
 
 - **Main Button State Issues**: Fixed main button remaining active during review
-
   - **Button Disabled**: Main button now properly disabled when review is active (connected state)
   - **Visual Feedback**: Button shows disabled styling when review is in progress
   - **Prevent Restart**: Button cannot be clicked during active review to prevent accidental restarts
@@ -2689,7 +2619,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Force Stop Handling**: Button state now properly resets when forceStopAudio/forceStopVideo are triggered
 
 - **Stop Button Restart Issue**: Fixed red stop button causing review to restart
-
   - **Simplified Cleanup**: Red button now only calls onEndReview() and lets parent handle cleanup
   - **Removed Duplicate Logic**: Eliminated conflicting cleanup code that was causing restart loops
   - **Clean Stop Flow**: Stop button now properly ends review without triggering restart
@@ -2840,7 +2769,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Connection Start/Resume Cycle**: Fixed persistent connection cycle issue where system would start new session then immediately resume
-
   - **Root Cause**: Resume method was calling connect even when no session handle was available
   - **Solution**: Modified resume method to only attempt resumption when valid session handle exists
   - **Smart Logic**: No session handle = normal connect, valid handle = resume with handle
@@ -2903,7 +2831,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Connection Start/Resume Cycle**: Fixed button blinking and double-click resume issue caused by start/resume cycle
-
   - **Root Cause**: System was starting new session then immediately resuming, causing WebSocket errors and UI flickering
   - **Session Handle Check**: Added `canResume()` method to GenAILiveClient to properly check for valid session resumption
   - **Smart Connection Logic**: Only use resume when both `hasEverConnected` is true AND valid session handle exists
@@ -2920,7 +2847,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Safari Support Removal**: Removed Safari support due to persistent permission handling issues
-
   - **Safari Detection**: Added Safari browser detection that disables the main button
   - **User Guidance**: Safari users see "Safari Not Supported" button with clear message to use Chrome or Firefox
   - **Simplified Browser Logic**: Removed complex Safari-specific permission flows and modals
@@ -2943,7 +2869,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Safari User Gesture Context Error**: Resolved "getDisplayMedia must be called from a user gesture handler" error in Safari
-
   - **Root Cause**: Safari loses user gesture context after async operations, requiring separate user gestures for each permission
   - **Two-Step Modal Approach**: Safari now uses a modal to request screen sharing in a separate user gesture after microphone access
   - **User Gesture Preservation**: Screen sharing request happens in a fresh user gesture context via modal button click
@@ -2952,7 +2877,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Better User Experience**: Safari users get a reliable two-step flow that works regardless of timing
 
 - **Safari Microphone Cleanup**: Fixed microphone not shutting down properly when review ends
-
   - **Force Stop Audio**: Added `forceStopAudio` effect to ensure microphone tracks are properly stopped
   - **MediaStream Track Cleanup**: Enhanced cleanup to stop both AudioRecorder and MediaStream tracks
   - **Audio Stream Tracking**: Added `audioStreamRef` to track and properly clean up MediaStream instances
@@ -3083,7 +3007,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Audio Recording Sample Rate Mismatch**: Resolved critical issue where microphone input was not working in Firefox and Safari due to sample rate conflicts
-
   - **Root Cause**: AudioRecorder was using shared AudioContext with 24kHz while MediaStream had no sample rate constraint, causing mismatch
   - **Solution**: Implemented browser-adaptive approach that lets browser choose optimal sample rate, then constrains MediaStream to match
   - **Cross-Browser Compatibility**: Now works in both Firefox and Safari by ensuring MediaStream and AudioContext use identical sample rates
@@ -3139,7 +3062,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Redundant Session Logging**: Eliminated duplicate "Session review started" and "Session review stopped" messages
-
   - **Root Cause**: Both `sessionService` and `appLogger` were logging the same session start/stop events
   - **Solution**: Removed console.log statements from `sessionService` since it's only used for navigation blocking
   - **Cleaner Output**: Now only shows the meaningful "🚀 Session started" and "🛑 Session stopped" messages
@@ -3178,26 +3100,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Double getSessionCompletion Calls**: Eliminated redundant API calls during live suggestion extraction initialization
-
   - **Root Cause**: `initializeSession()` and first `extractSuggestions()` were both calling the API
   - **Solution**: Skip processing the first transcript chunk after initialization to prevent duplicate calls
   - **Console Output**: Reduced from 2 API calls to 1 during session startup
   - **Functionality Preserved**: Live suggestion extraction still works exactly the same
 
 - **Verbose Disconnect Debug Messages**: Removed excessive debug logging during session disconnection
-
   - **Removed**: "🔍 Disconnect Debug" messages that showed session handle details
   - **Cleaner Output**: Disconnection events now only show essential information
   - **Debugging**: Session resumption still works normally, just with cleaner logging
 
 - **Consolidated Reconnection Messages**: Simplified session resumption logging
-
   - **Before**: Multiple messages about manual reconnection and session resumption
   - **After**: Single message "🔄 Resuming session with handle: [handle]..."
   - **Clarity**: Easier to understand when session resumption is happening
 
 - **Double User Action Logging**: Fixed duplicate logging when resuming from pause
-
   - **Root Cause**: Both `handleButtonClicked` and parent component were logging user actions
   - **Solution**: Only log user actions in the appropriate component to prevent duplicates
   - **Console Output**: Now shows single "👤 User resumed review" instead of resume + start
