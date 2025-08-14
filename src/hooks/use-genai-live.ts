@@ -19,7 +19,7 @@ import { LiveConnectConfig } from "@google/genai";
 import { GenAILiveClient } from "../lib/genai-live-client";
 import { LiveClientOptions } from "../types";
 import { AudioStreamer } from "../lib/audio-streamer";
-import { audioContext } from "../lib/utils";
+import { audioContext, appLogger } from "../lib/utils";
 import VolMeterWorket from "../lib/worklets/vol-meter";
 
 export type UseGenAILiveResults = {
@@ -47,20 +47,15 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
 
     // If we have a different API key, terminate the old client first
     if (globalClient && globalApiKey !== options.apiKey) {
-      // eslint-disable-next-line no-console
-      console.log(`🔄 Terminating old GenAI Live Client for API key change`);
+      appLogger.generic.info(`🔄 Terminating old GenAI Live Client for API key change`);
       globalClient.terminateSession();
       globalClient = null;
       globalApiKey = null;
     }
 
     // Create new client
-    // eslint-disable-next-line no-console
-    console.log(
-      `🔄 Creating new GenAI Live Client for API key: ${options.apiKey?.substring(
-        0,
-        10
-      )}...`
+    appLogger.generic.info(
+      `🔄 Creating new GenAI Live Client for API key: ${options.apiKey?.substring(0, 10)}...`,
     );
     const newClient = new GenAILiveClient(options);
     globalClient = newClient;
@@ -104,8 +99,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
 
     const stopAudioStreamer = () => audioStreamerRef.current?.stop();
 
-    const onAudio = (data: ArrayBuffer) =>
-      audioStreamerRef.current?.addPCM16(new Uint8Array(data));
+    const onAudio = (data: ArrayBuffer) => audioStreamerRef.current?.addPCM16(new Uint8Array(data));
 
     client
       .on("open", onOpen)
@@ -126,7 +120,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
     async (model: string, config: LiveConnectConfig) => {
       return await client.connect(model, config);
     },
-    [client]
+    [client],
   );
 
   const disconnect = useCallback(async () => {

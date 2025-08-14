@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { API_SUPABASE_ENDPOINT } from "../../config/urls";
+import { appLogger } from "../../lib/utils";
 
 // Global singleton instance
 let supabaseInstance: any = null;
@@ -19,8 +20,7 @@ export async function getSupabaseClient() {
   // Start initialization
   initializationPromise = (async () => {
     try {
-      // eslint-disable-next-line no-console
-      console.log("🔗 Initializing Supabase client...");
+      appLogger.generic.info("🔗 Initializing Supabase client...");
       // Fetch anon key from backend (not exposed in code)
       const res = await fetch(API_SUPABASE_ENDPOINT);
       if (!res.ok) throw new Error("Failed to fetch Supabase anon key");
@@ -29,10 +29,10 @@ export async function getSupabaseClient() {
       supabaseInstance = createClient("https://gzoltpvnxwjoeycomcby.supabase.co", apiKey);
 
       // eslint-disable-next-line no-console
-      console.log("✅ Supabase client initialized successfully");
+      appLogger.generic.info("✅ Supabase client initialized successfully");
       return supabaseInstance;
     } catch (error) {
-      console.error("❌ Supabase initialization failed:", error);
+      appLogger.error.general(error instanceof Error ? error.message : String(error));
       // Reset promise on error so we can retry
       initializationPromise = null;
       throw error;

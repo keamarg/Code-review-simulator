@@ -83,7 +83,7 @@ export class AudioStreamer {
         const int16 = dataView.getInt16(i * 2, true);
         float32Array[i] = int16 / 32768;
       } catch (e) {
-        console.error(e);
+      appLogger.error.audio(e instanceof Error ? e.message : String(e));
       }
     }
 

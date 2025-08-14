@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { appLogger } from "../../lib/utils";
 import { getSessionCompletion } from "../utils/getCompletion";
 import prompts from "../../prompts.json";
 import { AI_CONFIG } from "../../config/aiConfig";
@@ -50,9 +51,9 @@ export const useLiveSuggestionExtractor = () => {
       });
 
       isSessionInitialized.current = true;
-      console.log("✅ Live suggestions session initialized successfully");
+      appLogger.generic.info("✅ Live suggestions session initialized successfully");
     } catch (error) {
-      console.error("❌ Error initializing live suggestions session:", error);
+      appLogger.error.general(error instanceof Error ? error.message : String(error));
       isSessionInitialized.current = false;
       // Don't set isProcessing to false here - let the calling function handle it
     } finally {
@@ -123,7 +124,7 @@ export const useLiveSuggestionExtractor = () => {
 
       // Skip very long chunks that might cause timeouts
       if (transcriptChunk.length > 2000) {
-        console.log("🟡 Skipping very long transcript chunk for suggestions");
+        appLogger.generic.info("🟡 Skipping very long transcript chunk for suggestions");
         return;
       }
 
@@ -140,7 +141,7 @@ export const useLiveSuggestionExtractor = () => {
 
       // Initialize session if needed
       if (!isSessionInitialized.current) {
-        console.log("🔄 Initializing live suggestions session...");
+        appLogger.generic.info("🔄 Initializing live suggestions session...");
         await initializeSession();
         // After initialization, process this chunk normally
         // Don't return early - let it continue to process
@@ -153,7 +154,7 @@ export const useLiveSuggestionExtractor = () => {
 
       // Add a processing timeout to prevent infinite hanging
       const processingTimeout = setTimeout(() => {
-        console.log("🟡 Live suggestions processing timeout - resetting state");
+        appLogger.generic.info("🟡 Live suggestions processing timeout - resetting state");
         setIsProcessing(false);
       }, 35000); // 35 seconds timeout (5 seconds more than API timeout)
 
@@ -248,9 +249,9 @@ export const useLiveSuggestionExtractor = () => {
         } else if (error instanceof Error && error.name === "AbortError") {
           // Request cancellation is normal - no logging needed
         } else if (error instanceof Error && error.message.includes("timeout")) {
-          console.log("🟡 Live suggestions API timeout - continuing normally");
+          appLogger.generic.info("🟡 Live suggestions API timeout - continuing normally");
         } else {
-          console.error("Error extracting suggestions:", error);
+          appLogger.error.general(error instanceof Error ? error.message : String(error));
         }
 
         // Don't let live suggestion errors interfere with the main session

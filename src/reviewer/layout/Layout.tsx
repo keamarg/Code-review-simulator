@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext"; // Import useAuth
+import { appLogger } from "../../lib/utils";
 import { SettingsModal } from "../components/ui/SettingsModal";
 
 interface LayoutProps {
@@ -19,7 +20,7 @@ export default function Layout({ children, onVoiceChange, isSessionActive = fals
       await signOut();
       navigate("/");
     } catch (error) {
-      console.error("Error logging out:", error);
+      appLogger.error.general(error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -37,7 +38,7 @@ export default function Layout({ children, onVoiceChange, isSessionActive = fals
       onVoiceChange(newVoice);
     } else {
       // Otherwise, just store the preference for future sessions
-      console.log(`🎤 Voice preference saved: ${newVoice}`);
+      appLogger.user.changeVoice(newVoice);
     }
   };
 

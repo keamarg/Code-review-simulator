@@ -91,7 +91,7 @@ type LogLevel = "silent" | "error" | "warn" | "info" | "debug";
 
 const LOG_LEVEL: LogLevel =
   (process.env.REACT_APP_LOG_LEVEL as LogLevel) ||
-  (process.env.NODE_ENV === "production" ? "error" : "debug");
+  (process.env.NODE_ENV === "production" ? "error" : "warn");
 
 const levelToWeight: Record<Exclude<LogLevel, "silent">, number> = {
   error: 1,

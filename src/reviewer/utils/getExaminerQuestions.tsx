@@ -43,18 +43,12 @@ function getLevelSpecificObjectives(level: string): string {
 }
 
 export async function getExaminerQuestions(examSimulator: ExamSimulator) {
-  appLogger.generic.info(
-    "getExaminerQuestions: start",
-    examSimulator?.type,
-    examSimulator?.title
-  );
+  appLogger.generic.info("getExaminerQuestions: start", examSimulator?.type, examSimulator?.title);
   // Use the full duration without subtracting time for feedback
   const activeExaminationMin = examSimulator.duration;
 
   // Get level-specific objectives based on developer_level
-  const levelObjectives = getLevelSpecificObjectives(
-    examSimulator.learning_goals
-  );
+  const levelObjectives = getLevelSpecificObjectives(examSimulator.learning_goals);
 
   // Get the base prompt from prompts.json and replace newlines
   let prompt = prompts.taskPrompts.examinerQuestions.replace(/\\n/g, "\n");
@@ -71,10 +65,7 @@ ${levelObjectives}
 
 Code review context:
 \`\`\`
-${
-  examSimulator.description ||
-  "Conduct a general code review focusing on the areas listed above."
-}
+${examSimulator.description || "Conduct a general code review focusing on the areas listed above."}
 \`\`\`
 
 Review title:
@@ -122,7 +113,7 @@ VERY IMPORTANT INSTRUCTIONS:
     ) {
       appLogger.generic.info(
         "getExaminerQuestions: received JSON task",
-        jsonResult["task-student"].length
+        jsonResult["task-student"].length,
       );
       return jsonResult;
     }
@@ -134,14 +125,11 @@ VERY IMPORTANT INSTRUCTIONS:
     appLogger.generic.info("getExaminerQuestions: requesting TEXT completion");
     const text = await getCompletion(prompt, systemPrompt, false);
     if (typeof text === "string" && text.trim().length > 0) {
-      appLogger.generic.info(
-        "getExaminerQuestions: received TEXT task",
-        text.trim().length
-      );
+      appLogger.generic.info("getExaminerQuestions: received TEXT task", text.trim().length);
       return { "task-student": text.trim() };
     }
   } catch (error) {
-    console.error("Error fetching review content:", error);
+    appLogger.error.general(error instanceof Error ? error.message : String(error));
   }
 
   // Ensure we always return a task to break loops in caller (synthesized minimal task)
@@ -149,9 +137,7 @@ VERY IMPORTANT INSTRUCTIONS:
     examSimulator.title || "Code Review Session"
   }\n\nPlease share the main file(s) you want reviewed. I will give concise, actionable suggestions and reference exact line numbers I can see.\n\nFocus areas (${
     examSimulator.learning_goals || "intermediate"
-  }):\n${getLevelSpecificObjectives(
-    examSimulator.learning_goals || "intermediate"
-  )}`.trim();
+  }):\n${getLevelSpecificObjectives(examSimulator.learning_goals || "intermediate")}`.trim();
   const fallback = {
     "task-student": synthesized,
   };

@@ -161,7 +161,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         callbacks,
       });
     } catch (e) {
-      console.error("Error connecting to GenAI Live:", e);
+      appLogger.error.general(
+        e instanceof Error ? e.message : String(e)
+      );
       this._status = "disconnected";
       return false;
     }
@@ -237,7 +239,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       }
       return success;
     } catch (error) {
-      console.error("❌ Manual reconnection failed:", error);
+          appLogger.error.general(
+            error instanceof Error ? error.message : String(error)
+          );
       return false;
     }
   }
@@ -344,7 +348,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
           // Wait for actual disconnect to complete
           const disconnected = await waitForDisconnect();
           if (!disconnected) {
-            console.log("❌ Failed to disconnect properly");
+            appLogger.generic.warn("❌ Failed to disconnect properly");
             // Clear flag before returning
             this.voiceChangeInProgress = false;
             return false;
@@ -375,7 +379,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         this.voiceChangeInProgress = false;
         return success;
       } catch (error) {
-        console.error("❌ Voice change with fresh connection failed:", error);
+        appLogger.error.general(
+          error instanceof Error ? error.message : String(error)
+        );
         // Clear flag before returning
         this.voiceChangeInProgress = false;
         return false;
@@ -514,7 +520,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
           // Wait for actual disconnect to complete
           const disconnected = await waitForDisconnect();
           if (!disconnected) {
-            console.log("❌ Failed to disconnect properly");
+            appLogger.generic.warn("❌ Failed to disconnect properly");
             // Clear flag before returning
             this.voiceChangeInProgress = false;
             return false;
@@ -640,7 +646,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         try {
           await this.connect(this._model!, resumptionConfig);
         } catch (e) {
-          console.error("❌ Error during automatic reconnection:", e);
+          appLogger.error.general(
+            e instanceof Error ? e.message : String(e)
+          );
           this.log("client.reconnect.error", (e as Error).message);
         }
       }, 500); // 500ms delay
@@ -773,7 +781,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         this.log(`server.content`, message);
       }
     } else {
-      console.log("received unmatched message", message);
+      appLogger.generic.info("received unmatched message", message);
     }
   }
 

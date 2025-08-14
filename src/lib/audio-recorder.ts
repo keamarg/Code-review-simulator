@@ -214,7 +214,9 @@ export class AudioRecorder extends EventEmitter {
         resolve();
         this.starting = null;
       } catch (error) {
-        console.error("🎤 AudioRecorder: Error during startup:", error);
+        appLogger.error.audio(
+          error instanceof Error ? error.message : String(error)
+        );
         this.recording = false;
         this.starting = null;
         reject(error);

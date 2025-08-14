@@ -17,6 +17,7 @@ import React, { useEffect, useState, memo } from "react";
 import ReactMarkdown from "react-markdown";
 import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { ExamSimulator } from "../../types/ExamSimulator";
+import { appLogger } from "../../lib/utils";
 // import { getCurrentModel, getTimerConfig } from "../../config/aiConfig";
 // import prompts from "../../prompts.json";
 
@@ -90,9 +91,11 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
       // Display the task for the student in the UI.
       setStudentTask(examContent["task-student"]);
 
-      console.log("Exam content prepared:", examContent);
+      appLogger.generic.info("Exam content prepared:", examContent);
     } catch (error) {
-      console.error("Failed to prepare exam content:", error);
+      appLogger.error.general(
+        error instanceof Error ? error.message : String(error)
+      );
     } */
   // };
 
