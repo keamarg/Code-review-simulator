@@ -16,7 +16,7 @@ The model is now configured centrally and used in the following locations:
 - ✅ `src/exam-simulator/components/ai-examiner/ExamWorkflow.tsx` - Uses centralized config
 - ✅ `src/hooks/use-live-api.ts` - Uses centralized config (legacy)
 - ✅ `src/hooks/use-genai-live.ts` - Uses centralized config (new)
-- ✅ `src/components/altair/Altair.tsx` - Uses centralized config
+Altair component has been removed as part of legacy cleanup.
 
 ## How to Change the Model
 
@@ -162,4 +162,4 @@ import { LiveAPIProvider, useLiveAPIContext } from "../contexts/LiveAPIContext";
 - ✅ `src/exam-simulator/utils/liveConfigUtils.ts` - Updated to use config
 - ✅ `src/exam-simulator/components/ai-examiner/ExamWorkflow.tsx` - Updated to use config
 - ✅ `src/hooks/use-live-api.ts` - Updated to use config (legacy)
-- ✅ `src/components/altair/Altair.tsx` - Updated to use config
+Altair component removed.

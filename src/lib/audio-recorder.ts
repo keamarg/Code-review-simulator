@@ -18,7 +18,7 @@ import { EventEmitter } from "events";
 import VolMeterWorket from "./worklets/vol-meter";
 import AudioRecordingWorklet from "./worklets/audio-processing";
 import { createWorketFromSrc } from "./audioworklet-registry";
-import { audioContext } from "./utils";
+import { audioContext, appLogger } from "./utils";
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
   let binary = "";
@@ -47,7 +47,7 @@ export class AudioRecorder extends EventEmitter {
   // Helper method to get environment-specific thresholds
   private getEnvironmentThreshold(
     environment: string,
-    type: "volume" | "silence" | "frames"
+    type: "volume" | "silence" | "frames",
   ): number {
     switch (environment) {
       case "QUIET":
@@ -114,8 +114,7 @@ export class AudioRecorder extends EventEmitter {
         this.source = this.audioContext.createMediaStreamSource(this.stream);
 
         // Get current environment from localStorage
-        const currentEnvironment =
-          localStorage.getItem("ai_vad_environment") || "QUIET";
+        const currentEnvironment = localStorage.getItem("ai_vad_environment") || "QUIET";
 
         // Create unique worklet name to avoid caching issues on refresh
         const workletName = `audio-recorder-worklet-${Date.now()}`;
@@ -123,50 +122,33 @@ export class AudioRecorder extends EventEmitter {
         // Create environment-specific worklet source with correct initial thresholds
         const environmentSpecificWorklet = AudioRecordingWorklet.replace(
           "volumeThreshold = 0.0001;",
-          `volumeThreshold = ${this.getEnvironmentThreshold(
-            currentEnvironment,
-            "volume"
-          )};`
+          `volumeThreshold = ${this.getEnvironmentThreshold(currentEnvironment, "volume")};`,
         )
           .replace(
             "silenceThreshold = 0.0001;",
-            `silenceThreshold = ${this.getEnvironmentThreshold(
-              currentEnvironment,
-              "silence"
-            )};`
+            `silenceThreshold = ${this.getEnvironmentThreshold(currentEnvironment, "silence")};`,
           )
           .replace(
             "maxConsecutiveSilenceFrames = 12;",
             `maxConsecutiveSilenceFrames = ${this.getEnvironmentThreshold(
               currentEnvironment,
-              "frames"
-            )};`
+              "frames",
+            )};`,
           );
 
-        const src = createWorketFromSrc(
-          workletName,
-          environmentSpecificWorklet
-        );
+        const src = createWorketFromSrc(workletName, environmentSpecificWorklet);
 
         // Register worklet, ignore "already registered" errors
         try {
           await this.audioContext.audioWorklet.addModule(src);
         } catch (error) {
           // Ignore "already registered" errors, they're harmless
-          if (
-            !(
-              error instanceof Error &&
-              error.message.includes("already registered")
-            )
-          ) {
+          if (!(error instanceof Error && error.message.includes("already registered"))) {
             throw error; // Re-throw if it's a different error
           }
         }
 
-        this.recordingWorklet = new AudioWorkletNode(
-          this.audioContext,
-          workletName
-        );
+        this.recordingWorklet = new AudioWorkletNode(this.audioContext, workletName);
 
         this.recordingWorklet.port.onmessage = async (ev: MessageEvent) => {
           // Check if recording is still active before emitting data
@@ -193,12 +175,7 @@ export class AudioRecorder extends EventEmitter {
           await this.audioContext.audioWorklet.addModule(vuSrc);
         } catch (error) {
           // Ignore "already registered" errors, they're harmless
-          if (
-            !(
-              error instanceof Error &&
-              error.message.includes("already registered")
-            )
-          ) {
+          if (!(error instanceof Error && error.message.includes("already registered"))) {
             throw error; // Re-throw if it's a different error
           }
         }
@@ -214,9 +191,7 @@ export class AudioRecorder extends EventEmitter {
         resolve();
         this.starting = null;
       } catch (error) {
-        appLogger.error.audio(
-          error instanceof Error ? error.message : String(error)
-        );
+        appLogger.error.audio(error instanceof Error ? error.message : String(error));
         this.recording = false;
         this.starting = null;
         reject(error);

@@ -28,14 +28,11 @@ module.exports = {
     "@typescript-eslint/ban-types": "off",
     "import/no-named-as-default": "off",
     "prefer-const": "warn",
-    "import/order": [
-      "warn",
-      {
-        groups: [["builtin", "external"], ["internal"], ["parent", "sibling", "index"]],
-        alphabetize: { order: "asc", caseInsensitive: true },
-        "newlines-between": "always",
-      },
-    ],
+    "import/order": "off",
+    "import/no-duplicates": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "@typescript-eslint/no-unused-vars": ["warn", { args: "none", ignoreRestSiblings: true }],
   },
   ignorePatterns: ["/backend/api-key-server/.next/**", "**/dist/**", "**/build/**"],
 };

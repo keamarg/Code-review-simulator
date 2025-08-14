@@ -58,7 +58,7 @@ export const useLoggerStore = create<StoreLoggerState>((set, get) => ({
   },
 
   clearLogs: () => {
-    console.log("clear log");
+    // cleared in UI
     set({ logs: [] });
   },
   setMaxLogs: (n: number) => set({ maxLogs: n }),

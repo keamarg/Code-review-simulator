@@ -141,7 +141,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
       // This is a simple approach - in a more complex app you might want reference counting
       if (globalClient && globalApiKey === options.apiKey) {
         // eslint-disable-next-line no-console
-        console.log(`🔄 Terminating global GenAI Live Client on unmount`);
+        appLogger.generic.info(`🔄 Terminating global GenAI Live Client on unmount`);
         globalClient.terminateSession();
         globalClient = null;
         globalApiKey = null;

@@ -55,9 +55,7 @@ export interface LiveClientEventTypes {
   // Emitted when a tool call is received
   toolcall: (toolCall: LiveServerToolCall) => void;
   // Emitted when a tool call is cancelled
-  toolcallcancellation: (
-    toolcallCancellation: LiveServerToolCallCancellation
-  ) => void;
+  toolcallcancellation: (toolcallCancellation: LiveServerToolCallCancellation) => void;
   // Emitted when the current turn is complete
   turncomplete: () => void;
   // Emitted when output transcription is received (AI speech)
@@ -161,9 +159,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         callbacks,
       });
     } catch (e) {
-      appLogger.error.general(
-        e instanceof Error ? e.message : String(e)
-      );
+      appLogger.error.general(e instanceof Error ? e.message : String(e));
       this._status = "disconnected";
       return false;
     }
@@ -181,9 +177,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
     this.log(
       "client.disconnect",
-      `Session handle: ${
-        this.sessionResumptionHandle || "none"
-      } - preserving for resumption`
+      `Session handle: ${this.sessionResumptionHandle || "none"} - preserving for resumption`,
     );
 
     // Keep session resumption handle, config, and model for resumption
@@ -239,9 +233,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       }
       return success;
     } catch (error) {
-          appLogger.error.general(
-            error instanceof Error ? error.message : String(error)
-          );
+      appLogger.error.general(error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -274,14 +266,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     this.config = newConfig;
 
     // Helper function to wait for status change
-    const waitForDisconnect = async (
-      maxWait: number = 2000
-    ): Promise<boolean> => {
+    const waitForDisconnect = async (maxWait: number = 2000): Promise<boolean> => {
       const startTime = Date.now();
-      while (
-        this._status !== "disconnected" &&
-        Date.now() - startTime < maxWait
-      ) {
+      while (this._status !== "disconnected" && Date.now() - startTime < maxWait) {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
       return this._status === "disconnected";
@@ -322,17 +309,13 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
             }
           }, 1000); // 1 second delay to ensure connection is ready
         } else {
-          appLogger.error.connection(
-            "Failed to reconnect with session resumption"
-          );
+          appLogger.error.connection("Failed to reconnect with session resumption");
         }
         // Clear flag before returning
         this.voiceChangeInProgress = false;
         return success;
       } catch (error) {
-        appLogger.error.connection(
-          "Voice change with resumption failed: " + error
-        );
+        appLogger.error.connection("Voice change with resumption failed: " + error);
         // Clear flag before returning
         this.voiceChangeInProgress = false;
         return false;
@@ -379,9 +362,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         this.voiceChangeInProgress = false;
         return success;
       } catch (error) {
-        appLogger.error.general(
-          error instanceof Error ? error.message : String(error)
-        );
+        appLogger.error.general(error instanceof Error ? error.message : String(error));
         // Clear flag before returning
         this.voiceChangeInProgress = false;
         return false;
@@ -392,9 +373,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   // Add method to change environment while preserving session context
   public async changeEnvironment(newEnvironment: string): Promise<boolean> {
     if (!this.config || !this._model) {
-      appLogger.error.session(
-        "Cannot change environment: Missing config or model"
-      );
+      appLogger.error.session("Cannot change environment: Missing config or model");
       return false;
     }
 
@@ -412,8 +391,8 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
     // Get the new VAD configuration based on the selected environment
     const environmentSettings =
-      VAD_ENVIRONMENTS[newEnvironment as keyof typeof VAD_ENVIRONMENTS]
-        ?.settings || VAD_ENVIRONMENTS.QUIET.settings;
+      VAD_ENVIRONMENTS[newEnvironment as keyof typeof VAD_ENVIRONMENTS]?.settings ||
+      VAD_ENVIRONMENTS.QUIET.settings;
     const VAD_CONFIG = {
       startOfSpeechSensitivity: environmentSettings.START_OF_SPEECH_SENSITIVITY,
       endOfSpeechSensitivity: environmentSettings.END_OF_SPEECH_SENSITIVITY,
@@ -429,13 +408,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         automaticActivityDetection: {
           ...this.config.realtimeInputConfig?.automaticActivityDetection,
           startOfSpeechSensitivity:
-            StartSensitivity[
-              VAD_CONFIG.startOfSpeechSensitivity as keyof typeof StartSensitivity
-            ],
+            StartSensitivity[VAD_CONFIG.startOfSpeechSensitivity as keyof typeof StartSensitivity],
           endOfSpeechSensitivity:
-            EndSensitivity[
-              VAD_CONFIG.endOfSpeechSensitivity as keyof typeof EndSensitivity
-            ],
+            EndSensitivity[VAD_CONFIG.endOfSpeechSensitivity as keyof typeof EndSensitivity],
           prefixPaddingMs: VAD_CONFIG.prefixPaddingMs,
           silenceDurationMs: VAD_CONFIG.silenceDurationMs,
         },
@@ -446,14 +421,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     this.config = newConfig;
 
     // Helper function to wait for status change
-    const waitForDisconnect = async (
-      maxWait: number = 2000
-    ): Promise<boolean> => {
+    const waitForDisconnect = async (maxWait: number = 2000): Promise<boolean> => {
       const startTime = Date.now();
-      while (
-        this._status !== "disconnected" &&
-        Date.now() - startTime < maxWait
-      ) {
+      while (this._status !== "disconnected" && Date.now() - startTime < maxWait) {
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
       return this._status === "disconnected";
@@ -494,17 +464,13 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
             }
           }, 1000); // 1 second delay to ensure connection is ready
         } else {
-          appLogger.error.connection(
-            "Failed to reconnect with session resumption"
-          );
+          appLogger.error.connection("Failed to reconnect with session resumption");
         }
         // Clear flag before returning
         this.voiceChangeInProgress = false;
         return success;
       } catch (error) {
-        appLogger.error.connection(
-          "Environment change with resumption failed: " + error
-        );
+        appLogger.error.connection("Environment change with resumption failed: " + error);
         // Clear flag before returning
         this.voiceChangeInProgress = false;
         return false;
@@ -551,10 +517,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         this.voiceChangeInProgress = false;
         return success;
       } catch (error) {
-        console.error(
-          "❌ Environment change with fresh connection failed:",
-          error
-        );
+        console.error("❌ Environment change with fresh connection failed:", error);
         // Clear flag before returning
         this.voiceChangeInProgress = false;
         return false;
@@ -633,7 +596,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       this.reconnectionAttempts++;
       this.log(
         "client.reconnect",
-        `🔄 Attempting automatic reconnection with session resumption (attempt ${this.reconnectionAttempts}/${this.maxReconnectionAttempts})`
+        `🔄 Attempting automatic reconnection with session resumption (attempt ${this.reconnectionAttempts}/${this.maxReconnectionAttempts})`,
       );
 
       const resumptionConfig = {
@@ -646,9 +609,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         try {
           await this.connect(this._model!, resumptionConfig);
         } catch (e) {
-          appLogger.error.general(
-            e instanceof Error ? e.message : String(e)
-          );
+          appLogger.error.general(e instanceof Error ? e.message : String(e));
           this.log("client.reconnect.error", (e as Error).message);
         }
       }, 500); // 500ms delay
@@ -659,10 +620,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       // Even if automatic reconnection is skipped, we want to preserve session data for manual reconnection
     }
 
-    this.log(
-      `server.close`,
-      `disconnected ${e.reason ? `with reason: ${e.reason}` : ``}`
-    );
+    this.log(`server.close`, `disconnected ${e.reason ? `with reason: ${e.reason}` : ``}`);
     this.emit("close", e);
   }
 
@@ -685,14 +643,10 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
     if (message.sessionResumptionUpdate) {
       if ("newHandle" in message.sessionResumptionUpdate) {
-        this.sessionResumptionHandle =
-          message.sessionResumptionUpdate.newHandle;
+        this.sessionResumptionHandle = message.sessionResumptionUpdate.newHandle;
         this.log(
           "session.resumption",
-          `Handle received: ${this.sessionResumptionHandle?.substring(
-            0,
-            20
-          )}...`
+          `Handle received: ${this.sessionResumptionHandle?.substring(0, 20)}...`,
         );
       }
       return; // Important: return here to prevent falling through to "unmatched message"
@@ -701,7 +655,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     // Handle GoAway messages - advance warning before connection termination
     if (message.goAway) {
       const timeLeft = Number(message.goAway.timeLeft) || 0;
-      console.log(
+      appLogger.generic.warn(
         `⚠️ GoAway message received: Connection will close in ${timeLeft}ms`
       );
       this.log("server.goAway", `Connection closing in ${timeLeft}ms`);
@@ -755,7 +709,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
         // when its audio that is returned for modelTurn
         const audioParts = parts.filter(
-          (p) => p.inlineData && p.inlineData.mimeType?.startsWith("audio/pcm")
+          (p) => p.inlineData && p.inlineData.mimeType?.startsWith("audio/pcm"),
         );
         const base64s = audioParts.map((p) => p.inlineData?.data);
 
@@ -806,13 +760,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     }
 
     const message =
-      hasAudio && hasVideo
-        ? "audio + video"
-        : hasAudio
-        ? "audio"
-        : hasVideo
-        ? "video"
-        : "unknown";
+      hasAudio && hasVideo ? "audio + video" : hasAudio ? "audio" : hasVideo ? "video" : "unknown";
     this.log(`client.realtimeInput`, message);
   }
 
@@ -820,10 +768,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
    *  send a response to a function call and provide the id of the functions you are responding to
    */
   sendToolResponse(toolResponse: LiveClientToolResponse) {
-    if (
-      toolResponse.functionResponses &&
-      toolResponse.functionResponses.length
-    ) {
+    if (toolResponse.functionResponses && toolResponse.functionResponses.length) {
       this.session?.sendToolResponse({
         functionResponses: toolResponse.functionResponses,
       });

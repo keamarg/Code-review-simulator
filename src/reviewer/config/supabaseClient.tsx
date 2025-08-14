@@ -2,9 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import { API_SUPABASE_ENDPOINT } from "../../config/urls";
 import { appLogger } from "../../lib/utils";
 
-// Global singleton instance
-let supabaseInstance: any = null;
-let initializationPromise: Promise<any> | null = null;
+// Global singleton instance (resilient to HMR and multi-import)
+let supabaseInstance: any = (globalThis as any).__CR_SUPABASE_CLIENT__ || null;
+let initializationPromise: Promise<any> | null =
+  (globalThis as any).__CR_SUPABASE_INIT_PROMISE__ || null;
 
 export async function getSupabaseClient() {
   // If we already have an instance, return it
@@ -26,7 +27,18 @@ export async function getSupabaseClient() {
       if (!res.ok) throw new Error("Failed to fetch Supabase anon key");
       const apiKey = await res.json();
 
-      supabaseInstance = createClient("https://gzoltpvnxwjoeycomcby.supabase.co", apiKey);
+      // Use a custom storageKey to avoid GoTrueClient collisions with other apps on same origin
+      supabaseInstance = createClient("https://gzoltpvnxwjoeycomcby.supabase.co", apiKey, {
+        auth: {
+          storageKey: "code-reviewer-auth-v1",
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false,
+        },
+      });
+
+      // Persist on globalThis to survive HMR and ensure true singleton
+      (globalThis as any).__CR_SUPABASE_CLIENT__ = supabaseInstance;
 
       // eslint-disable-next-line no-console
       appLogger.generic.info("✅ Supabase client initialized successfully");
@@ -39,6 +51,7 @@ export async function getSupabaseClient() {
     }
   })();
 
+  (globalThis as any).__CR_SUPABASE_INIT_PROMISE__ = initializationPromise;
   return await initializationPromise;
 }
 

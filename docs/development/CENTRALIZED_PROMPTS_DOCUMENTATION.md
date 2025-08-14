@@ -60,7 +60,7 @@ All AI prompts, system instructions, and timer messages have been centralized in
   - Uses `timerMessages.halfTime` with dynamic minutes replacement
   - Uses `timerMessages.timeAlmostUp`
 
-- **`src/components/altair/Altair.tsx`**: ✅ **Fully Centralized**
+Removed deprecated `Altair` component; no longer part of the application.
   - Uses `timerMessages.introduction`
   - Uses `timerMessages.halfTime` with dynamic minutes replacement
   - Uses `timerMessages.timeAlmostUp`
