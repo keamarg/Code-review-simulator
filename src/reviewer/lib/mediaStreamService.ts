@@ -1,4 +1,4 @@
-// src/exam-simulator/lib/mediaStreamService.ts
+// src/reviewer/lib/mediaStreamService.ts
 
 class MediaStreamService {
   private static instance: MediaStreamService;

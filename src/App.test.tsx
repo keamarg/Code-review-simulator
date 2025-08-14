@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import App from "./App";
+jest.mock("./reviewer/navigation/AppRouter", () => ({
+  AppRouter: () => <div data-testid="router" />,
+}));
 
-test('renders learn react link', () => {
+test("renders app router", () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  const router = screen.getByTestId("router");
+  expect(router).toBeInTheDocument();
 });

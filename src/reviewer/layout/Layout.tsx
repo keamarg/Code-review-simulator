@@ -9,11 +9,7 @@ interface LayoutProps {
   isSessionActive?: boolean;
 }
 
-export default function Layout({
-  children,
-  onVoiceChange,
-  isSessionActive = false,
-}: LayoutProps) {
+export default function Layout({ children, onVoiceChange, isSessionActive = false }: LayoutProps) {
   const { user, signOut } = useAuth(); // Get user and signOut from context
   const navigate = useNavigate();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -201,16 +197,15 @@ export default function Layout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <p className="text-tokyo-fg text-sm mb-2">
-              This application is a research project investigating AI
-              interaction in code reviews. Not for commercial use. All data
-              collected is used solely for research purposes.
+              This application is a research project investigating AI interaction in code reviews.
+              Not for commercial use. All data collected is used solely for research purposes.
             </p>
             <p className="text-tokyo-fg text-sm mb-2">
-              For questions or feedback about the research, please contact
-              Martin Gundtoft (marg@kea.dk)
+              For questions or feedback about the research, please contact Martin Gundtoft
+              (marg@kea.dk)
             </p>
             <p className="text-tokyo-fg text-xs text-tokyo-fg-dim">
-              Based on exam-simulator by Benjamin Hughes
+              Based on code reviewer module by Benjamin Hughes
             </p>
           </div>
         </div>

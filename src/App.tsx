@@ -16,7 +16,7 @@
 
 import React, { useEffect } from "react";
 import "./App.scss";
-import { AppRouter } from "./exam-simulator/navigation/AppRouter";
+import { AppRouter } from "./reviewer/navigation/AppRouter";
 
 function App() {
   useEffect(() => {
@@ -33,10 +33,7 @@ function App() {
       sessionStorage.removeItem("wasRefreshed");
 
       // Get the basename from the current URL to match the router configuration
-      const basename = new URL(
-        process.env.PUBLIC_URL || "",
-        window.location.origin
-      ).pathname;
+      const basename = new URL(process.env.PUBLIC_URL || "", window.location.origin).pathname;
       const homePath = basename + "/";
 
       // Redirect to home page using the correct path

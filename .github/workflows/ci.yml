@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   frontend:
@@ -48,5 +48,3 @@ jobs:
         run: npm run lint || true
       - name: Build
         run: npm run build
-
-
