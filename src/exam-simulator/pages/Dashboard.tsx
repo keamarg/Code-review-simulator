@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../layout/Layout";
+import { appLogger } from "../../lib/utils";
 import { getSupabaseClient } from "../config/supabaseClient";
 import { ExamSimulator } from "../../types/ExamSimulator";
 
@@ -83,7 +84,9 @@ function ExamSimulatorCard({
 
         if (error) {
           showToast("Failed to delete code review");
-          console.error("Error deleting exam:", error);
+          appLogger.error.general(
+            error instanceof Error ? error.message : String(error)
+          );
         } else {
           showToast("Code review deleted successfully");
           // Call the parent callback to update the state
@@ -93,7 +96,9 @@ function ExamSimulatorCard({
         }
       } catch (err) {
         showToast("Failed to delete code review");
-        console.error("Error deleting exam:", err);
+        appLogger.error.general(
+          err instanceof Error ? err.message : String(err)
+        );
       }
     }
   };
@@ -363,8 +368,9 @@ export default function Dashboard() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.error("Error fetching exams:", error);
-        // Handle error appropriately, maybe show a message to the user
+        appLogger.error.general(
+          error instanceof Error ? error.message : String(error)
+        );
       } else if (fetchedExamSimulators) {
         setExamSimulators(fetchedExamSimulators as ExamSimulator[]);
       } else {

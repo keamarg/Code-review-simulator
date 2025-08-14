@@ -98,6 +98,7 @@ export function ExamWorkflow({
   const isReconnectingRef = useRef(false); // Track reconnecting state for timeout
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track reconnection timeout
   const isPreparingContentRef = useRef(false); // Track if content preparation is in progress
+  const hasLoggedConnectionRef = useRef(false); // Prevent duplicate established logs per session
 
   // New state for summary modal
   const [showSummaryModal, setShowSummaryModal] = useState(false);
@@ -112,10 +113,14 @@ export function ExamWorkflow({
 
   // Track previous pause state for resume detection
   const previousPauseStateRef = useRef(isDeliberatelyPaused);
+  const lastIntroAtRef = useRef<number | null>(null);
+  const awaitingPostIntroNudgeRef = useRef(false);
+  const hasSentIntroRef = useRef(false);
 
   // Use conversation tracker hook
   const { getConversationSummary, clearConversation } = useConversationTracker(
     client,
+    onTranscriptChunk,
     onTranscriptChunk
   );
 
@@ -173,10 +178,47 @@ export function ExamWorkflow({
         }
       };
 
+      const lastUserSpeechAtRef = { current: 0 } as { current: number };
+      const handleUserTranscript = (text: string) => {
+        lastUserSpeechAtRef.current = Date.now();
+        if (awaitingPostIntroNudgeRef.current) {
+          awaitingPostIntroNudgeRef.current = false;
+        }
+      };
+
+      const handleInterrupted = () => {
+        if (awaitingPostIntroNudgeRef.current) {
+          awaitingPostIntroNudgeRef.current = false;
+        }
+      };
+
+      const handleTurnComplete = () => {
+        if (awaitingPostIntroNudgeRef.current && lastIntroAtRef.current) {
+          const now = Date.now();
+          const quietWindowMs = 2000;
+          if (now - lastUserSpeechAtRef.current >= quietWindowMs) {
+            try {
+              client.send([
+                {
+                  text: "Please proceed with concise, actionable code review suggestions. Reference exact file paths and line numbers you can see.",
+                },
+              ]);
+            } catch {}
+          }
+          awaitingPostIntroNudgeRef.current = false;
+        }
+      };
+
       client.on("transcript", handleAITranscript);
+      client.on("userTranscript", handleUserTranscript);
+      client.on("interrupted", handleInterrupted);
+      client.on("turncomplete", handleTurnComplete);
 
       return () => {
         client.off("transcript", handleAITranscript);
+        client.off("userTranscript", handleUserTranscript);
+        client.off("interrupted", handleInterrupted);
+        client.off("turncomplete", handleTurnComplete);
       };
     }
   }, [client, showReconnectionBanner, isReconnecting]);
@@ -250,7 +292,9 @@ export function ExamWorkflow({
       // Don't reset isReconnecting here - let the AI response handle it
       return;
     } catch (error) {
-      console.error("❌ Automatic reconnection failed:", error);
+      appLogger.error.connection(
+        error instanceof Error ? error.message : String(error)
+      );
       setIsReconnecting(false);
 
       // Retry after 5 seconds
@@ -323,11 +367,10 @@ export function ExamWorkflow({
       activeConnectionRef.current = false;
       isConnectingRef.current = false;
 
-      // If the user hasn’t deliberately paused, show the banner and let the
-      // existing automatic-reconnect logic kick in.
+      // If the user hasn’t deliberately paused, show the banner.
       if (examIntentStarted && !isDeliberatelyPaused) {
         setShowReconnectionBanner(true);
-        handleAutomaticReconnect();
+        // Rely on internal client auto-reconnect or network-online handler to reconnect
       }
     };
 
@@ -362,7 +405,9 @@ export function ExamWorkflow({
         try {
           client.terminateSession();
         } catch (error) {
-          console.warn("Error terminating session:", error);
+          appLogger.error.session(
+            error instanceof Error ? error.message : String(error)
+          );
         }
       }
 
@@ -386,7 +431,9 @@ export function ExamWorkflow({
         setReviewSummary(summary);
         setShowSummaryModal(true);
       } catch (error) {
-        console.error("Error generating summary:", error);
+        appLogger.error.general(
+          error instanceof Error ? error.message : String(error)
+        );
         setReviewSummary("Error generating summary. Please try again.");
         setShowSummaryModal(true);
       } finally {
@@ -493,7 +540,9 @@ export function ExamWorkflow({
         if (error) throw error;
         setExamSimulator(data as ExamSimulator); // Cast if necessary, ensure type alignment
       } catch (err) {
-        console.error("Error fetching exam simulator:", err);
+        appLogger.error.general(
+          err instanceof Error ? err.message : String(err)
+        );
         setExamError(
           err instanceof Error ? err.message : "An unknown error occurred"
         );
@@ -557,7 +606,7 @@ export function ExamWorkflow({
 
   // Manual reset function for users
   const resetGitHubError = useCallback(() => {
-    console.log("🔄 Manual reset of GitHub error state");
+    appLogger.generic.info("🔄 Manual reset of GitHub error state");
     setExamError("");
     fatalErrorRef.current = null;
     lastErrorTimeRef.current = 0;
@@ -570,7 +619,7 @@ export function ExamWorkflow({
   useEffect(() => {
     // Only reset if the URL actually changed (not just when error state changes)
     if (repoUrl !== previousRepoUrlRef.current) {
-      console.log(
+      appLogger.generic.info(
         "Repository URL actually changed from",
         previousRepoUrlRef.current,
         "to",
@@ -579,7 +628,7 @@ export function ExamWorkflow({
       previousRepoUrlRef.current = repoUrl;
 
       if (examError && isFatalError(examError)) {
-        console.log("Repository URL changed, resetting error state");
+        appLogger.generic.info("Repository URL changed, resetting error state");
         setExamError("");
         isPreparingContentRef.current = false;
         fatalErrorRef.current = null;
@@ -593,9 +642,9 @@ export function ExamWorkflow({
   // Reset trigger flags when exam simulator changes
   useEffect(() => {
     if (examSimulator?.id !== lastExamSimulatorId.current) {
-      console.log("Exam simulator changed, resetting trigger flags");
       hasTriggeredInitialLoad.current = false;
       lastExamSimulatorId.current = examSimulator?.id || null;
+      hasSentIntroRef.current = false;
     }
   }, [examSimulator?.id]);
 
@@ -627,10 +676,7 @@ export function ExamWorkflow({
     isPreparingContentRef.current = true;
     setIsLoadingPrompt(true);
 
-    // Only clear non-fatal errors
-    if (examError && !isFatalError(examError)) {
-      setExamError(""); // Clear any previous errors
-    }
+    // Do not clear non-fatal errors automatically; prevents re-trigger loops
 
     try {
       let finalPrompt = "";
@@ -678,8 +724,10 @@ export function ExamWorkflow({
       } else {
         // Standard exam type
         const examContent = await getExaminerQuestions(examSimulator);
-        const studentTaskAnswer = examContent["task-student"];
-        setStudentTask(studentTaskAnswer || "No task defined.");
+        const studentTaskAnswer =
+          (examContent && (examContent as any)["task-student"]) ||
+          "No task defined.";
+        setStudentTask(studentTaskAnswer);
         finalPrompt = getPrompt.standard(
           examSimulator,
           examDurationInMinutes,
@@ -688,7 +736,9 @@ export function ExamWorkflow({
       }
       setPrompt(finalPrompt);
     } catch (error) {
-      console.error("❌ Failed to prepare exam content:", error);
+      appLogger.error.general(
+        error instanceof Error ? error.message : String(error)
+      );
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -712,7 +762,6 @@ export function ExamWorkflow({
     repoUrl,
     examDurationInMinutes,
     isGitHubDisabled,
-    examError,
     isFatalError,
   ]);
 
@@ -735,12 +784,9 @@ export function ExamWorkflow({
       lastExamSimulatorId.current = examSimulator?.id || null;
     }
 
-    // Handle exam intent changes
+    // Handle exam intent changes (do not reset initial load on start to prevent double generation)
     if (examIntentStarted !== lastExamIntentStarted.current) {
       lastExamIntentStarted.current = examIntentStarted;
-      if (examIntentStarted) {
-        hasTriggeredInitialLoad.current = false;
-      }
     }
 
     // Determine if we should prepare content
@@ -762,7 +808,9 @@ export function ExamWorkflow({
         }
       } else {
         // Standard exam types - prepare immediately
-        prepareExamContent();
+        if (!prompt && !isLoadingPrompt && !isPreparingContentRef.current) {
+          prepareExamContent();
+        }
       }
     }
 
@@ -800,15 +848,12 @@ export function ExamWorkflow({
           }
         }
       } else {
-        // Standard exam types - content should already be prepared
+        // Standard exam types - content should already be prepared from setup
         if (prompt && prompt !== lastPrompt.current) {
           lastPrompt.current = prompt;
           const newConfig = createLiveConfig(prompt);
           setLiveConfig(newConfig);
-        } else if (!isLoadingPrompt) {
-          // Fallback: if somehow content wasn't prepared, prepare it now
-          prepareExamContent();
-        }
+        } // No fallback prepare here to avoid double generation after start
       }
     }
   }, [
@@ -849,13 +894,18 @@ export function ExamWorkflow({
       setShowReconnectionBanner(false);
 
       connect(getCurrentModel(), liveConfig)
-        .then(() => {
+        .then((ok) => {
+          if (!ok) {
+            throw new Error(
+              "Client refused to connect (already connecting/connected)"
+            );
+          }
           activeConnectionRef.current = true;
           setExamStarted(true);
-          appLogger.connection.established();
-
-          // Timer setup is now handled by CountdownTimer callbacks
-          // No separate timer system needed - messages are triggered by CountdownTimer
+          if (!hasLoggedConnectionRef.current) {
+            appLogger.connection.established();
+            hasLoggedConnectionRef.current = true;
+          }
         })
         .catch((error) => {
           appLogger.error.connection("Failed to connect: " + error);
@@ -887,6 +937,7 @@ export function ExamWorkflow({
       setExamStarted(false);
       isConnectingRef.current = false;
       activeConnectionRef.current = false;
+      hasLoggedConnectionRef.current = false;
     }
   }, [
     examIntentStarted,
@@ -932,10 +983,16 @@ export function ExamWorkflow({
 
   // Handle timer messages with error handling and network awareness
   const handleIntroduction = useCallback(() => {
+    if (hasSentIntroRef.current) {
+      return;
+    }
     if (client) {
       try {
         client.send([{ text: prompts.timerMessages.introduction }]);
         appLogger.timer.introduction();
+        lastIntroAtRef.current = Date.now();
+        awaitingPostIntroNudgeRef.current = true;
+        hasSentIntroRef.current = true;
       } catch (error) {
         appLogger.error.session(
           "Failed to send introduction message: " + error
@@ -1003,7 +1060,7 @@ export function ExamWorkflow({
       examError.includes("private") || examError.includes("restricted");
 
     const handleRetry = () => {
-      console.log("User requested retry, resetting error state");
+      appLogger.generic.info("User requested retry, resetting error state");
       resetGitHubError();
     };
 

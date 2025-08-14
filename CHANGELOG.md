@@ -2,6 +2,64 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.2] - 2025-08-14
+
+### Fixed
+
+- Lint: Suppressed two intentional exhaustive-deps warnings to preserve stable runtime behavior
+  - `useLiveSuggestionExtractor.ts`: Do not include `isProcessing` to avoid callback churn and missed/duplicated extractions
+  - `use-genai-live.ts`: Do not depend on full `options` to prevent unintended client re-instantiation and reconnects
+- Removed unused environment-change wiring from `AIExaminerPage.tsx`; aligned props accordingly
+
+### Changed
+
+- Minor cleanup in suggestion parsing regex and effect deps in `ExamWorkflow.tsx`
+
+---
+
+## [1.4.1] - 2025-08-13
+
+### Changed
+
+- Live Suggestions: Reduced duplication and frequency
+  - Added session-level de-duplication using normalized text to prevent near-identical suggestions repeating.
+  - Added a 6s cooldown between accepted suggestions to reduce chattiness.
+  - Limited additions to at most 1 suggestion per extraction cycle.
+  - Stricter bullet parsing (accept only `• ` bullets of meaningful length) to avoid transcript-like noise.
+  - Single-flight initialization to prevent repeated “Initializing session…” logs.
+- Logging: Removed redundant info log on exam simulator change in `ExamWorkflow.tsx` to prevent double logs.
+
+### Added
+
+- Types: Introduced reusable `ChatRole` type in `src/types/index.ts` and applied in `useLiveSuggestionExtractor`.
+
+### Fixed
+
+- Consistency: Avoided tiny chunk suggestions by enforcing length and similarity thresholds.
+
+## [1.4.0] - 2025-08-12
+
+### Added
+
+- Centralized API URL configuration via `src/config/urls.ts` and `src/config/urls.js`.
+
+### Changed
+
+- Reworked client → AI flow to use backend proxy instead of exposing API keys:
+  - `backend/api-key-server/pages/api/prompt1.js` now proxies POST requests to OpenAI; GET blocked. Keys are never sent to the client.
+  - `src/exam-simulator/utils/getCompletion.js` updated to call the proxy endpoint instead of OpenAI directly.
+  - `src/exam-simulator/utils/getGithubRepoFiles.js` now delegates AI prompts to `getCompletion()` instead of building raw OpenAI requests.
+- Replaced `dangerouslySetInnerHTML` with safe markdown rendering in `src/components/altair/Altair.tsx` using `react-markdown`.
+- Removed legacy backup files to reduce confusion: `supabaseClient.tsx.backup`, `use-screen-capture.ts.backup`, `audio-recorder.ts.backup`.
+- Added environment-controlled logging via `REACT_APP_LOG_LEVEL` in `src/lib/utils.ts` to reduce console noise in production.
+- Migrated UI logs to `appLogger` in key flows; discouraged raw `console.*` usage.
+
+### Fixed
+
+- Eliminated client-side exposure of API keys and reduced XSS risk in Altair component.
+- Stabilized connection flow to avoid duplicate "✅ Connection established" logs with guards in `ExamWorkflow.tsx`.
+- Removed legacy Gemini key GET endpoint exposure; proxy POST-only now enforced.
+
 ## [1.3.36] - 2025-07-16
 
 ### Optimized

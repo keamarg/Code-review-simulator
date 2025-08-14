@@ -25,7 +25,7 @@ import VolMeterWorket from "../lib/worklets/vol-meter";
 export type UseGenAILiveResults = {
   client: GenAILiveClient;
   connected: boolean;
-  connect: (model: string, config: LiveConnectConfig) => Promise<void>;
+  connect: (model: string, config: LiveConnectConfig) => Promise<boolean>;
   disconnect: () => Promise<void>;
   stopAudio: () => void; // Add stopAudio function
   volume: number;
@@ -36,6 +36,7 @@ export type UseGenAILiveResults = {
 let globalClient: GenAILiveClient | null = null;
 let globalApiKey: string | null = null;
 
+// eslint-disable-next-line react-hooks/exhaustive-deps
 export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
   const client = useMemo(() => {
     // If we already have a client with the same API key, reuse it
@@ -46,6 +47,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
 
     // If we have a different API key, terminate the old client first
     if (globalClient && globalApiKey !== options.apiKey) {
+      // eslint-disable-next-line no-console
       console.log(`🔄 Terminating old GenAI Live Client for API key change`);
       globalClient.terminateSession();
       globalClient = null;
@@ -53,6 +55,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
     }
 
     // Create new client
+    // eslint-disable-next-line no-console
     console.log(
       `🔄 Creating new GenAI Live Client for API key: ${options.apiKey?.substring(
         0,
@@ -63,7 +66,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
     globalClient = newClient;
     globalApiKey = options.apiKey;
     return newClient;
-  }, [options.apiKey]);
+  }, [options.apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const audioStreamerRef = useRef<AudioStreamer | null>(null);
 
   const [connected, setConnected] = useState(false);
@@ -121,7 +124,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
 
   const connect = useCallback(
     async (model: string, config: LiveConnectConfig) => {
-      await client.connect(model, config);
+      return await client.connect(model, config);
     },
     [client]
   );
@@ -143,6 +146,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
       // Only terminate if this is the last component using the client
       // This is a simple approach - in a more complex app you might want reference counting
       if (globalClient && globalApiKey === options.apiKey) {
+        // eslint-disable-next-line no-console
         console.log(`🔄 Terminating global GenAI Live Client on unmount`);
         globalClient.terminateSession();
         globalClient = null;

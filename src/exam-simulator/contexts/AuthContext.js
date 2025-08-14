@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
+import { appLogger } from "../../lib/utils";
 import { getSupabaseClient } from "../config/supabaseClient";
 
 const AuthContext = createContext();
@@ -32,7 +33,9 @@ export function AuthProvider({ children }) {
 
         return () => subscription.unsubscribe();
       } catch (error) {
-        console.error("❌ AuthContext initialization failed:", error);
+        appLogger.error.general(
+          error instanceof Error ? error.message : String(error)
+        );
         setLoading(false);
       }
     };
@@ -81,15 +84,18 @@ export function AuthProvider({ children }) {
             await supabaseClient.auth.signOut({ scope: "local" });
           }
         } catch (logoutError) {
-          console.warn(
-            "⚠️ Supabase logout failed (but local session cleared):",
-            logoutError
+          appLogger.info.warning(
+            `⚠️ Supabase logout failed (but local session cleared): ${String(
+              logoutError
+            )}`
           );
         }
 
         return { error: null };
       } catch (err) {
-        console.error("❌ Logout error:", err);
+        appLogger.error.general(
+          err instanceof Error ? err.message : String(err)
+        );
         // Even if everything fails, force logout
         setUser(null);
         return { error: null }; // Return success since we cleared local session

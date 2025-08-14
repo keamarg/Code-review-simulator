@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 import twoScreenSetupImage from "../../../two-screen-setup.jpg";
+import {
+  VAD_ENVIRONMENTS,
+  getCurrentVADEnvironment,
+} from "../../../config/aiConfig";
 
 interface ReviewSetupModalProps {
   isOpen: boolean;
@@ -35,6 +39,9 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
   const [repoUrlError, setRepoUrlError] = useState("");
   const [fullScan, setFullScan] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [environment, setEnvironment] = useState<keyof typeof VAD_ENVIRONMENTS>(
+    getCurrentVADEnvironment()
+  );
 
   const getRepoUrlError = (url: string): string => {
     if (!url.trim()) {
@@ -80,6 +87,8 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
 
   const handleStartReview = () => {
     if (type === "Github Repo" && !repoValid) return;
+    // Persist chosen environment before starting so connect reads it
+    localStorage.setItem("ai_vad_environment", environment);
 
     onStartReview(
       type,
@@ -138,6 +147,23 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
                 </div>
               )}
 
+              {/* Removed duplicate environment selector; single instance remains below developer level */}
+
+              {isCustomMode && examDescription && (
+                <div className="mb-6 flex-grow flex flex-col overflow-hidden">
+                  <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
+                    Description
+                  </label>
+                  <div className="relative flex-grow overflow-y-auto pr-2">
+                    <p className="text-tokyo-fg whitespace-pre-wrap">
+                      {examDescription}
+                    </p>
+                    <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-tokyo-bg-lighter to-transparent pointer-events-none"></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Developer Experience Level */}
               {!isCustomMode && (
                 <div className="mb-6">
                   <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
@@ -169,25 +195,48 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
                     <option value="senior">Senior Developer</option>
                   </select>
                   <p className="text-xs text-tokyo-comment mt-1">
-                    This will determine the depth and style of feedback provided
-                    during the code review.
+                    This will determine the depth and style of feedback during
+                    the review.
                   </p>
                 </div>
               )}
 
-              {isCustomMode && examDescription && (
-                <div className="mb-6 flex-grow flex flex-col overflow-hidden">
-                  <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
-                    Description
-                  </label>
-                  <div className="relative flex-grow overflow-y-auto pr-2">
-                    <p className="text-tokyo-fg whitespace-pre-wrap">
-                      {examDescription}
-                    </p>
-                    <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-tokyo-bg-lighter to-transparent pointer-events-none"></div>
+              {/* Microphone Sensitivity (Environment) */}
+              <div className="mb-6">
+                <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
+                  <div className="flex items-center">
+                    <svg
+                      className="h-4 w-4 mr-2 text-tokyo-comment"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19V6a2 2 0 012-2h2a2 2 0 012 2v13m-6 0h6"
+                      />
+                    </svg>
+                    Microphone sensitivity (environment)
                   </div>
-                </div>
-              )}
+                </label>
+                <select
+                  value={environment}
+                  onChange={(e) =>
+                    setEnvironment(
+                      e.target.value as keyof typeof VAD_ENVIRONMENTS
+                    )
+                  }
+                  className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
+                >
+                  {Object.entries(VAD_ENVIRONMENTS).map(([key, env]) => (
+                    <option key={key} value={key}>
+                      {env.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {/* Code Review Type Dropdown */}
               {!isCustomMode && (
@@ -221,6 +270,8 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
                   </select>
                 </div>
               )}
+
+              {/* Removed duplicate environment block; consolidated above */}
 
               {/* GitHub Repository URL Input - CONDITIONALLY RENDERED */}
               {type === "Github Repo" && (

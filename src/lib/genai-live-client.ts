@@ -572,6 +572,35 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     this.emit("open");
   }
 
+  // Defensive reset to avoid stale state between hard reloads
+  public resetState() {
+    this.manualDisconnect = true;
+    this.sessionResumptionHandle = undefined;
+    this.config = null;
+    this._model = null;
+    this.reconnectionAttempts = 0;
+    if (this.session) {
+      try {
+        this.session.close();
+      } catch {}
+    }
+    this._session = null;
+    this._status = "disconnected";
+  }
+
+  // Explicit barge-in: request server to interrupt current AI output if supported
+  public interrupt() {
+    try {
+      // The underlying SDK may expose interrupt on the session
+      // Use optional chaining to avoid crashes if unavailable
+      // @ts-ignore - runtime-checked
+      this.session?.interrupt?.();
+      this.log("client.interrupt", "requested");
+    } catch (e) {
+      // noop - not fatal if interrupt is unsupported
+    }
+  }
+
   protected onerror(e: ErrorEvent) {
     this.log("server.error", e.message);
   }

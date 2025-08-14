@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getSupabaseClient } from "../config/supabaseClient";
+import { appLogger } from "../../lib/utils";
 import { ExamSimulator } from "../../types/ExamSimulator";
 
 // Duration formatter
@@ -32,7 +33,9 @@ const RecentCodeReviews: React.FC = () => {
         .limit(3);
 
       if (error) {
-        console.error("Error fetching recent reviews:", error);
+        appLogger.error.general(
+          error instanceof Error ? error.message : String(error)
+        );
       } else if (fetchedReviews) {
         setRecentReviews(fetchedReviews as ExamSimulator[]);
       } else {

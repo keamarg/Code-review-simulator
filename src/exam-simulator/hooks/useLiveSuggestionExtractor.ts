@@ -24,6 +24,7 @@ export const useLiveSuggestionExtractor = () => {
   const isSessionInitialized = useRef(false);
   const processedChunks = useRef(new Set<string>());
   const isInitializing = useRef(false);
+  const lastExtractionAtRef = useRef<number>(0);
 
   const initializeSession = useCallback(async () => {
     if (isInitializing.current) return;
@@ -107,6 +108,7 @@ export const useLiveSuggestionExtractor = () => {
     [levenshteinDistance]
   );
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const extractSuggestions = useCallback(
     async (transcriptChunk: string) => {
       // Skip if live suggestion extraction is disabled
@@ -133,6 +135,17 @@ export const useLiveSuggestionExtractor = () => {
         return;
       }
 
+      // Basic rate limit to avoid overly frequent completions
+      const now = Date.now();
+      if (now - lastExtractionAtRef.current < 8000) {
+        return;
+      }
+
+      // Skip if a previous extraction is still in progress
+      if (isProcessing) {
+        return;
+      }
+
       // Initialize session if needed
       if (!isSessionInitialized.current) {
         console.log("🔄 Initializing live suggestions session...");
@@ -144,6 +157,7 @@ export const useLiveSuggestionExtractor = () => {
       // Mark as processed
       processedChunks.current.add(transcriptChunk);
       setIsProcessing(true);
+      lastExtractionAtRef.current = now;
 
       // Add a processing timeout to prevent infinite hanging
       const processingTimeout = setTimeout(() => {
@@ -182,12 +196,26 @@ export const useLiveSuggestionExtractor = () => {
         }
 
         if (response && response.trim() !== "NO_SUGGESTIONS") {
-          // Parse bullet points
-          const bulletPoints = response
-            .split("\n")
-            .filter((line: string) => line.trim().startsWith("•"))
-            .map((line: string) => line.replace("•", "").trim())
+          // Parse bullet points (prefer •, fallback to -, *, or numbered)
+          const lines = response.split("\n").map((l: string) => l.trim());
+          let bulletPoints = lines
+            .filter((line: string) => line.startsWith("•"))
+            .map((line: string) => line.replace(/^•\s?/, "").trim())
             .filter((text: string) => text.length > 0);
+
+          if (bulletPoints.length === 0) {
+            bulletPoints = lines
+              .filter(
+                (line: string) =>
+                  line.startsWith("-") ||
+                  line.startsWith("*") ||
+                  /^\d+[).]/.test(line)
+              )
+              .map((line: string) =>
+                line.replace(/^([•*-]|\d+[).])\s*/, "").trim()
+              )
+              .filter((text: string) => text.length > 0);
+          }
 
           if (bulletPoints.length > 0) {
             const newSuggestions: Suggestion[] = bulletPoints.map(
@@ -258,6 +286,7 @@ export const useLiveSuggestionExtractor = () => {
         setIsProcessing(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [initializeSession, calculateSimilarity]
   );
 

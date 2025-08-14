@@ -33,10 +33,12 @@ export function createLiveConfig(
   // Get current VAD config each time (not cached at module level) to pick up environment changes
   const VAD_CONFIG = getVADConfig();
 
+  // Slightly more interrupt-friendly defaults on fresh sessions
   const silenceDurationMs =
-    options?.silenceDurationMs || VAD_CONFIG.silenceDurationMs;
+    options?.silenceDurationMs ||
+    Math.max(150, VAD_CONFIG.silenceDurationMs - 100);
   const prefixPaddingMs =
-    options?.prefixPaddingMs || VAD_CONFIG.prefixPaddingMs;
+    options?.prefixPaddingMs || Math.max(0, VAD_CONFIG.prefixPaddingMs - 5);
 
   // Use centralized VAD sensitivity settings or allow override
   const startSensitivity = options?.startOfSpeechSensitivity
@@ -75,18 +77,19 @@ export function createLiveConfig(
       slidingWindow: {},
     },
     // Enable output audio transcription to capture AI speech as text
-    outputAudioTranscription: true, // Re-enabled since disabling didn't fix the cutoff issue
+    outputAudioTranscription: true, // capture AI speech as text
     // Enable input audio transcription to capture user speech as text
     inputAudioTranscription: true,
     // Configure Voice Activity Detection using centralized config values
     // These settings prevent the AI from cutting itself off mid-sentence
     realtimeInputConfig: {
       automaticActivityDetection: {
-        disabled: false, // Re-enable VAD with very conservative settings
+        disabled: false,
+        // Slightly more aggressive end-of-speech to improve barge-in at session start
         startOfSpeechSensitivity: startSensitivity,
-        endOfSpeechSensitivity: endSensitivity, // Lower sensitivity prevents AI voice cutoffs
-        prefixPaddingMs: prefixPaddingMs, // Extra padding prevents false speech detection
-        silenceDurationMs: silenceDurationMs, // Longer duration prevents interrupting AI mid-sentence
+        endOfSpeechSensitivity: endSensitivity,
+        prefixPaddingMs: Math.max(0, prefixPaddingMs - 5),
+        silenceDurationMs: Math.max(150, silenceDurationMs - 100),
       },
     },
     // tools can be added here if needed in the future

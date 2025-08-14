@@ -49,7 +49,6 @@ interface ExamPageContentProps {
   initialRepoUrl?: string;
   isReadyForAutoTrigger?: boolean;
   onVoiceChangeReady: (handler: (newVoice: string) => void) => void;
-  onEnvironmentChangeReady: (handler: (newEnvironment: string) => void) => void;
 }
 
 function ExamPageContent({
@@ -75,7 +74,6 @@ function ExamPageContent({
   initialRepoUrl,
   isReadyForAutoTrigger,
   onVoiceChangeReady,
-  onEnvironmentChangeReady,
 }: ExamPageContentProps) {
   const { client, connected } = useGenAILiveContext();
 
@@ -97,45 +95,23 @@ function ExamPageContent({
           appLogger.error.session("Voice change failed");
         }
       } catch (error) {
-        console.error("Error changing voice:", error);
+        appLogger.error.session(
+          error instanceof Error ? error.message : String(error)
+        );
       }
     },
     [client, connected]
   );
 
   // Create environment change handler and pass it up
-  const handleEnvironmentChange = useCallback(
-    async (newEnvironment: string) => {
-      if (!connected) {
-        // Environment preference saved (not in session)
-        return;
-      }
-
-      try {
-        // Changing environment during active session
-
-        // Use the new changeEnvironment method that preserves session context
-        const success = await client.changeEnvironment(newEnvironment);
-
-        if (!success) {
-          appLogger.error.session("Environment change failed");
-        }
-      } catch (error) {
-        console.error("Error changing environment:", error);
-      }
-    },
-    [client, connected]
-  );
+  // Environment is set in setup modal; mid-session changes removed
 
   // Pass the voice change handler up to parent
   useEffect(() => {
     onVoiceChangeReady(handleVoiceChange);
   }, [handleVoiceChange, onVoiceChangeReady]);
 
-  // Pass the environment change handler up to parent
-  useEffect(() => {
-    onEnvironmentChangeReady(handleEnvironmentChange);
-  }, [handleEnvironmentChange, onEnvironmentChangeReady]);
+  // Environment handler removed
 
   useEffect(() => {
     if (client) {
@@ -186,7 +162,6 @@ function ExamPageContent({
           hideMainButton={!examIntentStarted}
           initialRepoUrl={initialRepoUrl}
           isReadyForAutoTrigger={isReadyForAutoTrigger}
-          onEnvironmentChange={handleEnvironmentChange}
         />
 
         {/* Live Suggestions Panel - Now shown inline when review is active */}
@@ -581,15 +556,20 @@ export default function LivePage() {
       setIsLoadingKey(true);
       setApiKeyError(null);
       try {
-        // Import the cached API key function
-        const { getCachedApiKey } = await import("../utils/getCompletion.js");
-        const key = await getCachedApiKey("prompt2");
+        const { API_GEMINI_ENDPOINT } = await import("../../config/urls");
+        const response = await fetch(API_GEMINI_ENDPOINT, { method: "GET" });
+        if (!response.ok) {
+          throw new Error(`Failed to load API key (${response.status})`);
+        }
+        const key = await response.json();
         if (!key || typeof key !== "string") {
           throw new Error("Invalid API key format received");
         }
         setGeminiApiKey(key);
       } catch (err) {
-        console.error("Error fetching API key:", err);
+        appLogger.error.general(
+          err instanceof Error ? err.message : String(err)
+        );
         setApiKeyError(
           err instanceof Error
             ? err.message
@@ -630,7 +610,9 @@ export default function LivePage() {
             }
           }
         } catch (error) {
-          console.error("Error fetching exam data:", error);
+          appLogger.error.general(
+            error instanceof Error ? error.message : String(error)
+          );
         }
       };
       fetchExam();
@@ -675,18 +657,8 @@ export default function LivePage() {
     ((newVoice: string) => void) | null
   >(null);
 
-  const [environmentChangeHandler, setEnvironmentChangeHandler] = useState<
-    ((newEnvironment: string) => void) | null
-  >(null);
-
   const handleVoiceChangeReady = (handler: (newVoice: string) => void) => {
     setVoiceChangeHandler(() => handler);
-  };
-
-  const handleEnvironmentChangeReady = (
-    handler: (newEnvironment: string) => void
-  ) => {
-    setEnvironmentChangeHandler(() => handler);
   };
 
   if (isLoadingKey) {
@@ -737,7 +709,6 @@ export default function LivePage() {
   return (
     <Layout
       onVoiceChange={voiceChangeHandler || undefined}
-      onEnvironmentChange={environmentChangeHandler || undefined}
       isSessionActive={examIntentStarted}
     >
       <GenAILiveProvider apiKey={geminiApiKey}>
@@ -779,7 +750,6 @@ export default function LivePage() {
           initialRepoUrl={quickStartData?.repoUrl || customRepoUrl}
           isReadyForAutoTrigger={isReadyForAutoTrigger}
           onVoiceChangeReady={handleVoiceChangeReady}
-          onEnvironmentChangeReady={handleEnvironmentChangeReady}
         />
       </GenAILiveProvider>
     </Layout>

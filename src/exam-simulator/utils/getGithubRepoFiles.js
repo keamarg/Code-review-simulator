@@ -1,4 +1,5 @@
 import prompts from "../../prompts.json";
+import { appLogger } from "../../lib/utils";
 
 // Function to get level-specific guidance for repo questions
 function getLevelSpecificGuidance(level) {
@@ -170,19 +171,25 @@ async function getRepoFilesRecursive(
   currentDepth = 0
 ) {
   if (currentDepth > maxDepth) {
-    console.log(`⚠️ Maximum depth ${maxDepth} reached for path: ${path}`);
+    appLogger.generic.info(
+      `⚠️ Maximum depth ${maxDepth} reached for path: ${path}`
+    );
     return [];
   }
 
   try {
     const url = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
-    console.log(`🔍 Scanning: ${path || "root"} (depth: ${currentDepth})`);
+    appLogger.generic.info(
+      `🔍 Scanning: ${path || "root"} (depth: ${currentDepth})`
+    );
 
     let response;
     try {
       response = await fetch(url);
     } catch (fetchError) {
-      console.warn(`⚠️ Network error accessing ${path}:`, fetchError);
+      appLogger.info.warning(
+        `⚠️ Network error accessing ${path}: ${String(fetchError)}`
+      );
       return [];
     }
 
@@ -205,7 +212,9 @@ async function getRepoFilesRecursive(
     }
 
     if (!response.ok) {
-      console.warn(`⚠️ Failed to access ${path} (HTTP ${response.status})`);
+      appLogger.info.warning(
+        `⚠️ Failed to access ${path} (HTTP ${response.status})`
+      );
       return [];
     }
 
@@ -213,12 +222,14 @@ async function getRepoFilesRecursive(
     try {
       items = await response.json();
     } catch (jsonError) {
-      console.warn(`⚠️ JSON parsing error for ${path}:`, jsonError);
+      appLogger.info.warning(
+        `⚠️ JSON parsing error for ${path}: ${String(jsonError)}`
+      );
       return [];
     }
 
     if (!Array.isArray(items)) {
-      console.warn(`⚠️ Unexpected response format for ${path}`);
+      appLogger.info.warning(`⚠️ Unexpected response format for ${path}`);
       return [];
     }
 
@@ -238,7 +249,7 @@ async function getRepoFilesRecursive(
     // Process files first
     for (const item of files) {
       if (allFiles.length >= maxFiles) {
-        console.log(`⚠️ Maximum file limit (${maxFiles}) reached`);
+        appLogger.generic.info(`⚠️ Maximum file limit (${maxFiles}) reached`);
         break;
       }
 
@@ -274,7 +285,7 @@ async function getRepoFilesRecursive(
     ) {
       throw error; // Re-throw fatal errors
     }
-    console.warn(`⚠️ Error scanning ${path}:`, error.message);
+    appLogger.info.warning(`⚠️ Error scanning ${path}: ${error.message}`);
     return [];
   }
 }
@@ -315,14 +326,16 @@ export async function getCachedApiKey(endpoint) {
 
   // Check if there's already a pending request for this endpoint
   if (pendingRequests[endpoint]) {
-    console.log(`🔄 Waiting for existing ${endpoint} API key request...`);
+    appLogger.generic.info(
+      `🔄 Waiting for existing ${endpoint} API key request...`
+    );
     return await pendingRequests[endpoint];
   }
 
   // Create a new request promise
   const requestPromise = (async () => {
     try {
-      console.log(`🔑 Fetching ${endpoint} API key from Vercel...`);
+      appLogger.generic.info(`🔑 Fetching ${endpoint} API key from Vercel...`);
 
       // Fetch new API key
       const apiKeyResponse = await fetch(
@@ -339,7 +352,7 @@ export async function getCachedApiKey(endpoint) {
       apiKeyCache[endpoint] = apiKey;
       apiKeyCache.cacheTime = now;
 
-      console.log(`✅ ${endpoint} API key cached successfully`);
+      appLogger.generic.info(`✅ ${endpoint} API key cached successfully`);
       return apiKey;
     } finally {
       // Clear the pending request
@@ -360,7 +373,7 @@ function getCachedRepositoryData(repoUrl, options = {}) {
 
   const cached = repositoryCache.data.get(cacheKey);
   if (cached && now - cached.timestamp < repositoryCache.cacheDuration) {
-    console.log(`📦 Using cached repository data for: ${repoUrl}`);
+    appLogger.generic.info(`📦 Using cached repository data for: ${repoUrl}`);
     return cached.data;
   }
 
@@ -377,7 +390,7 @@ function cacheRepositoryData(repoUrl, options = {}, data) {
     timestamp: now,
   });
 
-  console.log(`📦 Cached repository data for: ${repoUrl}`);
+  appLogger.generic.info(`📦 Cached repository data for: ${repoUrl}`);
 }
 
 async function getRepoFiles(repoUrl, options = {}) {
@@ -411,7 +424,9 @@ async function getRepoFiles(repoUrl, options = {}) {
         `https://api.github.com/repos/${owner}/${repoName}`
       );
     } catch (fetchError) {
-      console.error(`Fetch error for repository check:`, fetchError);
+      appLogger.error.general(
+        `Fetch error for repository check: ${String(fetchError)}`
+      );
       throw new Error(
         `❌ Network error while checking repository '${owner}/${repoName}'.\n\n` +
           `This could be due to:\n` +
@@ -460,7 +475,7 @@ async function getRepoFiles(repoUrl, options = {}) {
 
     if (fullScan) {
       // Full repository scan
-      console.log(`🔄 Starting full repository scan...`);
+      appLogger.generic.info(`🔄 Starting full repository scan...`);
       codeFiles = await getRepoFilesRecursive(
         owner,
         repoName,
@@ -476,7 +491,9 @@ async function getRepoFiles(repoUrl, options = {}) {
           `https://api.github.com/repos/${owner}/${repoName}/contents/`
         );
       } catch (fetchError) {
-        console.error(`Fetch error for repository contents:`, fetchError);
+        appLogger.error.general(
+          `Fetch error for repository contents: ${String(fetchError)}`
+        );
         throw new Error(
           `❌ Network error while accessing repository contents for '${owner}/${repoName}'.\n\n` +
             `This could be due to:\n` +
@@ -525,7 +542,9 @@ async function getRepoFiles(repoUrl, options = {}) {
       try {
         items = await rootResponse.json();
       } catch (jsonError) {
-        console.error(`JSON parsing error for repository contents:`, jsonError);
+        appLogger.error.general(
+          `JSON parsing error for repository contents: ${String(jsonError)}`
+        );
         throw new Error(
           `❌ Invalid response format from GitHub API for '${owner}/${repoName}'.\n\n` +
             `This could indicate:\n` +
@@ -537,7 +556,7 @@ async function getRepoFiles(repoUrl, options = {}) {
 
       // Validate that items is an array
       if (!Array.isArray(items)) {
-        console.error(`Unexpected response format:`, items);
+        appLogger.error.general(`Unexpected response format from GitHub API`);
         throw new Error(
           `❌ Unexpected repository structure for '${owner}/${repoName}'.\n\n` +
             `The repository contents are not in the expected format.\n\n` +
@@ -610,7 +629,9 @@ async function getRepoFiles(repoUrl, options = {}) {
         try {
           fileResponse = await fetch(item.download_url);
         } catch (fetchError) {
-          console.warn(`⚠️ Network error fetching ${item.name}:`, fetchError);
+          appLogger.info.warning(
+            `⚠️ Network error fetching ${item.name}: ${String(fetchError)}`
+          );
           continue; // Skip this file and continue with others
         }
 
@@ -633,7 +654,7 @@ async function getRepoFiles(repoUrl, options = {}) {
         }
 
         if (!fileResponse.ok) {
-          console.warn(
+          appLogger.info.warning(
             `⚠️ Skipping ${item.name} (HTTP ${fileResponse.status})`
           );
           continue;
@@ -643,7 +664,9 @@ async function getRepoFiles(repoUrl, options = {}) {
         try {
           content = await fileResponse.text();
         } catch (textError) {
-          console.warn(`⚠️ Error reading content of ${item.name}:`, textError);
+          appLogger.info.warning(
+            `⚠️ Error reading content of ${item.name}: ${String(textError)}`
+          );
           continue; // Skip this file and continue with others
         }
 
@@ -679,7 +702,9 @@ async function getRepoFiles(repoUrl, options = {}) {
           fatalError = error;
           break;
         }
-        console.warn(`⚠️ Error processing ${item.name}:`, error.message);
+        appLogger.info.warning(
+          `⚠️ Error processing ${item.name}: ${error.message}`
+        );
       }
     }
 
@@ -719,7 +744,7 @@ export async function getRepoQuestions(repoUrl, developerLevel, options = {}) {
   // Check if we have cached questions
   const cached = repositoryCache.data.get(cacheKey);
   if (cached && now - cached.timestamp < repositoryCache.cacheDuration) {
-    console.log(`🤖 Using cached AI questions for: ${repoUrl}`);
+    appLogger.generic.info(`🤖 Using cached AI questions for: ${repoUrl}`);
     return cached.data;
   }
 
@@ -744,37 +769,9 @@ export async function getRepoQuestions(repoUrl, developerLevel, options = {}) {
   // Get the system prompt from prompts.json
   const systemPrompt = prompts.systemPrompts.githubRepoQuestions;
 
-  const payload = {
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: prompt },
-    ],
-  };
-
-  // Import the cached API key function
-  const { getCachedApiKey } = await import("./getCompletion.js");
-  const apiKey = await getCachedApiKey("prompt1");
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch review questions: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const answer =
-    data.choices &&
-    data.choices[0] &&
-    data.choices[0].message &&
-    data.choices[0].message.content;
+  // Delegate to completion utility which calls the server-side proxy
+  const { getCompletion } = await import("./getCompletion.js");
+  const answer = await getCompletion(prompt, systemPrompt, false);
 
   // Cache the AI-generated questions
   repositoryCache.data.set(cacheKey, {
@@ -782,7 +779,7 @@ export async function getRepoQuestions(repoUrl, developerLevel, options = {}) {
     timestamp: now,
   });
 
-  console.log(`🤖 Cached AI questions for: ${repoUrl}`);
+  appLogger.generic.info(`🤖 Cached AI questions for: ${repoUrl}`);
 
   return answer;
 }

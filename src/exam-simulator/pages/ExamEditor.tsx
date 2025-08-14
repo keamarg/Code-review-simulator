@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import Layout from "../layout/Layout";
 import { getSupabaseClient } from "../config/supabaseClient";
 import { ExamSimulator } from "../../types/ExamSimulator";
+import { appLogger } from "../../lib/utils";
 
 export default function ExamEditor() {
   const [searchParams] = useSearchParams();
@@ -26,7 +27,9 @@ export default function ExamEditor() {
           .eq("id", examId)
           .single();
         if (error) {
-          console.error("Error fetching exam:", error);
+          appLogger.error.general(
+            error instanceof Error ? error.message : String(error)
+          );
         } else {
           setExam(data);
         }
@@ -83,7 +86,7 @@ export default function ExamEditor() {
 
     // Debouncing - prevent clicks within 1 second of each other
     if (now - lastClickTimeRef.current < 1000) {
-      console.log("Click ignored due to debouncing");
+      appLogger.generic.info("Click ignored due to debouncing");
       return;
     }
 
@@ -126,7 +129,11 @@ export default function ExamEditor() {
           .eq("id", examId);
 
         if (updateError) {
-          console.error("Error updating custom review:", updateError);
+          appLogger.error.general(
+            updateError instanceof Error
+              ? updateError.message
+              : String(updateError)
+          );
           showToast(
             `Error: Could not update custom review. ${updateError.message}`
           );
@@ -161,7 +168,11 @@ export default function ExamEditor() {
           .single(); // To get the newly created record back, including DB-generated ID/timestamps
 
         if (insertError) {
-          console.error("Error creating custom review:", insertError);
+          appLogger.error.general(
+            insertError instanceof Error
+              ? insertError.message
+              : String(insertError)
+          );
           showToast(
             `Error: Could not create custom review. ${insertError.message}`
           );
@@ -179,7 +190,9 @@ export default function ExamEditor() {
         setTimeout(() => navigate("/dashboard"), 800);
       }
     } catch (error) {
-      console.error("Unexpected error during save:", error);
+      appLogger.error.general(
+        error instanceof Error ? error.message : String(error)
+      );
       showToast("An unexpected error occurred. Please try again.");
     } finally {
       // Reset after a delay to prevent rapid re-clicking
@@ -202,7 +215,9 @@ export default function ExamEditor() {
           .eq("id", examId);
 
         if (error) {
-          console.error("Error deleting custom review:", error);
+          appLogger.error.general(
+            error instanceof Error ? error.message : String(error)
+          );
           showToast(`Error: Could not delete custom review. ${error.message}`);
           return;
         }

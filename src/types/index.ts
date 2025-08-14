@@ -24,3 +24,6 @@ export interface StreamingLog {
   type: string;
   message: any;
 }
+
+// Chat message role types used across suggestion extraction and other chat-like flows
+export type ChatRole = "system" | "user" | "assistant";

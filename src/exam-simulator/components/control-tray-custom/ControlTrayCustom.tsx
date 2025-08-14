@@ -109,11 +109,13 @@ function ControlTray({
   // Track if audio recorder should be started when connection is established
   const [shouldStartAudioRecorder, setShouldStartAudioRecorder] =
     useState(false);
+  const userInitiatedRef = useRef(false);
 
   // Track if this is a quick start mode (where streams are already set up)
   const [isQuickStartMode, setIsQuickStartMode] = useState(false);
 
-  const { client, connected, disconnect, volume } = useGenAILiveContext();
+  const { client, connected, disconnect, volume, status } =
+    useGenAILiveContext();
 
   // Effect to restore screen sharing state on component remount and detect quick start mode
   useEffect(() => {
@@ -144,9 +146,8 @@ function ControlTray({
             setShouldStartAudioRecorder(true);
           })
           .catch((error) => {
-            console.error(
-              "❌ Quick start mode: Failed to get audio stream:",
-              error
+            appLogger.error.audio(
+              error instanceof Error ? error.message : String(error)
             );
           });
       }
@@ -159,12 +160,16 @@ function ControlTray({
     }
   }, [connected]);
 
-  // Reset buttonIsOn when connection ends
+  // Reset button only on true disconnect (not while connecting, and only if user initiated a session)
   useEffect(() => {
-    if (!connected) {
+    if (
+      status === "disconnected" &&
+      hasEverConnected &&
+      userInitiatedRef.current
+    ) {
       setButtonIsOn(false);
     }
-  }, [connected]);
+  }, [status, hasEverConnected]);
 
   // Track when we've ever connected for pause/resume logic
   useEffect(() => {
@@ -388,7 +393,9 @@ function ControlTray({
             audioRecorder.on("data", audioDataHandler);
           }
         } catch (error) {
-          console.error("❌ Failed to start audio recorder:", error);
+          appLogger.error.audio(
+            error instanceof Error ? error.message : String(error)
+          );
         }
         setShouldStartAudioRecorder(false);
       }
@@ -415,6 +422,7 @@ function ControlTray({
 
   // Main button click handler
   const handleMainButtonClick = async () => {
+    userInitiatedRef.current = true;
     // Safari and Firefox are not supported
     if (isSafari() || isFirefox()) {
       alert(
@@ -426,6 +434,9 @@ function ControlTray({
     // Handle different states: Start, Pause, Resume
     if (connected) {
       // Currently connected - this is a PAUSE
+      try {
+        client.interrupt?.();
+      } catch {}
       disconnect(); // This preserves session data for resumption
       setButtonIsOn(false);
       onButtonClicked(false); // Notify parent that we're pausing
@@ -439,19 +450,25 @@ function ControlTray({
         if (resumeSuccess) {
           onButtonClicked(true); // Notify parent that we're resuming
         } else {
-          console.error("❌ Session resume failed");
+          appLogger.error.session("Session resume failed");
           setButtonIsOn(false);
           // Reset and allow fresh start
           setHasEverConnected(false);
         }
       } catch (error) {
-        console.error("❌ Resume error:", error);
+        appLogger.error.session(
+          error instanceof Error ? error.message : String(error)
+        );
         setButtonIsOn(false);
         // Reset and allow fresh start
         setHasEverConnected(false);
       }
     } else {
       // Never connected before - this is a START
+      // Hard-reset any stale live session state before starting a fresh one
+      try {
+        client.terminateSession?.();
+      } catch {}
       await startUnifiedFlow();
     }
   };
@@ -461,7 +478,7 @@ function ControlTray({
     setButtonIsOn(true);
 
     try {
-      // Start screen sharing first
+      // Start screen sharing first (this triggers the OS dialog)
       let videoStream: MediaStream;
       try {
         videoStream = await navigator.mediaDevices.getDisplayMedia({
@@ -519,16 +536,20 @@ function ControlTray({
         // Don't start audio recorder here - let it start when connection is established
         setShouldStartAudioRecorder(true);
 
-        // Start the review
+        // Start the review only after user initiated and streams are ready
         try {
-          onButtonClicked(true);
+          if (userInitiatedRef.current) {
+            onButtonClicked(true);
+          }
         } catch (error) {
           setButtonIsOn(false);
           alert("Failed to start the code review. Please try again.");
           return;
         }
       } else if (micError) {
-        console.error("❌ ControlTray: Microphone access failed:", micError);
+        appLogger.error.audio(
+          micError instanceof Error ? micError.message : String(micError)
+        );
         setButtonIsOn(false);
         alert(
           "Microphone access is required. Please allow microphone access and try again."
@@ -536,7 +557,9 @@ function ControlTray({
         return;
       }
     } catch (error) {
-      console.error("Error starting review:", error);
+      appLogger.error.general(
+        error instanceof Error ? error.message : String(error)
+      );
       setButtonIsOn(false);
     }
   };

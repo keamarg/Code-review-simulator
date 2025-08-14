@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import React, { useEffect, useRef, useState, memo } from "react";
+import React, { useEffect, useState, memo } from "react";
+import ReactMarkdown from "react-markdown";
 import { useLiveAPIContext } from "../../contexts/LiveAPIContext";
 import { ExamSimulator } from "../../types/ExamSimulator";
-import { getCurrentModel, getTimerConfig } from "../../config/aiConfig"; // Import centralized config
-import prompts from "../../prompts.json";
+// import { getCurrentModel, getTimerConfig } from "../../config/aiConfig";
+// import prompts from "../../prompts.json";
 
-const EXAM_DURATION_IN_MINUTES = 10; // default duration
+// const EXAM_DURATION_IN_MINUTES = 10; // default duration
 
 interface AltairProps {
   examSimulator?: ExamSimulator;
@@ -27,16 +28,16 @@ interface AltairProps {
 }
 
 function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
-  const [jsonString, setJSONString] = useState<string>("");
+  // const [jsonString] = useState<string>("");
   // New state variable to store the task for the student
-  const [studentTask, setStudentTask] = useState<string>("");
-  const { client, setConfig, connected } = useLiveAPIContext();
+  const [studentTask] = useState<string>("");
+  const { connected } = useLiveAPIContext();
 
   // Calculate dynamic exam duration based on examSimulator. Use fallback if not provided.
-  const examDurationInMinutes =
-    examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
-  const examDurationInMs = examDurationInMinutes * 60 * 1000;
-  const examDurationActiveExam = examDurationInMs - 60 * 1000;
+  // const examDurationInMinutes =
+  //   examSimulator?.duration ?? EXAM_DURATION_IN_MINUTES;
+  // const examDurationInMs = examDurationInMinutes * 60 * 1000;
+  // const examDurationActiveExam = examDurationInMs - 60 * 1000;
 
   useEffect(() => {
     if (!connected) return;
@@ -49,7 +50,7 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
     // Timer setup is now handled by useExamTimers.ts - no duplicate timers needed here
   }, [connected, onVoiceStart]);
 
-  const prompt = "";
+  // const prompt = "";
 
   /* useEffect(() => {
     setConfig({
@@ -70,8 +71,8 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
     });
   }, [setConfig]); */
 
-  const prepareExamQuestions = async () => {
-    /*  try {
+  // const prepareExamQuestions = async () => {
+  /*  try {
       const examContent = await getExaminerQuestions(
         examSimulator.learningGoals,
         examDurationInMinutes,
@@ -93,7 +94,7 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
     } catch (error) {
       console.error("Failed to prepare exam content:", error);
     } */
-  };
+  // };
 
   return (
     <div>
@@ -101,7 +102,7 @@ function AltairComponent({ examSimulator, onVoiceStart }: AltairProps) {
       {studentTask && (
         <div className="student-task">
           <h3>Exam Task for Student</h3>
-          <div dangerouslySetInnerHTML={{ __html: studentTask }} />
+          <ReactMarkdown>{studentTask}</ReactMarkdown>
         </div>
       )}
     </div>
