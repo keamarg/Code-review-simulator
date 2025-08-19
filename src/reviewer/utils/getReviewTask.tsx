@@ -1,9 +1,8 @@
-import { ExamSimulator } from "../../types/ExamSimulator";
+import { CodeReviewTemplate } from "../../types/CodeReviewTemplate";
 import getCompletion from "./getCompletion";
 import prompts from "../../prompts.json";
 import { appLogger } from "../../lib/utils";
 
-// Function to get level-specific learning objectives
 function getLevelSpecificObjectives(level: string): string {
   switch (level) {
     case "junior":
@@ -42,20 +41,15 @@ function getLevelSpecificObjectives(level: string): string {
   }
 }
 
-export async function getExaminerQuestions(examSimulator: ExamSimulator) {
-  appLogger.generic.info("getExaminerQuestions: start", examSimulator?.type, examSimulator?.title);
-  // Use the full duration without subtracting time for feedback
-  const activeExaminationMin = examSimulator.duration;
+export async function getReviewTask(reviewTemplate: CodeReviewTemplate) {
+  appLogger.generic.info("getReviewTask: start", reviewTemplate?.type, reviewTemplate?.title);
+  const reviewDurationMinutes = reviewTemplate.duration;
 
-  // Get level-specific objectives based on developer_level
-  const levelObjectives = getLevelSpecificObjectives(examSimulator.learning_goals);
+  const levelObjectives = getLevelSpecificObjectives(reviewTemplate.learning_goals);
 
-  // Get the base prompt from prompts.json and replace newlines
-  let prompt = prompts.taskPrompts.examinerQuestions.replace(/\\n/g, "\n");
-  // Add explicit instruction to return ONLY the JSON block
+  let prompt = (prompts as any).taskPrompts.reviewTask.replace(/\n/g, "\n");
   prompt += "\nReturn ONLY the JSON object.";
 
-  // Add the specific review details
   prompt += `
 
 Review focus areas:
@@ -65,22 +59,20 @@ ${levelObjectives}
 
 Code review context:
 \`\`\`
-${examSimulator.description || "Conduct a general code review focusing on the areas listed above."}
+${reviewTemplate.description || "Conduct a general code review focusing on the areas listed above."}
 \`\`\`
 
 Review title:
 \`\`\`
-${examSimulator.title || "Code Review Session"}
+${reviewTemplate.title || "Code Review Session"}
 \`\`\`
 
 Review duration:
 \`\`\`
-${activeExaminationMin} minutes
+${reviewDurationMinutes} minutes
 \`\`\`
 
-The developer being reviewed is at the ${
-    examSimulator.learning_goals
-  } level, so adjust the depth and complexity accordingly.
+The developer being reviewed is at the ${reviewTemplate.learning_goals} level, so adjust the depth and complexity accordingly.
 
 Please output it in JSON in the following format:
 \`\`\`
@@ -98,12 +90,10 @@ VERY IMPORTANT INSTRUCTIONS:
 6. Avoid unnecessary explanations or lengthy text
   `.trim();
 
-  // Get the system prompt from prompts.json
-  const systemPrompt = prompts.systemPrompts.examinerQuestions;
+  const systemPrompt = (prompts as any).systemPrompts.reviewTask;
 
-  // Try JSON first; on failure, fall back to plain text
   try {
-    appLogger.generic.info("getExaminerQuestions: requesting JSON completion");
+    appLogger.generic.info("getReviewTask: requesting JSON completion");
     const jsonResult = await getCompletion(prompt, systemPrompt, true);
     if (
       jsonResult &&
@@ -112,37 +102,33 @@ VERY IMPORTANT INSTRUCTIONS:
       jsonResult["task-student"].trim().length > 0
     ) {
       appLogger.generic.info(
-        "getExaminerQuestions: received JSON task",
+        "getReviewTask: received JSON task",
         jsonResult["task-student"].length,
       );
       return jsonResult;
     }
-  } catch (e) {
-    // swallow and try plaintext
-  }
+  } catch {}
 
   try {
-    appLogger.generic.info("getExaminerQuestions: requesting TEXT completion");
+    appLogger.generic.info("getReviewTask: requesting TEXT completion");
     const text = await getCompletion(prompt, systemPrompt, false);
     if (typeof text === "string" && text.trim().length > 0) {
-      appLogger.generic.info("getExaminerQuestions: received TEXT task", text.trim().length);
+      appLogger.generic.info("getReviewTask: received TEXT task", text.trim().length);
       return { "task-student": text.trim() };
     }
   } catch (error) {
     appLogger.error.general(error instanceof Error ? error.message : String(error));
   }
 
-  // Ensure we always return a task to break loops in caller (synthesized minimal task)
-  const synthesized = `# ${
-    examSimulator.title || "Code Review Session"
-  }\n\nPlease share the main file(s) you want reviewed. I will give concise, actionable suggestions and reference exact line numbers I can see.\n\nFocus areas (${
-    examSimulator.learning_goals || "intermediate"
-  }):\n${getLevelSpecificObjectives(examSimulator.learning_goals || "intermediate")}`.trim();
-  const fallback = {
-    "task-student": synthesized,
-  };
-  appLogger.generic.info("getExaminerQuestions: returning fallback task");
-  return fallback;
+  const synthesized = `# ${reviewTemplate.title || "Code Review Session"}
+
+Please share the main file(s) you want reviewed. I will give concise, actionable suggestions and reference exact line numbers I can see.
+
+Focus areas (${reviewTemplate.learning_goals || "intermediate"}):
+${getLevelSpecificObjectives(reviewTemplate.learning_goals || "intermediate")}`.trim();
+
+  appLogger.generic.info("getReviewTask: returning fallback task");
+  return { "task-student": synthesized };
 }
 
-export default getExaminerQuestions;
+export default getReviewTask;

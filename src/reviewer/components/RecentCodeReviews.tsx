@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getSupabaseClient } from "../config/supabaseClient";
 import { appLogger } from "../../lib/utils";
-import { ExamSimulator } from "../../types/ExamSimulator";
+import { CodeReviewTemplate } from "../../types/CodeReviewTemplate";
 
 // Duration formatter
 const formatDuration = (minutes: number): string => {
@@ -14,14 +14,10 @@ const formatDuration = (minutes: number): string => {
 };
 
 const RecentCodeReviews: React.FC = () => {
-  const [recentReviews, setRecentReviews] = useState<ExamSimulator[]>([]);
+  const [recentReviews, setRecentReviews] = useState<CodeReviewTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newlyCreatedExamId, setNewlyCreatedExamId] = useState<string | null>(
-    null
-  );
-  const [recentlyUpdatedExamId, setRecentlyUpdatedExamId] = useState<
-    string | null
-  >(null);
+  const [newlyCreatedReviewId, setNewlyCreatedReviewId] = useState<string | null>(null);
+  const [recentlyUpdatedReviewId, setRecentlyUpdatedReviewId] = useState<string | null>(null);
 
   useEffect(() => {
     async function getRecentReviews() {
@@ -33,11 +29,9 @@ const RecentCodeReviews: React.FC = () => {
         .limit(3);
 
       if (error) {
-        appLogger.error.general(
-          error instanceof Error ? error.message : String(error)
-        );
+        appLogger.error.general(error instanceof Error ? error.message : String(error));
       } else if (fetchedReviews) {
-        setRecentReviews(fetchedReviews as ExamSimulator[]);
+        setRecentReviews(fetchedReviews as CodeReviewTemplate[]);
       } else {
         setRecentReviews([]);
       }
@@ -47,21 +41,19 @@ const RecentCodeReviews: React.FC = () => {
     getRecentReviews();
 
     // Check for newly created exam ID in localStorage
-    const newlyCreatedId = localStorage.getItem("newlyCreatedExamId");
+    const newlyCreatedId = localStorage.getItem("newlyCreatedReviewId");
     const landingPageShownNew = localStorage.getItem("landingPageShownNew");
     if (newlyCreatedId && !landingPageShownNew) {
-      setNewlyCreatedExamId(newlyCreatedId);
+      setNewlyCreatedReviewId(newlyCreatedId);
       // Mark that landing page has shown the NEW pill
       localStorage.setItem("landingPageShownNew", "true");
     }
 
     // Check for recently updated exam ID in localStorage
-    const recentlyUpdatedId = localStorage.getItem("recentlyUpdatedExamId");
-    const landingPageShownUpdated = localStorage.getItem(
-      "landingPageShownUpdated"
-    );
+    const recentlyUpdatedId = localStorage.getItem("recentlyUpdatedReviewId");
+    const landingPageShownUpdated = localStorage.getItem("landingPageShownUpdated");
     if (recentlyUpdatedId && !landingPageShownUpdated) {
-      setRecentlyUpdatedExamId(recentlyUpdatedId);
+      setRecentlyUpdatedReviewId(recentlyUpdatedId);
       // Mark that landing page has shown the UPDATED pill
       localStorage.setItem("landingPageShownUpdated", "true");
     }
@@ -71,13 +63,13 @@ const RecentCodeReviews: React.FC = () => {
     const dashboardShownUpdated = localStorage.getItem("dashboardShownUpdated");
 
     if (landingPageShownNew && dashboardShownNew) {
-      localStorage.removeItem("newlyCreatedExamId");
+      localStorage.removeItem("newlyCreatedReviewId");
       localStorage.removeItem("landingPageShownNew");
       localStorage.removeItem("dashboardShownNew");
     }
 
     if (landingPageShownUpdated && dashboardShownUpdated) {
-      localStorage.removeItem("recentlyUpdatedExamId");
+      localStorage.removeItem("recentlyUpdatedReviewId");
       localStorage.removeItem("landingPageShownUpdated");
       localStorage.removeItem("dashboardShownUpdated");
     }
@@ -141,9 +133,7 @@ const RecentCodeReviews: React.FC = () => {
           <h2 className="text-2xl md:text-3xl font-bold text-tokyo-fg-bright mb-3">
             Recent Code Reviews
           </h2>
-          <p className="text-tokyo-fg mb-2">
-            Check out some recently created code review sessions
-          </p>
+          <p className="text-tokyo-fg mb-2">Check out some recently created code review sessions</p>
           <Link
             to="/signup"
             className="inline-flex items-center justify-center bg-tokyo-accent hover:bg-tokyo-accent-darker text-white py-3 px-6 rounded-md transition-colors"
@@ -162,23 +152,19 @@ const RecentCodeReviews: React.FC = () => {
           <h2 className="text-2xl md:text-3xl font-bold text-tokyo-fg-bright mb-3">
             Recent Code Reviews
           </h2>
-          <p className="text-tokyo-fg mb-2">
-            Check out some recently created code review sessions
-          </p>
+          <p className="text-tokyo-fg mb-2">Check out some recently created code review sessions</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {recentReviews.map((review) => {
-            const isNew = review.id === newlyCreatedExamId;
-            const isUpdated = review.id === recentlyUpdatedExamId;
+            const isNew = review.id === newlyCreatedReviewId;
+            const isUpdated = review.id === recentlyUpdatedReviewId;
 
             return (
               <div
                 key={review.id}
                 className={`relative bg-tokyo-bg-lightest rounded-lg p-6 border border-tokyo-selection hover:shadow-lg transition-all duration-200 hover:transform hover:-translate-y-1 ${
-                  isNew || isUpdated
-                    ? "ring-2 ring-tokyo-accent ring-opacity-50"
-                    : ""
+                  isNew || isUpdated ? "ring-2 ring-tokyo-accent ring-opacity-50" : ""
                 }`}
               >
                 {/* NEW/UPDATED indicator pill */}
@@ -201,9 +187,7 @@ const RecentCodeReviews: React.FC = () => {
 
                 {/* Review Description - Fixed 3 lines */}
                 <div className="h-18 mb-4">
-                  <p className="text-tokyo-fg text-sm line-clamp-3">
-                    {review.description}
-                  </p>
+                  <p className="text-tokyo-fg text-sm line-clamp-3">{review.description}</p>
                 </div>
 
                 {/* Review Details - Single Line */}
@@ -224,9 +208,7 @@ const RecentCodeReviews: React.FC = () => {
                             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <span className="whitespace-nowrap">
-                          {formatDuration(review.duration)}
-                        </span>
+                        <span className="whitespace-nowrap">{formatDuration(review.duration)}</span>
                       </div>
                     )}
 
@@ -264,9 +246,7 @@ const RecentCodeReviews: React.FC = () => {
                             d="M13 10V3L4 14h7v7l9-11h-7z"
                           />
                         </svg>
-                        <span className="whitespace-nowrap">
-                          {review.learning_goals}
-                        </span>
+                        <span className="whitespace-nowrap">{review.learning_goals}</span>
                       </div>
                     )}
                   </div>
@@ -313,12 +293,7 @@ const RecentCodeReviews: React.FC = () => {
             className="inline-flex items-center text-tokyo-accent hover:text-tokyo-accent-lighter font-medium transition-colors"
           >
             View all saved reviews
-            <svg
-              className="h-4 w-4 ml-1"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
+            <svg className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"

@@ -17,7 +17,7 @@ export function Navigation() {
         </li>
         <li>
           <Link className="text-white" to="/create">
-            Create Exam
+            Create Review
           </Link>
         </li>
         <li>

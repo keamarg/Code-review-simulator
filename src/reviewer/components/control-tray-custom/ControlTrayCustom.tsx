@@ -15,19 +15,12 @@
  */
 
 import cn from "classnames";
+import { CountdownTimer } from "../../components/CountdownTimer";
 
-import {
-  memo,
-  ReactNode,
-  RefObject,
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-} from "react";
+import { memo, ReactNode, RefObject, useEffect, useRef, useState, useCallback } from "react";
 import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
 import { AudioRecorder } from "../../../lib/audio-recorder";
-import AudioPulse from "../../../components/audio-pulse/AudioPulse";
+import AudioPulse from "../../../../src/components/audio-pulse/AudioPulse";
 import { appLogger } from "../../../lib/utils";
 import "./control-tray-custom.scss";
 
@@ -54,6 +47,8 @@ export type ControlTrayProps = {
   onButtonReady?: (triggerButton: () => void) => void;
   onScreenShareCancelled?: () => void;
   networkMuted?: boolean;
+  /** Optional preflight validation before starting first-time share. Return a string to block and show message. */
+  preflightCheck?: () => string | null | undefined;
   /**
    * When true, the main connect / start button is rendered but visually hidden. This lets
    * external code auto-trigger the button via the existing refs / callbacks while removing it
@@ -65,6 +60,27 @@ export type ControlTrayProps = {
    * Callback to update environment settings in the audio recorder
    */
   onEnvironmentChange?: (environment: string) => void;
+  /**
+   * When false, hides action buttons/indicators until AI starts speaking
+   */
+  showActions?: boolean;
+  showIndicators?: boolean;
+  /**
+   * Notify parent when we are connected and actively sharing (for synchronized UI fade-in)
+   */
+  onSharingReady?: () => void;
+  /** Fade in the entire tray container when it becomes visible */
+  fadeInContainer?: boolean;
+  /** Whether the whole tray should be visible now (e.g., after sharing is ready) */
+  visibleContainer?: boolean;
+  /** Optional timer config; when provided, an inline timer is shown next to action buttons */
+  timerTotalMs?: number;
+  timerStartTrigger?: boolean;
+  timerOnTimeUp?: () => void;
+  timerOnIntroduction?: () => void;
+  timerOnFarewell?: () => void;
+  /** Stable key to persist timer remaining time across conditional mounts */
+  timerPersistKey?: string;
 };
 
 function ControlTray({
@@ -78,13 +94,25 @@ function ControlTray({
   forceStopVideo,
   onButtonReady,
   onScreenShareCancelled,
+  preflightCheck,
   networkMuted = false,
   hideMainButton = false,
   isReadyForAutoTrigger = false,
   onEnvironmentChange,
+  showActions = true,
+  showIndicators = true,
+  onSharingReady,
+  fadeInContainer = false,
+  visibleContainer = true,
+  timerTotalMs,
+  timerStartTrigger,
+  timerOnTimeUp,
+  timerOnIntroduction,
+  timerOnFarewell,
+  timerPersistKey,
 }: ControlTrayProps) {
-  const [activeVideoStream, setActiveVideoStream] =
-    useState<MediaStream | null>(null);
+  const hasAnnouncedSharingReadyRef = useRef(false);
+  const [activeVideoStream, setActiveVideoStream] = useState<MediaStream | null>(null);
   const [audioRecorder] = useState(() => new AudioRecorder());
   const [muted, setMuted] = useState(false);
   const renderCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -99,23 +127,22 @@ function ControlTray({
   // Track if we've already notified about button ready to prevent multiple calls
   const hasNotifiedButtonReadyRef = useRef(false);
 
-  // New state for two-step approach
-  const [permissionsGranted] = useState(false);
-  const [isRequestingPermissions] = useState(false);
+  // New state for two-step approach (used to hide UI during system dialogs)
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
+  const [isRequestingPermissions, setIsRequestingPermissions] = useState(false);
 
   // New state for pause/resume functionality
   const [hasEverConnected, setHasEverConnected] = useState(false);
 
   // Track if audio recorder should be started when connection is established
-  const [shouldStartAudioRecorder, setShouldStartAudioRecorder] =
-    useState(false);
+  const [shouldStartAudioRecorder, setShouldStartAudioRecorder] = useState(false);
   const userInitiatedRef = useRef(false);
 
   // Track if this is a quick start mode (where streams are already set up)
   const [isQuickStartMode, setIsQuickStartMode] = useState(false);
+  const isChangingScreenRef = useRef(false);
 
-  const { client, connected, disconnect, volume, status } =
-    useGenAILiveContext();
+  const { client, connected, disconnect, volume, status } = useGenAILiveContext();
 
   // Effect to restore screen sharing state on component remount and detect quick start mode
   useEffect(() => {
@@ -146,9 +173,7 @@ function ControlTray({
             setShouldStartAudioRecorder(true);
           })
           .catch((error) => {
-            appLogger.error.audio(
-              error instanceof Error ? error.message : String(error)
-            );
+            appLogger.error.audio(error instanceof Error ? error.message : String(error));
           });
       }
     }
@@ -162,14 +187,17 @@ function ControlTray({
 
   // Reset button only on true disconnect (not while connecting, and only if user initiated a session)
   useEffect(() => {
-    if (
-      status === "disconnected" &&
-      hasEverConnected &&
-      userInitiatedRef.current
-    ) {
+    if (status === "disconnected" && hasEverConnected && userInitiatedRef.current) {
       setButtonIsOn(false);
     }
   }, [status, hasEverConnected]);
+  // Announce when sharing is ready (connected + screen sharing active)
+  useEffect(() => {
+    if (connected && isScreenSharing && !hasAnnouncedSharingReadyRef.current) {
+      hasAnnouncedSharingReadyRef.current = true;
+      onSharingReady && onSharingReady();
+    }
+  }, [connected, isScreenSharing, onSharingReady]);
 
   // Track when we've ever connected for pause/resume logic
   useEffect(() => {
@@ -243,7 +271,7 @@ function ControlTray({
         },
       ]);
     },
-    [client, audioRecorder]
+    [client, audioRecorder],
   );
 
   // Simple mute toggle - just enable/disable the audio track
@@ -309,8 +337,7 @@ function ControlTray({
   // Effect to set environment when audio recorder starts or when environment changes
   useEffect(() => {
     if (audioRecorder.recording) {
-      const currentEnvironment =
-        localStorage.getItem("ai_vad_environment") || "QUIET";
+      const currentEnvironment = localStorage.getItem("ai_vad_environment") || "QUIET";
       updateEnvironmentCallback(currentEnvironment);
     }
   }, [audioRecorder.recording, onEnvironmentChange, updateEnvironmentCallback]);
@@ -362,8 +389,15 @@ function ControlTray({
       }
 
       const ctx = canvas.getContext("2d")!;
-      canvas.width = video.videoWidth * 0.25;
-      canvas.height = video.videoHeight * 0.25;
+      const vw = video.videoWidth || 0;
+      const vh = video.videoHeight || 0;
+      if (vw === 0 || vh === 0) {
+        // Video metadata not ready yet; retry shortly without bailing the loop completely
+        timeoutId = window.setTimeout(sendVideoFrame, 100);
+        return;
+      }
+      canvas.width = vw * 0.25;
+      canvas.height = vh * 0.25;
       if (canvas.width + canvas.height > 0) {
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         const base64 = canvas.toDataURL("image/jpeg", 1.0);
@@ -393,22 +427,14 @@ function ControlTray({
             audioRecorder.on("data", audioDataHandler);
           }
         } catch (error) {
-          appLogger.error.audio(
-            error instanceof Error ? error.message : String(error)
-          );
+          appLogger.error.audio(error instanceof Error ? error.message : String(error));
         }
         setShouldStartAudioRecorder(false);
       }
     };
 
     startAudioRecorderWhenConnected();
-  }, [
-    connected,
-    shouldStartAudioRecorder,
-    audioRecorder,
-    audioDataHandler,
-    isQuickStartMode,
-  ]);
+  }, [connected, shouldStartAudioRecorder, audioRecorder, audioDataHandler, isQuickStartMode]);
 
   // Ensure microphone stream is stopped when component unmounts (e.g., navigation away)
   useEffect(() => {
@@ -425,9 +451,7 @@ function ControlTray({
     userInitiatedRef.current = true;
     // Safari and Firefox are not supported
     if (isSafari() || isFirefox()) {
-      alert(
-        "Safari and Firefox are not supported. Please use Chrome for the best experience."
-      );
+      alert("Safari and Firefox are not supported. Please use Chrome for the best experience.");
       return;
     }
 
@@ -456,15 +480,25 @@ function ControlTray({
           setHasEverConnected(false);
         }
       } catch (error) {
-        appLogger.error.session(
-          error instanceof Error ? error.message : String(error)
-        );
+        appLogger.error.session(error instanceof Error ? error.message : String(error));
         setButtonIsOn(false);
         // Reset and allow fresh start
         setHasEverConnected(false);
       }
     } else {
       // Never connected before - this is a START
+      // Optional preflight validation (e.g., ensure required inputs present)
+      if (typeof preflightCheck === "function") {
+        try {
+          const message = preflightCheck();
+          if (typeof message === "string" && message.trim().length > 0) {
+            alert(message);
+            return;
+          }
+        } catch {
+          // If validation throws, do not block start unnecessarily
+        }
+      }
       // Hard-reset any stale live session state before starting a fresh one
       try {
         client.terminateSession?.();
@@ -478,13 +512,16 @@ function ControlTray({
     setButtonIsOn(true);
 
     try {
+      setIsRequestingPermissions(true);
       // Start screen sharing first (this triggers the OS dialog)
       let videoStream: MediaStream;
       try {
         videoStream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
         });
+        setPermissionsGranted(true);
       } catch (screenShareError) {
+        setIsRequestingPermissions(false);
         setButtonIsOn(false);
         if (
           screenShareError instanceof DOMException &&
@@ -497,7 +534,7 @@ function ControlTray({
           }
 
           alert(
-            "Screen sharing is required to start the code review. Please allow screen sharing and try again."
+            "Screen sharing is required to start the code review. Please allow screen sharing and try again.",
           );
         } else {
           alert("Failed to start screen sharing. Please try again.");
@@ -542,25 +579,24 @@ function ControlTray({
             onButtonClicked(true);
           }
         } catch (error) {
+          setIsRequestingPermissions(false);
           setButtonIsOn(false);
           alert("Failed to start the code review. Please try again.");
           return;
         }
       } else if (micError) {
-        appLogger.error.audio(
-          micError instanceof Error ? micError.message : String(micError)
-        );
+        setIsRequestingPermissions(false);
+        appLogger.error.audio(micError instanceof Error ? micError.message : String(micError));
         setButtonIsOn(false);
-        alert(
-          "Microphone access is required. Please allow microphone access and try again."
-        );
+        alert("Microphone access is required. Please allow microphone access and try again.");
         return;
       }
+      // Requesting phase complete; UI will become visible again when connected
+      setIsRequestingPermissions(false);
     } catch (error) {
-      appLogger.error.general(
-        error instanceof Error ? error.message : String(error)
-      );
+      appLogger.error.general(error instanceof Error ? error.message : String(error));
       setButtonIsOn(false);
+      setIsRequestingPermissions(false);
     }
   };
 
@@ -670,10 +706,7 @@ function ControlTray({
 
     // More flexible screen detection
     const screenNumMatch = label.match(/(\d+)/);
-    if (
-      screenNumMatch &&
-      (label.toLowerCase().includes("screen") || label.includes("display"))
-    ) {
+    if (screenNumMatch && (label.toLowerCase().includes("screen") || label.includes("display"))) {
       const screenNum = parseInt(screenNumMatch[1]) + 1;
       return `Screen ${screenNum}`;
     }
@@ -702,15 +735,44 @@ function ControlTray({
 
   // Function to change screen sharing source during active review
   const changeScreenShare = async () => {
+    appLogger.generic.info("🔍 ChangeScreen: invoked");
+    if (isChangingScreenRef.current) return;
+    isChangingScreenRef.current = true;
     if (!activeVideoStream) {
+      appLogger.generic.info("🔍 ChangeScreen: no activeVideoStream present");
+      isChangingScreenRef.current = false;
       return;
     }
 
     try {
+      // Mark for UI to suppress flicker on close
+      (client as any).screenChangeInProgress = true;
+      // Deliberately pause the AI session first to preserve resumption handle (matches prior behavior)
+      if (connected) {
+        try {
+          onButtonClicked?.(false);
+          await (client as any).disconnect?.();
+        } catch {}
+      }
+
       // Ask the user for a new screen (tab / window / monitor)
       const newVideoStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
       });
+
+      // Validate stream
+      const newTracks = newVideoStream.getVideoTracks();
+      if (!newTracks || newTracks.length === 0) {
+        appLogger.generic.info("🔍 ChangeScreen: no video tracks in new stream");
+        alert(
+          "No video track found in the selected source. The current screen will continue to be shared.",
+        );
+        try {
+          newVideoStream.getTracks().forEach((t) => t.stop());
+        } catch {}
+        isChangingScreenRef.current = false;
+        return;
+      }
 
       // Replace the current stream on the video element *before* stopping the old one
       const videoOnlyStream = new MediaStream(newVideoStream.getVideoTracks());
@@ -718,27 +780,112 @@ function ControlTray({
       onVideoStreamChange(videoOnlyStream);
       const newScreenName = getScreenSharingSourceName(newVideoStream);
       setScreenSharingSource(newScreenName);
+      appLogger.generic.info(`🔍 ChangeScreen: replaced stream with ${newScreenName}`);
+
+      // Stop any ongoing generation to avoid mixing pre-change context
+      try {
+        (client as any).interrupt?.();
+      } catch {}
+
+      // Defer visual re-anchor until after resume completes (below)
 
       // Log the screen change
       appLogger.user.changeScreen(newScreenName);
 
       // Now that the replacement is active we can safely stop the old tracks
-      activeVideoStream.getTracks().forEach((track) => track.stop());
+      try {
+        activeVideoStream.getTracks().forEach((track) => track.stop());
+      } catch {}
+
+      // Proactively stop any extra tracks from newVideoStream that we didn't keep
+      try {
+        newVideoStream.getAudioTracks().forEach((track) => track.stop());
+      } catch {}
+
+      // If the AI connection dropped during screen change, resume automatically
+      try {
+        {
+          // Prefer session resumption to preserve context
+          const resumed = await (client as any).reconnectWithResumption?.();
+          if (!resumed) {
+            // Fallback to reconnect with existing config (no prompt rebuild)
+            const cfg = (client as any).getConfig?.();
+            const model = (client as any).model;
+            if (cfg && model) {
+              await (client as any).connect(model, cfg);
+            } else {
+              // As a last resort, nudge parent to resume
+              onButtonClicked?.(true);
+            }
+          }
+          // Ensure UI reflects resumed state
+          onButtonClicked?.(true);
+
+          // After resume: tell AI the screen changed and push a short frame burst so it sees the new screen
+          try {
+            client.send([
+              {
+                text: `Screen changed to: ${newScreenName}. Please continue based on what is visible now.`,
+              },
+            ]);
+          } catch {}
+
+          const burstOnce = () => {
+            try {
+              const video = videoRef.current as HTMLVideoElement | null;
+              const canvas = renderCanvasRef.current as HTMLCanvasElement | null;
+              if (!video || !canvas) return;
+              const vw = video.videoWidth || 0;
+              const vh = video.videoHeight || 0;
+              if (vw === 0 || vh === 0) return;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) return;
+              canvas.width = Math.max(1, Math.floor(vw * 0.25));
+              canvas.height = Math.max(1, Math.floor(vh * 0.25));
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const base64 = canvas.toDataURL("image/jpeg", 1.0);
+              const data = base64.slice(base64.indexOf(",") + 1);
+              client.sendRealtimeInput([{ mimeType: "image/jpeg", data }]);
+            } catch {}
+          };
+
+          // Wait a moment for video metadata to settle after stream swap
+          for (let i = 0; i < 5; i++) {
+            await new Promise((r) => setTimeout(r, 120));
+            burstOnce();
+          }
+        }
+      } catch {}
     } catch (error) {
+      appLogger.generic.info(
+        `🔍 ChangeScreen: error ${error instanceof Error ? error.message : String(error)}`,
+      );
       if (error instanceof DOMException && error.name === "NotAllowedError") {
         alert(
-          "Screen sharing permission was denied. The current screen will continue to be shared."
+          "Screen sharing permission was denied. The current screen will continue to be shared.",
         );
       } else {
-        alert(
-          "Failed to change screen sharing. The current screen will continue to be shared."
-        );
+        alert("Failed to change screen sharing. The current screen will continue to be shared.");
       }
+    } finally {
+      (client as any).screenChangeInProgress = false;
+      isChangingScreenRef.current = false;
     }
   };
 
+  // Hide entire tray only during OS permission dialogs or before the very first connection
+  const shouldHideAllUi = isRequestingPermissions || (!connected && !hasEverConnected);
+  const isHidden = shouldHideAllUi || !visibleContainer;
+
   return (
-    <section className="control-tray flex flex-col items-center">
+    <section
+      className={cn("control-tray flex flex-col items-center", {
+        "fade-in-quick": fadeInContainer,
+      })}
+      style={{
+        display: isHidden ? "none" : undefined,
+      }}
+    >
       <canvas style={{ display: "none" }} ref={renderCanvasRef} />
       <div className="connection-button-container flex flex-col items-center">
         {/* Always show main button - it serves as Start/Pause/Resume */}
@@ -749,8 +896,8 @@ function ControlTray({
             {
               "opacity-50 cursor-not-allowed": isSafari() || isFirefox(),
               "bg-orange-500 hover:bg-orange-600": connected, // Different color when pausing
-              hidden: hideMainButton,
-            }
+              hidden: hideMainButton || shouldHideAllUi,
+            },
           )}
           onClick={handleMainButtonClick}
           disabled={isRequestingPermissions || isSafari() || isFirefox()} // Only disable for Safari/Firefox or while requesting permissions
@@ -758,75 +905,155 @@ function ControlTray({
           {getButtonText()}
         </button>
 
-        {/* Status indicators */}
-        {isScreenSharing && (
-          <div className="flex items-center text-sm text-tokyo-fg-dim mb-4">
-            <span className="material-symbols-outlined mr-1 text-green-400">
-              present_to_all
-            </span>
-            Currently sharing {screenSharingSource || "Screen"}
+        {/* When paused (not connected but has ever connected): show timer under main button (custom) */}
+        {!connected && hasEverConnected && typeof timerTotalMs === "number" && timerTotalMs > 0 && (
+          <div className="mt-2">
+            <CountdownTimer
+              totalMs={timerTotalMs}
+              variant="inline"
+              autoStart={false}
+              startTrigger={Boolean(timerStartTrigger)}
+              pauseTrigger={!connected}
+              isDeliberatePause={!connected}
+              persistKey={timerPersistKey}
+              onTimeUp={timerOnTimeUp}
+              onIntroduction={timerOnIntroduction}
+              onFarewell={timerOnFarewell}
+            />
           </div>
         )}
 
-        {permissionsGranted && !connected && (
-          <div className="flex items-center text-sm text-tokyo-fg-dim mb-4">
-            <span className="material-symbols-outlined mr-1 text-blue-400">
-              mic
-            </span>
-            Permissions granted - ready to start
-          </div>
-        )}
-      </div>
-
-      <nav
-        className={cn("actions-nav flex justify-center", {
-          disabled: !connected,
-        })}
-      >
-        <button
-          className={cn(
-            "transition duration-200 ease-in-out focus:outline-none rounded bg-tokyo-bg-lighter border border-tokyo-selection text-tokyo-fg shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center justify-between space-x-1",
-            {
-              "opacity-50 cursor-not-allowed": networkMuted,
-              "border-orange-500 bg-orange-100": networkMuted,
-            }
-          )}
-          onClick={handleMuteToggle}
-          disabled={networkMuted}
-          title={
-            networkMuted
-              ? "Microphone muted due to network connection issues"
-              : muted
-              ? "Unmute microphone"
-              : "Mute microphone"
-          }
-        >
-          <span className="material-symbols-outlined">
-            {!muted && !networkMuted ? "mic" : "mic_off"}
-          </span>
-          <AudioPulse
-            volume={volume}
-            active={connected && !networkMuted}
-            hover={false}
-          />
-        </button>
-
-        {/* End Review Button */}
-        {connected && onEndReview && (
+        {/* When paused: show End Review under main button (quick mode) or under timer (custom mode) */}
+        {!connected && hasEverConnected && onEndReview && (
           <button
-            className="transition duration-200 ease-in-out focus:outline-none rounded bg-red-500 border border-red-600 text-white shadow-sm hover:bg-red-600 hover:shadow-lg px-3 py-2 cursor-pointer flex items-center ml-2"
+            className="transition duration-200 ease-in-out focus:outline-none rounded bg-red-500 border border-red-600 text-white shadow-sm hover:bg-red-600 hover:shadow-lg px-3 py-2 cursor-pointer flex items-center mt-2"
             onClick={async () => {
-              if (
-                window.confirm(
-                  "Are you sure you want to end this code review early?"
-                )
-              ) {
+              if (window.confirm("Are you sure you want to end this code review early?")) {
                 onEndReview();
               }
             }}
             title="End Review Early"
           >
-            <span className="material-symbols-outlined mr-1">stop</span>
+            <svg
+              className="mr-1"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M6 6h12v12H6z" />
+            </svg>
+            <span className="text-xs whitespace-nowrap">Stop Code Review</span>
+          </button>
+        )}
+
+        {/* Status indicators */}
+        {isScreenSharing && connected && showIndicators && (
+          <div className="sharing-indicator flex items-center text-sm text-tokyo-fg-dim mb-4">
+            <svg
+              className="mr-1 text-green-400"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M20 16H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2zM4 6v8h16V6H4zm8 9c-2.67 0-8 1.34-8 4v1h16v-1c0-2.66-5.33-4-8-4z" />
+            </svg>
+            Currently sharing {screenSharingSource || "Screen"}
+          </div>
+        )}
+
+        {permissionsGranted && !connected && !hasEverConnected && (
+          <div className="flex items-center text-sm text-tokyo-fg-dim mb-4">
+            <svg
+              className="mr-1 text-blue-400"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M12 14a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 0014 0h-2zM11 19.93V22h2v-2.07A8.001 8.001 0 0020 13h-2a6 6 0 11-12 0H4a8.001 8.001 0 007 6.93z" />
+            </svg>
+            Permissions granted - ready to start
+          </div>
+        )}
+      </div>
+
+      {/* Hide action nav until connected and not requesting permissions, and allow delayed show */}
+      <nav
+        className={cn("actions-nav flex justify-center", {
+          disabled: !connected,
+          hidden: (!connected && !hasEverConnected) || isRequestingPermissions,
+        })}
+      >
+        {connected && (
+          <button
+            className={cn(
+              "transition duration-200 ease-in-out focus:outline-none rounded bg-tokyo-bg-lighter border border-tokyo-selection text-tokyo-fg shadow-sm hover:shadow-lg p-2 cursor-pointer flex items-center justify-between space-x-1",
+              {
+                "opacity-50 cursor-not-allowed": networkMuted,
+                "border-orange-500 bg-orange-100": networkMuted,
+              },
+            )}
+            onClick={handleMuteToggle}
+            disabled={networkMuted}
+            title={
+              networkMuted
+                ? "Microphone muted due to network connection issues"
+                : muted
+                  ? "Unmute microphone"
+                  : "Mute microphone"
+            }
+          >
+            {!muted && !networkMuted ? (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M12 14a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5a7 7 0 0014 0h-2zM11 19.93V22h2v-2.07A8.001 8.001 0 0020 13h-2a6 6 0 11-12 0H4a8.001 8.001 0 007 6.93z" />
+              </svg>
+            ) : (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M19 11a7 7 0 01-11.9 4.9l1.42-1.42A5 5 0 0017 11h2zm-7-8a3 3 0 00-3 3v3.18l3.9 3.9A3 3 0 0015 11V6a3 3 0 00-3-3zm8.9 18.49L3.51 4.1 2.1 5.51l3.1 3.1V11a7 7 0 006 6.92V21h2v-3.08a6.96 6.96 0 003.9-1.63l3.49 3.49 1.41-1.41z" />
+              </svg>
+            )}
+            <AudioPulse volume={volume} active={connected && !networkMuted} hover={false} />
+          </button>
+        )}
+
+        {/* End Review Button */}
+        {connected && onEndReview && (
+          <button
+            className="action-button transition duration-200 ease-in-out focus:outline-none rounded bg-red-500 border border-red-600 text-white shadow-sm hover:bg-red-600 hover:shadow-lg px-3 py-2 cursor-pointer flex items-center ml-2"
+            onClick={async () => {
+              if (window.confirm("Are you sure you want to end this code review early?")) {
+                onEndReview();
+              }
+            }}
+            title="End Review Early"
+          >
+            <svg
+              className="mr-1"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M6 6h12v12H6z" />
+            </svg>
             <span className="text-xs whitespace-nowrap">Stop Code Review</span>
           </button>
         )}
@@ -834,13 +1061,40 @@ function ControlTray({
         {/* Change Screen Button */}
         {connected && isScreenSharing && (
           <button
-            className="transition duration-200 ease-in-out focus:outline-none rounded bg-blue-500 border border-blue-600 text-white shadow-sm hover:bg-blue-600 hover:shadow-lg px-3 py-2 cursor-pointer flex items-center ml-2"
+            className="action-button transition duration-200 ease-in-out focus:outline-none rounded bg-blue-500 border border-blue-600 text-white shadow-sm hover:bg-blue-600 hover:shadow-lg px-3 py-2 cursor-pointer flex items-center ml-2"
             onClick={changeScreenShare}
             title="Change Screen Share"
           >
-            <span className="material-symbols-outlined mr-1">screen_share</span>
+            <svg
+              className="mr-1"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M20 18c1.1 0 2-.9 2-2V6a2 2 0 00-2-2H4C2.9 4 2 4.9 2 6v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6zm8 3l4 4h-3v3h-2v-3H8l4-4z" />
+            </svg>
             <span className="text-xs whitespace-nowrap">Change Screen</span>
           </button>
+        )}
+
+        {/* Inline Countdown Timer (custom mode) */}
+        {connected && typeof timerTotalMs === "number" && timerTotalMs > 0 && (
+          <div className="ml-2 flex items-center">
+            <CountdownTimer
+              totalMs={timerTotalMs}
+              variant="inline"
+              autoStart={false}
+              startTrigger={Boolean(timerStartTrigger) && connected}
+              pauseTrigger={!connected}
+              isDeliberatePause={!connected}
+              persistKey={timerPersistKey}
+              onTimeUp={timerOnTimeUp}
+              onIntroduction={timerOnIntroduction}
+              onFarewell={timerOnFarewell}
+            />
+          </div>
         )}
 
         {/* Screen sharing is now integrated into the main button */}

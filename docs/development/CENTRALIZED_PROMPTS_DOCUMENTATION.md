@@ -55,20 +55,19 @@ All AI prompts, system instructions, and timer messages have been centralized in
 ### Timer Messages
 
 - **`src/exam-simulator/hooks/useExamTimers.ts`**: ✅ **Fully Centralized**
-
   - Uses `timerMessages.introduction`
   - Uses `timerMessages.halfTime` with dynamic minutes replacement
   - Uses `timerMessages.timeAlmostUp`
 
 Removed deprecated `Altair` component; no longer part of the application.
-  - Uses `timerMessages.introduction`
-  - Uses `timerMessages.halfTime` with dynamic minutes replacement
-  - Uses `timerMessages.timeAlmostUp`
+
+- Uses `timerMessages.introduction`
+- Uses `timerMessages.halfTime` with dynamic minutes replacement
+- Uses `timerMessages.timeAlmostUp`
 
 ### Question Generation
 
 - **`src/exam-simulator/utils/getExaminerQuestions.tsx`**: ✅ **Already Centralized**
-
   - Uses `systemPrompts.examinerQuestions`
 
 - **`src/exam-simulator/utils/getGithubRepoFiles.js`**: ✅ **Already Centralized**
@@ -123,7 +122,7 @@ const message = prompts.timerMessages.introduction;
 // With placeholder replacement
 const halfTimeMessage = prompts.timerMessages.halfTime.replace(
   "${remainingMinutes}",
-  remainingMinutes.toString()
+  remainingMinutes.toString(),
 );
 
 // Building complex prompts

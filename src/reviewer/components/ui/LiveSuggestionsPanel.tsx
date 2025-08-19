@@ -5,6 +5,7 @@ interface LiveSuggestionsPanelProps {
   suggestions: Suggestion[];
   isProcessing: boolean;
   isVisible: boolean; // This prop might still be useful if panel is used outside popup
+  fadeIn?: boolean;
 }
 
 // CSS for the animation
@@ -81,10 +82,7 @@ const SuggestionFileIcon: React.FC<{
 
   // Always render FileIconGeneric, passing any non-margin classes
   return (
-    <FileIconGeneric
-      iconStyle={iconStyle}
-      className={passedClassName?.replace(/mr-[0-9]+/g, "")}
-    />
+    <FileIconGeneric iconStyle={iconStyle} className={passedClassName?.replace(/mr-[0-9]+/g, "")} />
   );
 };
 
@@ -106,17 +104,12 @@ const SuggestionItem: React.FC<{
   }, [suggestion.id, itemStyles]);
 
   return (
-    <div
-      ref={itemRef}
-      className={`group relative ${isLatest ? "suggestion-item-enter" : ""}`}
-    >
+    <div ref={itemRef} className={`group relative ${isLatest ? "suggestion-item-enter" : ""}`}>
       <div className="text-xs mb-1.5 flex justify-between items-center">
         <div
           className="flex items-center gap-2"
           style={{
-            color: isLatest
-              ? "rgba(var(--tokyo-bg-darker-rgb), 0.85)"
-              : "var(--tokyo-comment)",
+            color: isLatest ? "rgba(var(--tokyo-bg-darker-rgb), 0.85)" : "var(--tokyo-comment)",
           }}
         >
           <SuggestionFileIcon passedClassName="" />
@@ -151,6 +144,7 @@ export const LiveSuggestionsPanel: React.FC<LiveSuggestionsPanelProps> = ({
   suggestions,
   isProcessing,
   isVisible,
+  fadeIn = false,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -160,8 +154,7 @@ export const LiveSuggestionsPanel: React.FC<LiveSuggestionsPanelProps> = ({
   useEffect(() => {
     const styleElement = document.createElement("style");
     styleElement.textContent = animationStyles;
-    const targetDocument =
-      scrollContainerRef.current?.ownerDocument || document;
+    const targetDocument = scrollContainerRef.current?.ownerDocument || document;
     targetDocument.head.appendChild(styleElement);
     return () => {
       if (styleElement.parentNode) {
@@ -171,10 +164,7 @@ export const LiveSuggestionsPanel: React.FC<LiveSuggestionsPanelProps> = ({
   }, []);
 
   useEffect(() => {
-    if (
-      scrollContainerRef.current &&
-      suggestions.length > previousSuggestionsLength.current
-    ) {
+    if (scrollContainerRef.current && suggestions.length > previousSuggestionsLength.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
     previousSuggestionsLength.current = suggestions.length;
@@ -198,7 +188,7 @@ export const LiveSuggestionsPanel: React.FC<LiveSuggestionsPanelProps> = ({
             .replace(/display:\s*[^;]+;?/gi, "")
             .replace(/align-items:\s*[^;]+;?/gi, "")
             .replace(/justify-content:\s*[^;]+;?/gi, "")
-            .replace(/flex-shrink:\s*[^;]+;?/gi, "")
+            .replace(/flex-shrink:\s*[^;]+;?/gi, ""),
       );
     }
   }, []);
@@ -215,6 +205,8 @@ export const LiveSuggestionsPanel: React.FC<LiveSuggestionsPanelProps> = ({
         backgroundColor: "var(--tokyo-bg-secondary)",
         borderColor: "var(--tokyo-border)",
         color: "var(--tokyo-fg)",
+        opacity: fadeIn ? 0 : 1,
+        animation: fadeIn ? "fadeInQuick 180ms ease-out forwards" : undefined,
       }}
     >
       <div
@@ -242,10 +234,7 @@ export const LiveSuggestionsPanel: React.FC<LiveSuggestionsPanelProps> = ({
         </span>
       </div>
 
-      <div
-        ref={scrollContainerRef}
-        className="flex-grow px-4 pb-4 overflow-y-auto scroll-smooth"
-      >
+      <div ref={scrollContainerRef} className="flex-grow px-4 pb-4 overflow-y-auto scroll-smooth">
         {reversedSuggestions.length === 0 ? (
           <div
             className="text-sm text-center py-6 h-full flex items-center justify-center opacity-75"
@@ -266,8 +255,7 @@ export const LiveSuggestionsPanel: React.FC<LiveSuggestionsPanelProps> = ({
                 ...itemSpecificStyles,
                 background: `linear-gradient(to bottom, var(--tokyo-accent) 0%, var(--tokyo-accent) 70%, var(--tokyo-accent-hover) 100%)`,
                 color: "var(--tokyo-bg-darker)",
-                boxShadow:
-                  "0 6px 18px -4px rgba(var(--tokyo-accent-rgb), 0.55)",
+                boxShadow: "0 6px 18px -4px rgba(var(--tokyo-accent-rgb), 0.55)",
               };
             } else {
               itemSpecificStyles = {

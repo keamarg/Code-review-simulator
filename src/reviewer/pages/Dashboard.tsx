@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import Layout from "../layout/Layout";
 import { appLogger } from "../../lib/utils";
 import { getSupabaseClient } from "../config/supabaseClient";
-import { ExamSimulator } from "../../types/ExamSimulator";
+import { CodeReviewTemplate } from "../../types/CodeReviewTemplate";
 
 // Duration formatter
 const formatDuration = (minutes: number): string => {
@@ -14,21 +14,21 @@ const formatDuration = (minutes: number): string => {
   return remainingMinutes ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 };
 
-interface ExamSimulatorCardProps {
-  sim: ExamSimulator;
+interface ReviewTemplateCardProps {
+  sim: CodeReviewTemplate;
   showToast: (message: string) => void;
   onDelete?: (id: string) => void;
   isNew?: boolean;
   isUpdated?: boolean;
 }
 
-function ExamSimulatorCard({
+function ReviewTemplateCard({
   sim,
   showToast,
   onDelete,
   isNew = false,
   isUpdated = false,
-}: ExamSimulatorCardProps) {
+}: ReviewTemplateCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -72,21 +72,16 @@ function ExamSimulatorCard({
 
     if (
       window.confirm(
-        `Are you sure you want to delete "${sim.title}"? This action cannot be undone.`
+        `Are you sure you want to delete "${sim.title}"? This action cannot be undone.`,
       )
     ) {
       try {
         const supabaseClient = await getSupabaseClient();
-        const { error } = await supabaseClient
-          .from("exams")
-          .delete()
-          .eq("id", sim.id);
+        const { error } = await supabaseClient.from("exams").delete().eq("id", sim.id);
 
         if (error) {
           showToast("Failed to delete code review");
-          appLogger.error.general(
-            error instanceof Error ? error.message : String(error)
-          );
+          appLogger.error.general(error instanceof Error ? error.message : String(error));
         } else {
           showToast("Code review deleted successfully");
           // Call the parent callback to update the state
@@ -96,9 +91,7 @@ function ExamSimulatorCard({
         }
       } catch (err) {
         showToast("Failed to delete code review");
-        appLogger.error.general(
-          err instanceof Error ? err.message : String(err)
-        );
+        appLogger.error.general(err instanceof Error ? err.message : String(err));
       }
     }
   };
@@ -107,9 +100,7 @@ function ExamSimulatorCard({
     <div
       className={`relative p-5 bg-tokyo-bg-lighter rounded-lg shadow-md transition-all duration-200 flex flex-col justify-between h-full border border-tokyo-selection ${
         isHovered ? "shadow-lg transform -translate-y-1" : ""
-      } ${
-        isNew || isUpdated ? "ring-2 ring-tokyo-accent ring-opacity-50" : ""
-      }`}
+      } ${isNew || isUpdated ? "ring-2 ring-tokyo-accent ring-opacity-50" : ""}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -128,7 +119,7 @@ function ExamSimulatorCard({
 
       {/* Card Header with Title and Menu */}
       <div className="flex justify-between items-center mb-3">
-        <Link to={`/exam?id=${sim.id}`} className="group flex-1 min-w-0">
+        <Link to={`/create?id=${sim.id}`} className="group flex-1 min-w-0">
           <h2 className="text-xl font-bold text-tokyo-fg-bright group-hover:text-tokyo-accent transition-colors truncate">
             {sim.title}
           </h2>
@@ -167,12 +158,7 @@ function ExamSimulatorCard({
                 onClick={handleCopyLink}
                 className="flex items-center w-full text-left px-4 py-2 text-sm text-tokyo-fg hover:bg-tokyo-selection hover:bg-opacity-20 transition-colors cursor-pointer"
               >
-                <svg
-                  className="h-4 w-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
+                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -183,7 +169,7 @@ function ExamSimulatorCard({
                 Copy Link
               </button>
               <Link
-                to={`/exam?id=${sim.id}`}
+                to={`/create?id=${sim.id}`}
                 className="flex items-center w-full text-left px-4 py-2 text-sm text-tokyo-accent hover:text-tokyo-accent-darker hover:bg-tokyo-selection hover:bg-opacity-20 font-medium transition-colors cursor-pointer"
                 onClick={() => setMenuOpen(false)}
               >
@@ -193,12 +179,7 @@ function ExamSimulatorCard({
                 onClick={handleDelete}
                 className="flex items-center w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-900 hover:bg-opacity-20 transition-colors cursor-pointer"
               >
-                <svg
-                  className="h-4 w-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
+                <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -226,12 +207,7 @@ function ExamSimulatorCard({
         <div className="flex items-center gap-3">
           {sim.duration > 0 && (
             <div className="flex items-center">
-              <svg
-                className="h-4 w-4 mr-1"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -239,20 +215,13 @@ function ExamSimulatorCard({
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span className="whitespace-nowrap">
-                {formatDuration(sim.duration)}
-              </span>
+              <span className="whitespace-nowrap">{formatDuration(sim.duration)}</span>
             </div>
           )}
 
           {sim.type && (
             <div className="flex items-center">
-              <svg
-                className="h-4 w-4 mr-1"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -275,12 +244,7 @@ function ExamSimulatorCard({
           to={`/live?id=${sim.id}`}
           className="w-full bg-tokyo-accent hover:bg-tokyo-accent-darker text-white text-center py-2 px-4 rounded-md transition-colors flex items-center justify-center"
         >
-          <svg
-            className="h-5 w-5 mr-2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -319,22 +283,13 @@ const EmptyState = () => (
         />
       </svg>
     </div>
-    <h3 className="text-xl font-semibold text-tokyo-fg-bright mb-2">
-      No code reviews found.
-    </h3>
-    <p className="text-tokyo-fg mb-6">
-      Create your first code review to get started.
-    </p>
+    <h3 className="text-xl font-semibold text-tokyo-fg-bright mb-2">No code reviews found.</h3>
+    <p className="text-tokyo-fg mb-6">Create your first code review to get started.</p>
     <Link
       to="/create"
       className="inline-flex items-center justify-center bg-tokyo-accent hover:bg-tokyo-accent-darker text-white py-3 px-6 rounded-md transition-colors shadow-md"
     >
-      <svg
-        className="h-5 w-5 mr-2"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
+      <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -351,77 +306,69 @@ export default function Dashboard() {
   const [toastMessage, setToastMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [isToastVisible, setIsToastVisible] = useState(false);
-  const [examSimulators, setExamSimulators] = useState<ExamSimulator[]>([]);
-  const [newlyCreatedExamId, setNewlyCreatedExamId] = useState<string | null>(
-    null
-  );
-  const [recentlyUpdatedExamId, setRecentlyUpdatedExamId] = useState<
-    string | null
-  >(null);
+  const [reviewTemplates, setReviewTemplates] = useState<CodeReviewTemplate[]>([]);
+  const [newlyCreatedReviewId, setNewlyCreatedReviewId] = useState<string | null>(null);
+  const [recentlyUpdatedReviewId, setRecentlyUpdatedReviewId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function getExamSimulators() {
+    async function getReviewTemplates() {
       const supabaseClient = await getSupabaseClient();
-      const { data: fetchedExamSimulators, error } = await supabaseClient
+      const { data: fetchedTemplates, error } = await supabaseClient
         .from("exams")
         .select()
         .order("created_at", { ascending: false });
 
       if (error) {
-        appLogger.error.general(
-          error instanceof Error ? error.message : String(error)
-        );
-      } else if (fetchedExamSimulators) {
-        setExamSimulators(fetchedExamSimulators as ExamSimulator[]);
+        appLogger.error.general(error instanceof Error ? error.message : String(error));
+      } else if (fetchedTemplates) {
+        setReviewTemplates(fetchedTemplates as CodeReviewTemplate[]);
       } else {
-        setExamSimulators([]);
+        setReviewTemplates([]);
       }
     }
 
-    getExamSimulators();
+    getReviewTemplates();
 
     // Check for newly created exam ID in localStorage
-    const newlyCreatedId = localStorage.getItem("newlyCreatedExamId");
+    const newlyCreatedId = localStorage.getItem("newlyCreatedReviewId");
     const dashboardShownNew = localStorage.getItem("dashboardShownNew");
     if (newlyCreatedId && !dashboardShownNew) {
-      setNewlyCreatedExamId(newlyCreatedId);
+      setNewlyCreatedReviewId(newlyCreatedId);
       // Mark that dashboard has shown the NEW pill
       localStorage.setItem("dashboardShownNew", "true");
     }
 
     // Check for recently updated exam ID in localStorage
-    const recentlyUpdatedId = localStorage.getItem("recentlyUpdatedExamId");
+    const recentlyUpdatedId = localStorage.getItem("recentlyUpdatedReviewId");
     const dashboardShownUpdated = localStorage.getItem("dashboardShownUpdated");
     if (recentlyUpdatedId && !dashboardShownUpdated) {
-      setRecentlyUpdatedExamId(recentlyUpdatedId);
+      setRecentlyUpdatedReviewId(recentlyUpdatedId);
       // Mark that dashboard has shown the UPDATED pill
       localStorage.setItem("dashboardShownUpdated", "true");
     }
 
     // Clean up if both components have shown their pills
     const landingPageShownNew = localStorage.getItem("landingPageShownNew");
-    const landingPageShownUpdated = localStorage.getItem(
-      "landingPageShownUpdated"
-    );
+    const landingPageShownUpdated = localStorage.getItem("landingPageShownUpdated");
 
     if (landingPageShownNew && dashboardShownNew) {
-      localStorage.removeItem("newlyCreatedExamId");
+      localStorage.removeItem("newlyCreatedReviewId");
       localStorage.removeItem("landingPageShownNew");
       localStorage.removeItem("dashboardShownNew");
     }
 
     if (landingPageShownUpdated && dashboardShownUpdated) {
-      localStorage.removeItem("recentlyUpdatedExamId");
+      localStorage.removeItem("recentlyUpdatedReviewId");
       localStorage.removeItem("landingPageShownUpdated");
       localStorage.removeItem("dashboardShownUpdated");
     }
   }, []);
 
   // Filter simulators based on search term
-  const filteredSimulators = examSimulators.filter(
+  const filteredSimulators = reviewTemplates.filter(
     (sim) =>
       sim.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sim.description.toLowerCase().includes(searchTerm.toLowerCase())
+      sim.description.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const showToast = (message: string) => {
@@ -435,7 +382,7 @@ export default function Dashboard() {
   };
 
   const handleDelete = (id: string) => {
-    setExamSimulators((prev) => prev.filter((sim) => sim.id !== id));
+    setReviewTemplates((prev) => prev.filter((sim) => sim.id !== id));
   };
 
   return (
@@ -449,7 +396,7 @@ export default function Dashboard() {
             </h1>
           </div>
 
-          {examSimulators.length > 0 && (
+          {reviewTemplates.length > 0 && (
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg
@@ -478,26 +425,26 @@ export default function Dashboard() {
         </div>
 
         {/* Dashboard Content */}
-        {examSimulators.length > 0 ? (
+        {reviewTemplates.length > 0 ? (
           <>
             {filteredSimulators.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredSimulators.map((sim) => (
-                  <ExamSimulatorCard
+                  <ReviewTemplateCard
                     key={sim.id}
                     sim={sim}
                     showToast={showToast}
                     onDelete={handleDelete}
-                    isNew={sim.id === newlyCreatedExamId}
-                    isUpdated={sim.id === recentlyUpdatedExamId}
+                    isNew={sim.id === newlyCreatedReviewId}
+                    isUpdated={sim.id === recentlyUpdatedReviewId}
                   />
                 ))}
               </div>
             ) : (
               <div className="bg-tokyo-bg-lighter rounded-lg shadow-md p-8 text-center border border-tokyo-selection">
                 <p className="text-tokyo-fg">
-                  No code reviews match your search. Try a different search term
-                  or clear your search.
+                  No code reviews match your search. Try a different search term or clear your
+                  search.
                 </p>
                 <button
                   onClick={() => setSearchTerm("")}
@@ -518,12 +465,7 @@ export default function Dashboard() {
           className="md:hidden fixed bottom-6 right-6 bg-tokyo-accent hover:bg-tokyo-accent-darker text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-colors"
           aria-label="Create new simulator"
         >
-          <svg
-            className="h-8 w-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -545,12 +487,7 @@ export default function Dashboard() {
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
           {toastMessage}
         </div>

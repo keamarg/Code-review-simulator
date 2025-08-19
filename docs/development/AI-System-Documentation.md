@@ -4,34 +4,34 @@ This document provides a comprehensive overview of where all system prompts, gui
 
 ## Main System Prompt Files
 
-### 1. `src/exam-simulator/utils/prompt.js`
+### 1. `src/reviewer/utils/prompt.ts`
 
 - Contains two main prompt generation functions:
   - `getPrompt` (standard) - For regular exams
   - `getGithubPrompt` - For GitHub repository-based exams
 - These include detailed instructions for AI behavior during exams, grading criteria, and guidance for interaction
 
-### 2. `src/exam-simulator/utils/getExaminerQuestions.tsx`
+### 2. `src/reviewer/utils/getReviewTask.tsx`
 
 - Contains the prompt used to generate exam questions
 - Uses a system prompt: "You are a skilled and seasoned censor with many years of experience"
 - Constructs a task for students based on learning goals
 
-### 3. `src/exam-simulator/utils/getGithubRepoFiles.js`
+### 3. `src/reviewer/utils/getGithubRepoFiles.ts`
 
 - Contains the prompt for generating questions based on GitHub repository contents
 - Uses system prompt: "You are an exam examiner."
 
 ## AI Model Configurations
 
-### 1. `src/exam-simulator/components/ai-examiner/AIExaminer.tsx`
+### 1. `src/reviewer/components/code-review/CodeReviewWorkflow.impl.tsx`
 
 - Sets up AI model configuration in the `useEffect` hook
 - Configures the model: "models/gemini-2.0-flash-exp"
 - Sets response modalities to "audio" with voice "Puck"
 - Provides system instruction as the prompt
 
-### 2. `src/exam-simulator/components/ai-examiner/AIExaminerGithub.tsx`
+### 2. `src/reviewer/components/code-review/CodeReviewTask.tsx`
 
 - Similar configuration for GitHub-based exams
 - Also uses Gemini 2.0 Flash model with audio output
@@ -49,7 +49,7 @@ This document provides a comprehensive overview of where all system prompts, gui
 - Uses GPT-4o-mini for generating exam content
 - Fetches API key from external server: "https://api-key-server-codereview.vercel.app/api/prompt1"
 
-### 2. `src/exam-simulator/pages/AIExaminerPage.tsx`
+### 2. `src/reviewer/pages/CodeReviewPage.tsx`
 
 - Contains the Gemini API setup
 - WebSocket connection to: "generativelanguage.googleapis.com"

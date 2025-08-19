@@ -6,16 +6,15 @@ import {
   createRoutesFromElements,
 } from "react-router-dom";
 import LandingPage from "../pages/LandingPage";
-import AIExaminerPage from "../pages/AIExaminerPage";
+import CodeReviewPage from "../pages/CodeReviewPage";
 import Dashboard from "../pages/Dashboard";
-import ExamEditor from "../pages/ExamEditor";
+import ReviewTemplateEditor from "../pages/ReviewTemplateEditor";
 import { RootLayout } from "../layout/RootLayout";
 import { ProtectedRoute } from "./../pages/ProtectedRoute";
 import LoginPage from "../pages/Login";
 import SignupPage from "./../pages/Signup";
 
-const basename = new URL(process.env.PUBLIC_URL || "", window.location.origin)
-  .pathname;
+const basename = new URL(process.env.PUBLIC_URL || "", window.location.origin).pathname;
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -25,13 +24,12 @@ const router = createBrowserRouter(
       <Route path="signup" element={<SignupPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="create" element={<ExamEditor />} />
-        <Route path="exam" element={<ExamEditor />} />
-        <Route path="live" element={<AIExaminerPage />} />
+        <Route path="create" element={<ReviewTemplateEditor />} />
+        <Route path="live" element={<CodeReviewPage />} />
       </Route>
-    </Route>
+    </Route>,
   ),
-  { basename: basename }
+  { basename: basename },
 );
 
 export function AppRouter() {

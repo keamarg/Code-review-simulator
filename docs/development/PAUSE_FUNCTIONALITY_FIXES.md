@@ -56,7 +56,7 @@ const disconnect = useCallback(async () => {
 
 #### Smart State Management
 
-**File**: `src/exam-simulator/components/ai-examiner/ExamWorkflow.tsx`
+**File**: `src/reviewer/components/code-review/CodeReviewWorkflow.impl.tsx`
 
 **Before** (clearing everything):
 
@@ -235,7 +235,7 @@ async resume(model: string, config: LiveConnectConfig): Promise<boolean> {
 
 #### Smart Button Labels
 
-**File**: `src/exam-simulator/components/control-tray-custom/ControlTrayCustom.tsx`
+**File**: `src/reviewer/components/control-tray-custom/ControlTrayCustom.tsx`
 
 ```typescript
 {
@@ -243,7 +243,7 @@ async resume(model: string, config: LiveConnectConfig): Promise<boolean> {
 }
 ```
 
-**File**: `src/exam-simulator/pages/AIExaminerPage.tsx`
+**File**: `src/reviewer/pages/CodeReviewPage.tsx`
 
 ```typescript
 const [hasExamEverStarted, setHasExamEverStarted] = useState(false);

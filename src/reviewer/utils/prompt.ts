@@ -6,66 +6,63 @@ function getLevelSpecificGuidance(level: string): string {
 }
 
 function getPrompt(
-  examSimulator: any,
-  examDurationActiveExam: number,
+  reviewTemplate: any,
+  reviewDurationMinutes: number,
   studentTask: string,
 ): string {
-  let prompt: string = (prompts as any).mainPrompts.standardExam;
-  prompt = prompt.replace("${examDurationActiveExam}", String(examDurationActiveExam));
+  // Use review-named key
+  let prompt: string = (prompts as any).mainPrompts.standardReview;
+  prompt = prompt.replace(/\$\{reviewDurationMinutes\}/g, String(reviewDurationMinutes));
   prompt = prompt.replace(
-    '${examSimulator?.title || "code review"}',
-    examSimulator?.title || "code review",
+    /\$\{reviewTemplate\?\.title \|\| "code review"\}/g,
+    reviewTemplate?.title || "code review",
   );
-  prompt = prompt.replace(/\\n/g, "\n");
-  const levelGuidance = getLevelSpecificGuidance(examSimulator.learning_goals || "intermediate");
+  // No-op normalization retained
+  const levelGuidance = getLevelSpecificGuidance(reviewTemplate.learning_goals || "intermediate");
   prompt += `
     
     The code review should focus on the following areas:
-    ${levelGuidance.replace(/\\n/g, "\n")}
+    ${levelGuidance.replace(/\n/g, "\n")}
     `;
   let additionalContext: string = (prompts as any).instructionComponents.additionalContext;
   additionalContext = additionalContext.replace(
     "${description}",
-    examSimulator.description ||
+    reviewTemplate.description ||
       "This is a general code review focusing on the areas specified above.",
   );
   additionalContext = additionalContext.replace("${studentTask}", studentTask);
-  prompt += additionalContext.replace(/\\n/g, "\n");
-  let guidelines: string = (prompts as any).instructionComponents.examGuidelines.replace(
-    /\\n/g,
-    "\n",
-  );
-  prompt += guidelines;
+  prompt += additionalContext.replace(/\n/g, "\n");
+  // Keep a single guideline block; avoid redundancy elsewhere in prompt builders
   let levelSpecificSuffix: string = (prompts as any).instructionComponents.levelSpecificSuffix;
   levelSpecificSuffix = levelSpecificSuffix.replace(
     "${level}",
-    examSimulator.learning_goals || "intermediate",
+    reviewTemplate.learning_goals || "intermediate",
   );
-  prompt += levelSpecificSuffix.replace(/\\n/g, "\n");
+  prompt += levelSpecificSuffix.replace(/\n/g, "\n");
   return prompt;
 }
 
 function getGithubPrompt(
-  examSimulator: any,
-  examDurationActiveExam: number,
+  reviewTemplate: any,
+  reviewDurationMinutes: number,
   githubQuestions: string,
 ): string {
-  let prompt: string = (prompts as any).mainPrompts.githubExam;
-  prompt = prompt.replace("${examDurationActiveExam}", String(examDurationActiveExam));
+  let prompt: string = (prompts as any).mainPrompts.githubReview;
+  prompt = prompt.replace(/\$\{reviewDurationMinutes\}/g, String(reviewDurationMinutes));
   prompt = prompt.replace(
-    '${examSimulator?.title || "code review"}',
-    examSimulator?.title || "code review",
+    /\$\{reviewTemplate\?\.title \|\| "code review"\}/g,
+    reviewTemplate?.title || "code review",
   );
-  prompt = prompt.replace(/\\n/g, "\n");
-  const levelGuidance = getLevelSpecificGuidance(examSimulator.learning_goals || "intermediate");
+  // No-op normalization retained
+  const levelGuidance = getLevelSpecificGuidance(reviewTemplate.learning_goals || "intermediate");
   prompt += `
 
 The code review should focus on the following areas:
-${levelGuidance.replace(/\\n/g, "\n")}
+${levelGuidance.replace(/\n/g, "\n")}
 
 Additional context about the code being reviewed:
 ${
-  examSimulator.description ||
+  reviewTemplate.description ||
   "This is a general code review focusing on the areas specified above."
 }
 
@@ -89,29 +86,36 @@ START BY: Greeting the developer, confirming you can see their screen, and askin
   githubSpecificSuffix = githubSpecificSuffix.replace("${githubQuestions}", githubQuestions);
   githubSpecificSuffix = githubSpecificSuffix.replace(
     "${level}",
-    examSimulator.learning_goals || "intermediate",
+    reviewTemplate.learning_goals || "intermediate",
   );
-  prompt += githubSpecificSuffix.replace(/\\n/g, "\n");
+  // Include level-specific guidance inline for GitHub prompt
+  const reviewerLevelGuidance = getLevelSpecificGuidance(
+    reviewTemplate.learning_goals || "intermediate",
+  );
+  prompt += `\n\nReviewer level guidance:\n${reviewerLevelGuidance.replace(/\n/g, "\n")}`;
+  prompt += githubSpecificSuffix.replace(/\n/g, "\n");
   return prompt;
 }
 
-function getGeneralPrompt(examSimulator: any, studentTask: string): string {
+function getGeneralPrompt(reviewTemplate: any, studentTask: string): string {
   let prompt: string = (prompts as any).mainPrompts.generalReview;
   prompt = prompt.replace(
-    '${examSimulator?.title || "general code review"}',
-    examSimulator?.title || "general code review",
+    '${reviewTemplate?.title || "general code review"}',
+    reviewTemplate?.title || "general code review",
   );
-  prompt = prompt.replace(/\\n/g, "\n");
-  const levelGuidance = getLevelSpecificGuidance(examSimulator.learning_goals || "intermediate");
+  prompt = prompt.replace(/\n/g, "\n");
+  const levelGuidanceGeneral = getLevelSpecificGuidance(
+    reviewTemplate.learning_goals || "intermediate",
+  );
   prompt += `
     
-    The code review should focus on the following areas:
-    ${levelGuidance.replace(/\\n/g, "\n")}
+    The code review should focus on the following areas (attuned to the selected developer level):
+    ${levelGuidanceGeneral.replace(/\n/g, "\n")}
     `;
   let additionalContext: string = (prompts as any).instructionComponents.additionalContext;
   additionalContext = additionalContext.replace(
     "${description}",
-    examSimulator.description ||
+    reviewTemplate.description ||
       "This is a general code review focusing on code quality improvements and best practices.",
   );
   additionalContext = additionalContext.replace(
@@ -119,18 +123,14 @@ function getGeneralPrompt(examSimulator: any, studentTask: string): string {
     studentTask ||
       "Please show me the code you'd like me to review, and I'll provide specific suggestions for improvement.",
   );
-  prompt += additionalContext.replace(/\\n/g, "\n");
-  let guidelines: string = (prompts as any).instructionComponents.examGuidelines.replace(
-    /\\n/g,
-    "\n",
-  );
-  prompt += guidelines;
+  prompt += additionalContext.replace(/\n/g, "\n");
+  // Keep a single guideline block; avoid redundancy elsewhere
   let levelSpecificSuffix: string = (prompts as any).instructionComponents.levelSpecificSuffix;
   levelSpecificSuffix = levelSpecificSuffix.replace(
     "${level}",
-    examSimulator.learning_goals || "intermediate",
+    reviewTemplate.learning_goals || "intermediate",
   );
-  prompt += levelSpecificSuffix.replace(/\\n/g, "\n");
+  prompt += levelSpecificSuffix.replace(/\n/g, "\n");
   return prompt;
 }
 

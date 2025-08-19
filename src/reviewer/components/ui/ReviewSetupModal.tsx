@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { warmLayoutAssets } from "../../utils/preloadAssets";
 import twoScreenSetupImage from "../../../two-screen-setup.jpg";
-import {
-  VAD_ENVIRONMENTS,
-  getCurrentVADEnvironment,
-} from "../../../config/aiConfig";
+import { VAD_ENVIRONMENTS, getCurrentVADEnvironment } from "../../../config/aiConfig";
 
 interface ReviewSetupModalProps {
   isOpen: boolean;
@@ -12,12 +10,12 @@ interface ReviewSetupModalProps {
     type: string,
     developerLevel: string,
     repoUrl?: string,
-    fullScan?: boolean
+    fullScan?: boolean,
   ) => void;
   fixedType?: string;
   fixedDeveloperLevel?: string;
-  examDescription?: string;
-  examTitle?: string;
+  reviewDescription?: string;
+  reviewTitle?: string;
 }
 
 export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
@@ -26,21 +24,19 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
   onStartReview,
   fixedType,
   fixedDeveloperLevel,
-  examDescription,
-  examTitle,
+  reviewDescription,
+  reviewTitle,
 }) => {
   const isCustomMode = !!fixedType;
 
   const [type, setType] = useState(fixedType || "Standard");
-  const [developerLevel, setDeveloperLevel] = useState(
-    fixedDeveloperLevel || "intermediate"
-  );
+  const [developerLevel, setDeveloperLevel] = useState(fixedDeveloperLevel || "intermediate");
   const [repoUrl, setRepoUrl] = useState("");
   const [repoUrlError, setRepoUrlError] = useState("");
   const [fullScan, setFullScan] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [environment, setEnvironment] = useState<keyof typeof VAD_ENVIRONMENTS>(
-    getCurrentVADEnvironment()
+    getCurrentVADEnvironment(),
   );
 
   const getRepoUrlError = (url: string): string => {
@@ -57,9 +53,7 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
         /^([^/\s]+)\/([^/\s]+)$/,
       ];
 
-      const hasValidFormat = patterns.some((pattern) =>
-        cleanUrl.match(pattern)
-      );
+      const hasValidFormat = patterns.some((pattern) => cleanUrl.match(pattern));
       if (!hasValidFormat) {
         return "Invalid GitHub repository URL format";
       }
@@ -90,12 +84,7 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
     // Persist chosen environment before starting so connect reads it
     localStorage.setItem("ai_vad_environment", environment);
 
-    onStartReview(
-      type,
-      developerLevel,
-      type === "Github Repo" ? repoUrl : "",
-      fullScan
-    );
+    onStartReview(type, developerLevel, type === "Github Repo" ? repoUrl : "", fullScan);
   };
 
   const handleTypeChange = (newType: string) => {
@@ -108,6 +97,13 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
   const handleRepoUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setRepoUrl(e.target.value);
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      // Warm fonts and icon glyphs as soon as modal opens to avoid layout shift when session UI renders
+      warmLayoutAssets();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -128,36 +124,30 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
         <div className="p-6">
           <div className="flex gap-6">
             {/* Left Side - Form Fields */}
-            <div
-              className="flex-1 flex flex-col pr-2"
-              style={{ maxHeight: "70vh" }}
-            >
+            <div className="flex-1 flex flex-col pr-2" style={{ maxHeight: "70vh" }}>
               {isCustomMode && (
                 <div className="mb-4 text-sm space-y-1">
                   <p>
-                    <span className="font-medium">Title:</span> {examTitle}
+                    <span className="font-medium">Title:</span> {reviewTitle}
                   </p>
                   <p>
                     <span className="font-medium">Type:</span> {fixedType}
                   </p>
                   <p>
-                    <span className="font-medium">Level:</span>{" "}
-                    {fixedDeveloperLevel}
+                    <span className="font-medium">Level:</span> {fixedDeveloperLevel}
                   </p>
                 </div>
               )}
 
               {/* Removed duplicate environment selector; single instance remains below developer level */}
 
-              {isCustomMode && examDescription && (
+              {isCustomMode && reviewDescription && (
                 <div className="mb-6 flex-grow flex flex-col overflow-hidden">
                   <label className="block text-tokyo-fg-bright text-sm font-medium mb-2">
                     Description
                   </label>
                   <div className="relative flex-grow overflow-y-auto pr-2">
-                    <p className="text-tokyo-fg whitespace-pre-wrap">
-                      {examDescription}
-                    </p>
+                    <p className="text-tokyo-fg whitespace-pre-wrap">{reviewDescription}</p>
                     <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-tokyo-bg-lighter to-transparent pointer-events-none"></div>
                   </div>
                 </div>
@@ -195,8 +185,7 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
                     <option value="senior">Senior Developer</option>
                   </select>
                   <p className="text-xs text-tokyo-comment mt-1">
-                    This will determine the depth and style of feedback during
-                    the review.
+                    This will determine the depth and style of feedback during the review.
                   </p>
                 </div>
               )}
@@ -223,11 +212,7 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
                 </label>
                 <select
                   value={environment}
-                  onChange={(e) =>
-                    setEnvironment(
-                      e.target.value as keyof typeof VAD_ENVIRONMENTS
-                    )
-                  }
+                  onChange={(e) => setEnvironment(e.target.value as keyof typeof VAD_ENVIRONMENTS)}
                   className="w-full px-4 py-2 border border-tokyo-selection bg-tokyo-bg text-tokyo-fg-bright rounded-md focus:outline-none focus:ring-2 focus:ring-tokyo-accent focus:border-transparent transition-colors"
                 >
                   {Object.entries(VAD_ENVIRONMENTS).map(([key, env]) => (
@@ -312,9 +297,7 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
                           className="absolute left-0 mt-2 w-full bg-tokyo-bg-lightest bg-opacity-95 text-xs text-tokyo-fg-bright px-3 py-2 rounded shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none z-50 border border-tokyo-selection whitespace-pre-line backdrop-blur-sm"
                           style={{ minWidth: "400px", maxWidth: "100%" }}
                         >
-                          <div className="font-medium mb-2">
-                            Supported formats:
-                          </div>
+                          <div className="font-medium mb-2">Supported formats:</div>
                           <ul className="list-disc pl-5">
                             <li>https://github.com/owner/repo</li>
                             <li>owner/repo</li>
@@ -387,9 +370,8 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
                   />
                 </div>
                 <p className="text-tokyo-comment text-xs mb-4">
-                  For the best experience, we recommend using a two-screen setup
-                  so you can share your code on one screen while viewing the AI
-                  suggestions on the other.
+                  For the best experience, we recommend using a two-screen setup so you can share
+                  your code on one screen while viewing the AI suggestions on the other.
                 </p>
               </div>
             </div>

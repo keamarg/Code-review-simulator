@@ -34,7 +34,7 @@ export default function Layout({ children, onVoiceChange, isSessionActive = fals
 
   const handleVoiceChange = async (newVoice: string) => {
     if (onVoiceChange) {
-      // If we have a voice change handler (from AIExaminerPage), use it
+      // If we have a voice change handler from the live review page, use it
       onVoiceChange(newVoice);
     } else {
       // Otherwise, just store the preference for future sessions

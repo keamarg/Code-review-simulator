@@ -10,6 +10,18 @@ interface CountdownTimerProps {
   onTimeUp?: () => void;
   onIntroduction?: () => void; // New callback for introduction message
   onFarewell?: () => void; // New callback for farewell message
+  /**
+   * Display style:
+   * - "floating": original fixed circular timer at bottom-right
+   * - "inline": compact pill suitable for action bars
+   */
+  variant?: "floating" | "inline";
+  /**
+   * Optional persistence key. When provided, the timer will restore its remaining time
+   * from localStorage on mount and persist on every tick. Useful when the component
+   * is conditionally unmounted/remounted (e.g., paused vs connected views).
+   */
+  persistKey?: string;
 }
 
 export const CountdownTimer: React.FC<CountdownTimerProps> = ({
@@ -21,6 +33,8 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   onTimeUp,
   onIntroduction,
   onFarewell,
+  variant = "floating",
+  persistKey,
 }) => {
   const [timeLeft, setTimeLeft] = useState<number>(totalMs);
   const [running, setRunning] = useState<boolean>(autoStart);
@@ -47,6 +61,26 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       hasCalledOnTimeUp.current = false;
     }
   }, [timeLeft, totalMs]);
+
+  // Persist remaining time to localStorage and restore on mount/prop changes
+  useEffect(() => {
+    if (!persistKey) return;
+    try {
+      const saved = localStorage.getItem(persistKey);
+      const n = saved ? parseInt(saved, 10) : NaN;
+      if (Number.isFinite(n) && n >= 0 && n <= totalMs) {
+        setTimeLeft(n);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistKey, totalMs]);
+
+  useEffect(() => {
+    if (!persistKey) return;
+    try {
+      localStorage.setItem(persistKey, String(timeLeft));
+    } catch {}
+  }, [persistKey, timeLeft]);
 
   // Calculate percentage of time remaining for circle timer
   const timePercentage = Math.max(0, Math.min(100, (timeLeft / totalMs) * 100));
@@ -76,21 +110,13 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
     if (!running) return; // Don't fire messages when not running
 
     // Introduction message - trigger after 0.5 seconds of countdown (reduced from 1.5s)
-    if (
-      timeLeft <= totalMs - 500 &&
-      !hasCalledIntroduction.current &&
-      onIntroductionRef.current
-    ) {
+    if (timeLeft <= totalMs - 500 && !hasCalledIntroduction.current && onIntroductionRef.current) {
       hasCalledIntroduction.current = true;
       onIntroductionRef.current();
     }
 
     // Farewell message - trigger when 7 seconds remain
-    if (
-      timeLeft <= 7000 &&
-      !hasCalledFarewell.current &&
-      onFarewellRef.current
-    ) {
+    if (timeLeft <= 7000 && !hasCalledFarewell.current && onFarewellRef.current) {
       hasCalledFarewell.current = true;
       onFarewellRef.current();
     }
@@ -130,12 +156,32 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
+  if (variant === "inline") {
+    return (
+      <div className="ml-2 inline-flex items-center rounded border border-tokyo-selection bg-tokyo-bg-lighter text-tokyo-fg px-2 py-1 text-xs">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="mr-1 text-tokyo-accent"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M15 1H9v2h6V1zM12 7a1 1 0 00-1 1v4.586l3.707 3.707 1.414-1.414L13 11.586V8a1 1 0 00-1-1z" />
+          <path d="M12 4a9 9 0 100 18 9 9 0 000-18zm0 16a7 7 0 110-14 7 7 0 010 14z" />
+        </svg>
+        <span className="font-medium">{formatTimeLeft(timeLeft)}</span>
+        {pauseTrigger && running && isDeliberatePause && (
+          <span className="ml-2 text-[10px] text-tokyo-comment">PAUSED</span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="absolute bottom-5 right-5 z-10 flex flex-col items-center">
-      {/* Round timer */}
       <div className="w-20 h-20 relative">
         <svg className="w-full h-full" viewBox="0 0 100 100">
-          {/* Background circle - updated for Tokyo Night */}
           <circle
             cx="50"
             cy="50"
@@ -144,7 +190,6 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
             stroke="var(--tokyo-selection)"
             strokeWidth="8"
           />
-          {/* Colored progress circle */}
           <circle
             cx="50"
             cy="50"
@@ -158,7 +203,6 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
             transform="rotate(-90 50 50)"
           />
         </svg>
-        {/* Pause indicator overlay - only show for deliberate pauses */}
         {pauseTrigger && running && isDeliberatePause && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-tokyo-fg-bright text-xs bg-tokyo-bg-darker bg-opacity-80 rounded px-1">
@@ -167,7 +211,6 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
           </div>
         )}
       </div>
-      {/* Time display */}
       <div className="mt-1 font-medium text-sm text-tokyo-fg-bright">
         {formatTimeLeft(timeLeft)}
       </div>

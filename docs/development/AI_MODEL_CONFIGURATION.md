@@ -12,11 +12,11 @@ All AI settings are centralized in: `src/config/aiConfig.ts`
 
 The model is now configured centrally and used in the following locations:
 
-- ✅ `src/exam-simulator/utils/liveConfigUtils.ts` - Uses centralized config
-- ✅ `src/exam-simulator/components/ai-examiner/ExamWorkflow.tsx` - Uses centralized config
+- ✅ `src/reviewer/utils/liveConfigUtils.ts` - Uses centralized config
+- ✅ `src/reviewer/components/code-review/CodeReviewWorkflow.impl.tsx` - Uses centralized config
 - ✅ `src/hooks/use-live-api.ts` - Uses centralized config (legacy)
 - ✅ `src/hooks/use-genai-live.ts` - Uses centralized config (new)
-Altair component has been removed as part of legacy cleanup.
+  Altair component has been removed as part of legacy cleanup.
 
 ## How to Change the Model
 
@@ -137,10 +137,7 @@ npm start
 For **new projects** or **enhanced reliability**:
 
 ```typescript
-import {
-  GenAILiveProvider,
-  useGenAILiveContext,
-} from "../contexts/GenAILiveContext";
+import { GenAILiveProvider, useGenAILiveContext } from "../contexts/GenAILiveContext";
 
 // Use the new implementation with session resumption
 ```
@@ -159,7 +156,7 @@ import { LiveAPIProvider, useLiveAPIContext } from "../contexts/LiveAPIContext";
 - ✅ `src/lib/genai-live-client.ts` - New improved client
 - ✅ `src/hooks/use-genai-live.ts` - New hook implementation
 - ✅ `src/contexts/GenAILiveContext.tsx` - New context
-- ✅ `src/exam-simulator/utils/liveConfigUtils.ts` - Updated to use config
-- ✅ `src/exam-simulator/components/ai-examiner/ExamWorkflow.tsx` - Updated to use config
+- ✅ `src/reviewer/utils/liveConfigUtils.ts` - Updated to use config
+- ✅ `src/reviewer/components/code-review/CodeReviewWorkflow.impl.tsx` - Updated to use config
 - ✅ `src/hooks/use-live-api.ts` - Updated to use config (legacy)
-Altair component removed.
+  Altair component removed.

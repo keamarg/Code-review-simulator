@@ -92,9 +92,16 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
     };
 
     const onClose = () => {
-      setConnected(false);
-      // Stop audio streamer when connection closes to immediately stop voice
-      audioStreamerRef.current?.stop();
+      // During mid-session voice/environment changes we deliberately reconnect;
+      // suppress UI flicker by keeping "connected" true while the client is handling resumption
+      const suppressUI =
+        (client as any).isVoiceChangeInProgress === true ||
+        (client as any).screenChangeInProgress === true;
+      if (!suppressUI) {
+        setConnected(false);
+        // Stop audio streamer when connection closes to immediately stop voice
+        audioStreamerRef.current?.stop();
+      }
     };
 
     const stopAudioStreamer = () => audioStreamerRef.current?.stop();

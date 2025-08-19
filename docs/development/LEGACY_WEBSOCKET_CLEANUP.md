@@ -30,7 +30,7 @@ The application was still using the legacy `useLiveAPIContext` and `LiveAPIProvi
   - Updated to notify parent component for connection management
   - Fixed disconnect functionality to work with new client
 
-#### 2. ExamWorkflow.tsx
+#### 2. CodeReviewWorkflow.impl.tsx
 
 - **Before**: Used `useLiveAPIContext` with `setConfig` and `config` properties
 - **After**: Migrated to `useGenAILiveContext` with local config management
@@ -39,7 +39,7 @@ The application was still using the legacy `useLiveAPIContext` and `LiveAPIProvi
   - Updated `connect()` calls to pass model and config parameters
   - Fixed dependency arrays in useEffect hooks
 
-#### 3. AIExaminerPage.tsx
+#### 3. CodeReviewPage.tsx
 
 - **Before**: Used `LiveAPIProvider` wrapper and duplicate PageContent component
 - **After**: Migrated to `GenAILiveProvider` with simplified structure

@@ -3,12 +3,7 @@ import { GenAILiveClient } from "../../lib/genai-live-client";
 
 interface ConversationEntry {
   timestamp: Date;
-  type:
-    | "ai_transcript"
-    | "user_transcript"
-    | "session_start"
-    | "session_end"
-    | "user_interaction";
+  type: "ai_transcript" | "user_transcript" | "session_start" | "session_end" | "user_interaction";
   content?: string;
   metadata?: {
     audio_size?: number;
@@ -19,7 +14,7 @@ interface ConversationEntry {
 export function useConversationTracker(
   client: GenAILiveClient | null,
   onTranscriptChunk?: (chunk: string) => void,
-  onUserTranscriptChunk?: (chunk: string) => void
+  onUserTranscriptChunk?: (chunk: string) => void,
 ) {
   const entriesRef = useRef<ConversationEntry[]>([]);
   const sessionStartTime = useRef<Date | null>(null);
@@ -177,12 +172,12 @@ export function useConversationTracker(
   ]);
 
   const generateSummaryWithOpenAI = async (
-    examDetails?: {
+    reviewDetails?: {
       title?: string;
       description?: string;
       duration?: number;
     },
-    liveSuggestions?: Array<{ text: string; timestamp: Date }>
+    liveSuggestions?: Array<{ text: string; timestamp: Date }>,
   ): Promise<string> => {
     // Flush any remaining buffer content before generating summary
     if (transcriptBufferRef.current.trim()) {
@@ -201,18 +196,12 @@ export function useConversationTracker(
     });
 
     const sessionDuration = sessionStartTime.current
-      ? Math.round(
-          (new Date().getTime() - sessionStartTime.current.getTime()) / 1000
-        )
+      ? Math.round((new Date().getTime() - sessionStartTime.current.getTime()) / 1000)
       : 0;
 
-    const aiTranscriptEntries = entriesRef.current.filter(
-      (e) => e.type === "ai_transcript"
-    );
+    const aiTranscriptEntries = entriesRef.current.filter((e) => e.type === "ai_transcript");
 
-    const userTranscriptEntries = entriesRef.current.filter(
-      (e) => e.type === "user_transcript"
-    );
+    const userTranscriptEntries = entriesRef.current.filter((e) => e.type === "user_transcript");
 
     // Clean up and join AI transcripts with simple concatenation (like summary screen)
     const cleanAiTranscripts = aiTranscriptEntries
@@ -241,11 +230,11 @@ export function useConversationTracker(
       allAiTranscripts,
       aiTranscriptEntries,
       sessionDuration,
-      examDetails,
+      reviewDetails,
       userInteractionCount.current,
       liveSuggestions,
       allUserTranscripts,
-      entriesRef.current
+      entriesRef.current,
     );
     return summary;
   };
@@ -273,27 +262,23 @@ export function useConversationTracker(
 
   // Legacy method name for backward compatibility
   const getConversationSummary = (
-    examDetails?: {
+    reviewDetails?: {
       title?: string;
       description?: string;
       duration?: number;
     },
-    liveSuggestions?: Array<{ text: string; timestamp: Date }>
+    liveSuggestions?: Array<{ text: string; timestamp: Date }>,
   ) => {
-    return generateSummaryWithOpenAI(examDetails, liveSuggestions);
+    return generateSummaryWithOpenAI(reviewDetails, liveSuggestions);
   };
 
   // Add debug method
   const getDebugInfo = () => ({
     entryCount: entriesRef.current.length,
-    transcriptCount: entriesRef.current.filter(
-      (e) => e.type === "ai_transcript"
-    ).length,
+    transcriptCount: entriesRef.current.filter((e) => e.type === "ai_transcript").length,
     userInteractions: userInteractionCount.current,
     sessionDuration: sessionStartTime.current
-      ? Math.round(
-          (new Date().getTime() - sessionStartTime.current.getTime()) / 1000
-        )
+      ? Math.round((new Date().getTime() - sessionStartTime.current.getTime()) / 1000)
       : 0,
     currentBuffer: {
       length: transcriptBufferRef.current.length,
@@ -323,9 +308,7 @@ export function useConversationTracker(
     clearConversation,
     getTranscripts,
     entryCount: entriesRef.current.length,
-    transcriptCount: entriesRef.current.filter(
-      (e) => e.type === "ai_transcript"
-    ).length,
+    transcriptCount: entriesRef.current.filter((e) => e.type === "ai_transcript").length,
     getDebugInfo,
   };
 }
@@ -334,25 +317,23 @@ function generateTranscriptBasedSummary(
   allTranscripts: string,
   transcriptEntries: ConversationEntry[],
   sessionDuration: number,
-  examDetails?: { title?: string; description?: string; duration?: number },
+  reviewDetails?: { title?: string; description?: string; duration?: number },
   userInteractions?: number,
   liveSuggestions?: Array<{ text: string; timestamp: Date }>,
   allUserTranscripts?: string,
-  allEntries?: ConversationEntry[]
+  allEntries?: ConversationEntry[],
 ): string {
   const sessionMinutes = Math.round(sessionDuration / 60);
-  const plannedMinutes = examDetails?.duration || 0;
+  const plannedMinutes = reviewDetails?.duration || 0;
 
   let summary = "Code Review Session Summary\n";
   summary += "=" + "=".repeat(15) + "\n\n";
 
-  summary += `Session: ${examDetails?.title || "Code Review"}\n`;
-  if (examDetails?.description) {
-    summary += `Focus: ${examDetails.description}\n`;
+  summary += `Session: ${reviewDetails?.title || "Code Review"}\n`;
+  if (reviewDetails?.description) {
+    summary += `Focus: ${reviewDetails.description}\n`;
   }
-  summary += `Duration: ${sessionMinutes} minutes ${
-    sessionDuration % 60
-  } seconds`;
+  summary += `Duration: ${sessionMinutes} minutes ${sessionDuration % 60} seconds`;
   if (plannedMinutes > 0) {
     summary += ` (planned: ${plannedMinutes} minutes)`;
   }
@@ -362,9 +343,7 @@ function generateTranscriptBasedSummary(
   summary += `• Total transcript length: ${allTranscripts.length} characters\n`;
 
   // Basic transcript analysis
-  const lineNumberRefs = (
-    allTranscripts.match(/line\s+\d+|lines\s+\d+/gi) || []
-  ).length;
+  const lineNumberRefs = (allTranscripts.match(/line\s+\d+|lines\s+\d+/gi) || []).length;
 
   summary += `• Line number references: ${lineNumberRefs}\n\n`;
 
@@ -377,13 +356,9 @@ function generateTranscriptBasedSummary(
     });
   } else {
     // Fallback to extracted excerpts if no live suggestions
-    const sentences = allTranscripts
-      .split(/[.!?]+/)
-      .filter((s) => s.trim().length > 20);
+    const sentences = allTranscripts.split(/[.!?]+/).filter((s) => s.trim().length > 20);
     const keyExcerpts = sentences
-      .filter((s) =>
-        /\b(line|suggest|recommend|should|issue|problem|improve)\b/i.test(s)
-      )
+      .filter((s) => /\b(line|suggest|recommend|should|issue|problem|improve)\b/i.test(s))
       .slice(0, 5)
       .map((s) => s.trim().replace(/^\s*[,\s]+/, ""));
 
@@ -405,13 +380,10 @@ function generateTranscriptBasedSummary(
 
     // Get all entries sorted by timestamp
     const conversationEntries = allEntries
-      .filter(
-        (e: ConversationEntry) =>
-          e.type === "ai_transcript" || e.type === "user_transcript"
-      )
+      .filter((e: ConversationEntry) => e.type === "ai_transcript" || e.type === "user_transcript")
       .sort(
         (a: ConversationEntry, b: ConversationEntry) =>
-          a.timestamp.getTime() - b.timestamp.getTime()
+          a.timestamp.getTime() - b.timestamp.getTime(),
       );
 
     // Build conversation
@@ -433,14 +405,12 @@ function generateTranscriptBasedSummary(
   }
 
   summary += "Next Steps:\n";
-  summary +=
-    "• Review the specific feedback and line number references above\n";
+  summary += "• Review the specific feedback and line number references above\n";
   summary += "• Implement suggested improvements mentioned in the transcript\n";
   summary += "• Address any issues or concerns identified during the review\n";
 
   if (lineNumberRefs === 0) {
-    summary +=
-      "• Future reviews might benefit from more specific line number references\n";
+    summary += "• Future reviews might benefit from more specific line number references\n";
   }
 
   summary += "\n";

@@ -37,11 +37,12 @@ function getLevelSpecificGuidance(level: string): string {
 }
 
 function parseGitHubUrl(url: string): { owner: string; repoName: string } {
-  const cleanUrl = url.trim().replace(/\/$/, "");
+  const trimmed = url.trim().replace(/\/$/, "");
+  const cleanUrl = trimmed.replace(/^@(?=https?:\/\/)/, "");
   const patterns = [
-    /^(https?:\/\/github\.com\/)([^/]+)\/([^/]+)(?:\/.*)?$/,
-    /^(https?:\/\/api\.github\.com\/repos\/)([^/]+)\/([^/]+)(?:\/.*)?$/,
-    /^(git@github\.com:)([^/]+)\/([^/]+)(?:\.git)?$/,
+    /^https?:\/\/github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
+    /^https?:\/\/api\.github\.com\/repos\/([^/]+)\/([^/]+)(?:\/.*)?$/,
+    /^git@github\.com:([^/]+)\/([^/]+)(?:\.git)?$/,
     /^([^\s/]+)\/([^\s/]+)$/,
   ];
   for (const pattern of patterns) {
@@ -619,7 +620,7 @@ export async function getRepoQuestions(
 
   const repoContents = await getRepoFiles(repoUrl, options);
   const levelGuidance = getLevelSpecificGuidance(developerLevel || "intermediate");
-  let promptTemplate: string = (prompts as any).taskPrompts.repoQuestions;
+  const promptTemplate: string = (prompts as any).taskPrompts.repoQuestions;
   let prompt = promptTemplate
     .replace("${repoContents}", repoContents as unknown as string)
     .replace("${learningGoals}", levelGuidance);

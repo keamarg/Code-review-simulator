@@ -92,6 +92,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   private manualDisconnect: boolean = false;
   private voiceChangeInProgress: boolean = false;
   private hasLoggedVadSettings: boolean = false;
+  private hasLoggedSystemInstruction: boolean = false;
 
   private _session: Session | null = null;
   public get session() {
@@ -140,6 +141,18 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     this._status = "connecting";
     this.manualDisconnect = false;
     this.config = config;
+    // Log system instruction (system prompt) at session start only once per app-level session
+    try {
+      if (!this.hasLoggedSystemInstruction) {
+        const sysParts: any[] = (config as any)?.systemInstruction?.parts || [];
+        const textPart = sysParts.find((p) => typeof p?.text === "string");
+        if (textPart?.text) {
+          // eslint-disable-next-line no-console
+          console.log("[SYSTEM PROMPT]", textPart.text);
+          this.hasLoggedSystemInstruction = true;
+        }
+      }
+    } catch {}
     this._model = model;
 
     // Reset VAD logging flag for new sessions
@@ -205,6 +218,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     }
     this._status = "disconnected";
     this.log("client.terminate", "Session terminated completely");
+    this.hasLoggedSystemInstruction = false;
   }
 
   // Add manual reconnection method for user-initiated reconnection
@@ -217,12 +231,16 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     // Manual reconnection with session resumption
 
     // Use session resumption if we have a handle, just like automatic reconnection does
-    const resumptionConfig = this.sessionResumptionHandle
+    const resumptionConfig: any = this.sessionResumptionHandle
       ? {
           ...this.config,
           sessionResumption: { handle: this.sessionResumptionHandle },
         }
       : { ...this.config };
+    // Avoid re-sending systemInstruction on a resumed session to prevent duplicate priming
+    if (resumptionConfig && resumptionConfig.systemInstruction) {
+      delete resumptionConfig.systemInstruction;
+    }
 
     // Resuming with session resumption
 
@@ -245,7 +263,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       return false;
     }
 
-    // Set flag to prevent ExamWorkflow from interfering
+    // Set flag to prevent concurrent UI logic from interfering
     this.voiceChangeInProgress = true;
     appLogger.user.changeVoice(newVoiceName);
 
@@ -289,10 +307,13 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       }
 
       // Use session resumption to continue the conversation with new voice
-      const resumptionConfig = {
+      const resumptionConfig: any = {
         ...newConfig,
         sessionResumption: { handle: this.sessionResumptionHandle },
       };
+      if (resumptionConfig && resumptionConfig.systemInstruction) {
+        delete resumptionConfig.systemInstruction;
+      }
 
       try {
         const success = await this.connect(this._model, resumptionConfig);
@@ -377,7 +398,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       return false;
     }
 
-    // Set flag to prevent ExamWorkflow from interfering
+    // Set flag to prevent concurrent UI logic from interfering
     this.voiceChangeInProgress = true; // Reuse the same flag since it serves the same purpose
 
     // Update localStorage with the new environment immediately
@@ -444,10 +465,13 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       }
 
       // Use session resumption to continue the conversation with new environment settings
-      const resumptionConfig = {
+      const resumptionConfig: any = {
         ...newConfig,
         sessionResumption: { handle: this.sessionResumptionHandle },
       };
+      if (resumptionConfig && resumptionConfig.systemInstruction) {
+        delete resumptionConfig.systemInstruction;
+      }
 
       try {
         const success = await this.connect(this._model, resumptionConfig);
@@ -555,6 +579,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     }
     this._session = null;
     this._status = "disconnected";
+    this.hasLoggedSystemInstruction = false;
   }
 
   // Explicit barge-in: request server to interrupt current AI output if supported
@@ -655,9 +680,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     // Handle GoAway messages - advance warning before connection termination
     if (message.goAway) {
       const timeLeft = Number(message.goAway.timeLeft) || 0;
-      appLogger.generic.warn(
-        `⚠️ GoAway message received: Connection will close in ${timeLeft}ms`
-      );
+      appLogger.generic.warn(`⚠️ GoAway message received: Connection will close in ${timeLeft}ms`);
       this.log("server.goAway", `Connection closing in ${timeLeft}ms`);
       this.emit("goAway", timeLeft);
       return;
@@ -780,6 +803,17 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
    * send normal content parts such as { text }
    */
   send(parts: Part | Part[], turnComplete: boolean = true) {
+    try {
+      const turns = Array.isArray(parts) ? parts : [parts];
+      // Log any text content being sent to the model as a prompt
+      for (const p of turns) {
+        const text = (p as any)?.text;
+        if (typeof text === "string" && text.trim()) {
+          // eslint-disable-next-line no-console
+          console.log("[USER PROMPT]", text);
+        }
+      }
+    } catch {}
     this.session?.sendClientContent({ turns: parts, turnComplete });
     this.log(`client.send`, {
       turns: Array.isArray(parts) ? parts : [parts],

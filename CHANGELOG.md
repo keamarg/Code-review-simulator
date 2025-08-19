@@ -1,3 +1,60 @@
+[0.1.8] - 2025-08-19
+
+### Added
+
+- User text input above live suggestions (`src/reviewer/components/ui/UserPromptInput.tsx`) to send messages directly to the AI during a session.
+- Console logging for all prompts given to the AI from the start of a session (both system and user):
+  - Logs system instruction on connect in `src/lib/genai-live-client.ts`.
+  - Logs user-sent text via client `send()` and the new input component.
+
+### Changed
+
+- Integrated the input field into `src/reviewer/pages/CodeReviewPage.tsx`, placed above `LiveSuggestionsPanel` and shown when a session is active.
+
+### Fixed
+
+- Avoid duplicate console logging of user prompts by removing extra log from `UserPromptInput.tsx` (now logged centrally in `genai-live-client.ts`).
+- Increased contrast of the Send button text for accessibility and readability.
+
+### Changed
+
+- Updated input placeholder to: "Send a text-based prompt…" (and when disconnected: "Connect to send text prompts…").
+- Text-based prompts now interrupt ongoing AI output before sending, matching voice-based barge-in behavior.
+
+---
+
+[0.1.7] - 2025-08-19
+
+### Changed
+
+- Removed legacy alias exports to align naming with Code Review domain:
+  - Deleted `src/reviewer/components/ai-examiner/ExamWorkflow.tsx` (was re-exporting `CodeReviewWorkflow`)
+  - Deleted `src/reviewer/pages/ExamEditor.tsx` (was re-exporting `ReviewTemplateEditor`)
+- Use `CodeReviewWorkflow` and `ReviewTemplateEditor` directly everywhere.
+- Removed now-empty folder `src/reviewer/components/ai-examiner/`.
+- Docs: Replaced `ai-examiner` references with current Code Review components/paths.
+- UX: Added preflight validation so screen sharing shows "Invalid GitHub repository URL format" when starting GitHub mode with an empty or invalid repo URL.
+- UI: In custom mode with a configured duration, the countdown timer now renders inline next to the Pause/Resume button and appears with the rest of the action buttons.
+- UX: When paused, the timer now aligns directly under the Pause/Resume button (custom mode), and the Stop button is visible under the timer in custom mode or directly under the Pause/Resume button in quick mode.
+- Fix: Removed duplicate timer in custom mode by showing the inline action-bar timer only when connected; on pause, only the under-button timer remains.
+
+---
+
+[0.1.1] - 2025-08-18
+
+### Changed
+
+- Introduced code review-friendly naming aliases while maintaining backwards compatibility:
+  - `CodeReviewTemplate` type (alias for existing `ExamSimulator`) in `src/types/ExamSimulator.ts`
+  - `CodeReviewTaskDisplay` component (alias export keeps `AIExaminerDisplay`) in `src/reviewer/components/ai-examiner/AIExaminer.tsx`
+  - `CodeReviewWorkflow` component (re-exported as `ExamWorkflow` for compatibility) in `src/reviewer/components/ai-examiner/ExamWorkflow.tsx`
+- Updated `AIExaminerPage` to use `CodeReviewWorkflow` component
+
+### Notes on external dependencies
+
+- Supabase: current table remains `exams`. Renaming to a new table (e.g., `reviews`) would require schema and query updates in multiple files: `AIExaminerPage.tsx`, `ExamWorkflow.tsx`, `ExamEditor.tsx`, `Dashboard.tsx`, `RecentCodeReviews.tsx`.
+- Backend (Vercel/Next API): endpoints `prompt1`, `prompt2`, and `database` remain unchanged. If payload field names change from "exam" to "review", update request builders in `src/reviewer/utils/getCompletion.ts` and `src/reviewer/utils/getGithubRepoFiles.ts`.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -629,7 +686,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Logo Restoration**: Restored the original logo from the exam-simulator directory to match the design before CDN Tailwind changes.
-  - **Logo Source**: Changed from `/favicon.svg` back to the local `logo.png` file from `src/exam-simulator/`
+  - **Logo Source**: Updated branding; removed old `logo.png` leftover.
   - **Import Method**: Added proper import statement for the logo file to ensure it loads correctly
   - **Impact**: Logo now displays properly as intended in the original design
 
