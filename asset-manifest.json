@@ -1,18 +1,18 @@
 {
   "files": {
-    "main.css": "/Code-review-simulator/static/css/main.6ff135b6.css",
-    "main.js": "/Code-review-simulator/static/js/main.268990ab.js",
+    "main.css": "/Code-review-simulator/static/css/main.f1c70d07.css",
+    "main.js": "/Code-review-simulator/static/js/main.9a9d8b52.js",
     "static/js/198.c981c377.chunk.js": "/Code-review-simulator/static/js/198.c981c377.chunk.js",
     "static/js/453.bb53e782.chunk.js": "/Code-review-simulator/static/js/453.bb53e782.chunk.js",
     "static/media/two-screen-setup.jpg": "/Code-review-simulator/static/media/two-screen-setup.2d2b8993a2f9d23a851f.jpg",
     "index.html": "/Code-review-simulator/index.html",
-    "main.6ff135b6.css.map": "/Code-review-simulator/static/css/main.6ff135b6.css.map",
-    "main.268990ab.js.map": "/Code-review-simulator/static/js/main.268990ab.js.map",
+    "main.f1c70d07.css.map": "/Code-review-simulator/static/css/main.f1c70d07.css.map",
+    "main.9a9d8b52.js.map": "/Code-review-simulator/static/js/main.9a9d8b52.js.map",
     "198.c981c377.chunk.js.map": "/Code-review-simulator/static/js/198.c981c377.chunk.js.map",
     "453.bb53e782.chunk.js.map": "/Code-review-simulator/static/js/453.bb53e782.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.6ff135b6.css",
-    "static/js/main.268990ab.js"
+    "static/css/main.f1c70d07.css",
+    "static/js/main.9a9d8b52.js"
   ]
 }
