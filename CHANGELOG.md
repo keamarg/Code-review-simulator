@@ -1,3 +1,15 @@
+[0.1.19] - 2025-11-25
+
+### Added
+
+- **Transcript Saving to Database**: Conversation transcripts are now automatically saved to Supabase when a review session ends
+  - **New Database Table**: Added `transcripts` table to store AI and user transcripts, full conversation JSON, session metadata, and summaries
+  - **Automatic Saving**: Transcripts are saved automatically when "Stop Code Review" is pressed (for authenticated users)
+  - **Full Conversation Storage**: Stores both AI and user transcripts, along with timestamps and conversation flow
+  - **Quick Start Support**: Quick start sessions are saved with `is_quick_start` flag (no exam_id)
+  - **Metadata Tracking**: Includes session duration, interaction count, and other session metrics
+  - **Row Level Security**: Transcripts are protected with RLS policies - users can only access their own transcripts
+
 [0.1.18] - 2025-11-25
 
 ### Fixed

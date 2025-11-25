@@ -1,5 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { GenAILiveClient } from "../../lib/genai-live-client";
+import { getSupabaseClient } from "../config/supabaseClient";
+import { appLogger } from "../../lib/utils";
 
 interface ConversationEntry {
   timestamp: Date;
@@ -302,11 +304,119 @@ export function useConversationTracker(
     })),
   });
 
+  const saveTranscriptToDatabase = useCallback(
+    async (
+      userId: string,
+      examId: string | null,
+      summary: string,
+      isQuickStart: boolean = false,
+      userEmail?: string,
+    ): Promise<{ success: boolean; error?: string }> => {
+      try {
+        // Flush any remaining buffers
+        if (transcriptBufferRef.current.trim()) {
+          flushTranscriptBuffer();
+        }
+        if (userTranscriptBufferRef.current.trim()) {
+          flushUserTranscriptBuffer();
+        }
+
+        const sessionDuration = sessionStartTime.current
+          ? Math.round((new Date().getTime() - sessionStartTime.current.getTime()) / 1000)
+          : 0;
+
+        // Get all transcript entries sorted by timestamp
+        const conversationEntries = entriesRef.current
+          .filter((e) => e.type === "ai_transcript" || e.type === "user_transcript")
+          .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+        // Build combined transcript in chronological order (like review summary)
+        let combinedTranscript = "";
+        conversationEntries.forEach((entry) => {
+          if (entry.content && entry.content.trim()) {
+            if (entry.type === "user_transcript") {
+              combinedTranscript += `User: ${entry.content.trim()}\n\n`;
+            } else if (entry.type === "ai_transcript") {
+              combinedTranscript += `AI: ${entry.content.trim()}\n\n`;
+            }
+          }
+        });
+
+        // Remove trailing newlines
+        combinedTranscript = combinedTranscript.trim();
+
+        // Build full conversation JSON
+        const fullConversation = conversationEntries.map((e) => ({
+          type: e.type,
+          content: e.content || "",
+          timestamp: e.timestamp.toISOString(),
+        }));
+
+        // Prepare metadata
+        const aiTranscriptEntries = entriesRef.current.filter((e) => e.type === "ai_transcript");
+        const userTranscriptEntries = entriesRef.current.filter((e) => e.type === "user_transcript");
+        const metadata = {
+          interaction_count: userInteractionCount.current,
+          ai_transcript_entries: aiTranscriptEntries.length,
+          user_transcript_entries: userTranscriptEntries.length,
+        };
+
+        // Extract separate transcripts for backward compatibility (if old schema still exists)
+        const allAiTranscripts = aiTranscriptEntries
+          .map((e) => e.content)
+          .filter((text): text is string => Boolean(text))
+          .map((text) => text.trim())
+          .filter((text) => text.length > 0)
+          .join(" ");
+
+        const allUserTranscripts = userTranscriptEntries
+          .map((e) => e.content)
+          .filter((text): text is string => Boolean(text))
+          .map((text) => text.trim())
+          .filter((text) => text.length > 0)
+          .join(" ");
+
+        // Save to Supabase - include both old and new columns for backward compatibility
+        const supabaseClient = await getSupabaseClient();
+        const insertData: any = {
+          exam_id: examId,
+          user_id: userId,
+          user_email: userEmail || null,
+          transcript: combinedTranscript || "No conversation recorded",
+          full_conversation: fullConversation,
+          session_duration_seconds: sessionDuration,
+          summary: summary,
+          metadata: metadata,
+          is_quick_start: isQuickStart,
+          // Include old columns for backward compatibility during migration
+          ai_transcript: allAiTranscripts || "No AI transcript",
+          user_transcript: allUserTranscripts || null,
+        };
+
+        const { error } = await supabaseClient.from("transcripts").insert([insertData]);
+
+        if (error) {
+          appLogger.error.general(`Failed to save transcript: ${error.message}`);
+          return { success: false, error: error.message };
+        }
+
+        appLogger.generic.info("✅ Transcript saved to database successfully");
+        return { success: true };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        appLogger.error.general(`Error saving transcript: ${errorMessage}`);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [flushTranscriptBuffer, flushUserTranscriptBuffer],
+  );
+
   return {
     getConversationSummary,
     generateSummaryWithOpenAI,
     clearConversation,
     getTranscripts,
+    saveTranscriptToDatabase,
     entryCount: entriesRef.current.length,
     transcriptCount: entriesRef.current.filter((e) => e.type === "ai_transcript").length,
     getDebugInfo,

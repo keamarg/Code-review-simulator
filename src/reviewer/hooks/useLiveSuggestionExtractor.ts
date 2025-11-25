@@ -165,8 +165,10 @@ export const useLiveSuggestionExtractor = () => {
           }
 
           if (bulletPoints.length > 0) {
-            const newSuggestions: Suggestion[] = bulletPoints.map((text: string) => ({
-              id: Date.now() + "-" + Math.random().toString(36).substr(2, 9),
+            // Generate unique IDs with counter to prevent collisions
+            const baseTime = Date.now();
+            const newSuggestions: Suggestion[] = bulletPoints.map((text: string, index: number) => ({
+              id: `${baseTime}-${index}-${Math.random().toString(36).substring(2, 11)}`,
               text,
               timestamp: new Date(),
             }));
@@ -174,10 +176,14 @@ export const useLiveSuggestionExtractor = () => {
             // Add to suggestions list with intelligent duplicate handling
             setSuggestions((prev) => {
               const existingTexts = new Set(prev.map((s) => s.text.toLowerCase()));
+              const existingIds = new Set(prev.map((s) => s.id));
 
               // More sophisticated duplicate detection
               const uniqueNew = newSuggestions.filter((newSugg) => {
                 const newText = newSugg.text.toLowerCase();
+
+                // Check for duplicate IDs (shouldn't happen, but safety check)
+                if (existingIds.has(newSugg.id)) return false;
 
                 // Check for exact duplicates
                 if (existingTexts.has(newText)) return false;
@@ -192,11 +198,10 @@ export const useLiveSuggestionExtractor = () => {
               });
 
               if (uniqueNew.length > 0) {
-                // Update both UI suggestions and persisted suggestions
-                setSuggestions((prev) => [...prev, ...uniqueNew]);
-                setPersistedSuggestions((prev) => [...prev, ...uniqueNew]);
-
-                return [...prev, ...uniqueNew];
+                const updated = [...prev, ...uniqueNew];
+                // Update persisted suggestions separately (not inside setState callback)
+                setPersistedSuggestions((current) => [...current, ...uniqueNew]);
+                return updated;
               }
               return prev;
             });

@@ -10,6 +10,7 @@ import { useConversationTracker } from "../../hooks/useConversationTracker";
 import { appLogger } from "../../../lib/utils";
 import reviewPrompts from "../../utils/prompt";
 import { getRepoQuestions as fetchRepoQuestions } from "../../utils/getGithubRepoFiles";
+import { useAuth } from "../../contexts/AuthContext";
 
 type LiveSuggestion = { text: string; timestamp: Date };
 
@@ -83,10 +84,9 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
   const [fadeReady, setFadeReady] = useState<boolean>(false);
   const sessionUidRef = useRef<string>("");
 
-  const { generateSummaryWithOpenAI, clearConversation } = useConversationTracker(
-    client,
-    props.onTranscriptChunk,
-  );
+  const { user } = useAuth();
+  const { generateSummaryWithOpenAI, clearConversation, saveTranscriptToDatabase } =
+    useConversationTracker(client, props.onTranscriptChunk);
 
   // Default config no longer used; prompt-driven config is prepared before connect
 
@@ -334,18 +334,40 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     if (onManualStop) {
       onManualStop();
     }
-    
+
+    // Determine if this is a quick start (no reviewId means quick start)
+    const isQuickStart = !reviewId || reviewId.startsWith("quickstart-");
+
     // Generate summary in background (non-blocking)
     generateSummaryWithOpenAI()
-      .then((summary) => {
+      .then(async (summary) => {
         setSummaryText(summary);
+
+        // Save transcript to database if user is authenticated
+        if (user?.id) {
+          try {
+            await saveTranscriptToDatabase(
+              user.id,
+              isQuickStart ? null : reviewId,
+              summary,
+              isQuickStart,
+              user.email,
+            );
+          } catch (error) {
+            // Log error but don't block showing summary
+            appLogger.error.general(
+              `Failed to save transcript: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
+
         setShowSummary(true);
       })
       .catch(() => {
         // keep default summary text
         setShowSummary(true);
       });
-  }, [generateSummaryWithOpenAI, onManualStop]);
+  }, [generateSummaryWithOpenAI, onManualStop, reviewId, user, saveTranscriptToDatabase]);
 
   const handleSummaryClose = useCallback(() => {
     setShowSummary(false);
