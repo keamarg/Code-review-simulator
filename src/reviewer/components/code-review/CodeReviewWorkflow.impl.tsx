@@ -29,7 +29,7 @@ export interface CodeReviewWorkflowProps {
   onButtonClicked?: (isButtonOn: boolean) => void;
   forceStopAudio?: boolean;
   forceStopVideo?: boolean;
-  quickStartReview?: any;
+  reviewTemplate?: any;
   hideMainButton?: boolean;
   initialRepoUrl?: string;
   isReadyForAutoTrigger?: boolean;
@@ -81,7 +81,6 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
   const pendingVoiceRef = useRef<string | undefined>(undefined);
   const [hasAiStartedSpeaking, setHasAiStartedSpeaking] = useState<boolean>(false);
   const [fadeReady, setFadeReady] = useState<boolean>(false);
-  const [repoError, setRepoError] = useState<string | null>(null);
   const sessionUidRef = useRef<string>("");
 
   const { generateSummaryWithOpenAI, clearConversation } = useConversationTracker(
@@ -109,7 +108,7 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
   // Preflight validation for starting the first screen share in GitHub Repo mode
   const preflightMessage = useCallback(() => {
     try {
-      const qt = props.quickStartReview;
+      const qt = props.reviewTemplate;
       if (!qt) return null;
       if (qt.type !== "Github Repo") return null;
       const effective = (repoUrl || qt.repoUrl || "").toString().trim();
@@ -126,15 +125,14 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     } catch {
       return "Invalid GitHub repository URL format";
     }
-  }, [props.quickStartReview, repoUrl]);
+  }, [props.reviewTemplate, repoUrl]);
 
   // Prepare prompt content when starting review
   useEffect(() => {
     const prepareContent = async () => {
-      if (!reviewId || !props.quickStartReview) return;
-      const reviewTemplate = props.quickStartReview;
+      if (!reviewId || !props.reviewTemplate) return;
+      const reviewTemplate = props.reviewTemplate;
       const durationMinutes = Number(reviewTemplate.duration || 0);
-      setRepoError(null); // Clear any previous errors
       try {
         let builtPrompt = "";
         if (reviewTemplate.type === "Github Repo" && (repoUrl || reviewTemplate.repoUrl)) {
@@ -152,11 +150,7 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
         }
         setPromptText(builtPrompt);
       } catch (e) {
-        const errorMessage = e instanceof Error ? e.message : String(e);
-        appLogger.error.general(errorMessage);
-        // Extract the actual error message (remove "Repository Processing Error: " prefix if present)
-        const cleanMessage = errorMessage.replace(/^Repository Processing Error: /, "");
-        setRepoError(cleanMessage);
+        appLogger.error.general(e instanceof Error ? e.message : String(e));
       } finally {
         // no-op; preparing prompt no longer toggles a local loading flag
       }
@@ -166,7 +160,7 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     if (reviewIntentStarted && !connected && !isConnectingRef.current && !promptText) {
       prepareContent();
     }
-  }, [reviewIntentStarted, connected, reviewId, props.quickStartReview, repoUrl, promptText]);
+  }, [reviewIntentStarted, connected, reviewId, props.reviewTemplate, repoUrl, promptText]);
 
   // Connect when prompt is ready (avoid reconnecting during active change-screen)
   useEffect(() => {
@@ -336,24 +330,22 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
   const { onLoadingStateChange } = props;
 
   const handleEndReviewClick = useCallback(async () => {
-    // Immediately stop screen sharing and recording before showing summary
-    if (connected) {
-      try {
-        client?.interrupt?.();
-        disconnect();
-      } catch {}
+    // Stop everything IMMEDIATELY - don't wait for summary
+    if (onManualStop) {
+      onManualStop();
     }
-    if (onManualStop) onManualStop();
-
-    try {
-      const summary = await generateSummaryWithOpenAI();
-      setSummaryText(summary);
-    } catch {
-      // keep default summary text
-    } finally {
-      setShowSummary(true);
-    }
-  }, [generateSummaryWithOpenAI, onManualStop, connected, disconnect, client]);
+    
+    // Generate summary in background (non-blocking)
+    generateSummaryWithOpenAI()
+      .then((summary) => {
+        setSummaryText(summary);
+        setShowSummary(true);
+      })
+      .catch(() => {
+        // keep default summary text
+        setShowSummary(true);
+      });
+  }, [generateSummaryWithOpenAI, onManualStop]);
 
   const handleSummaryClose = useCallback(() => {
     setShowSummary(false);
@@ -449,11 +441,11 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
           forceStopVideo={forceStopVideo}
           isReadyForAutoTrigger={isReadyForAutoTrigger}
           onEnvironmentChange={onEnvironmentChange}
-          showActions={fadeReady}
-          showIndicators={fadeReady}
+          showActions={fadeReady || connected || Boolean(reviewIntentStarted)}
+          showIndicators={fadeReady || connected || Boolean(reviewIntentStarted)}
           onSharingReady={onSharingReady}
           fadeInContainer={fadeReady}
-          visibleContainer={fadeReady}
+          visibleContainer={fadeReady || connected || Boolean(reviewIntentStarted)}
           timerTotalMs={reviewDurationMs}
           timerStartTrigger={connected}
           timerOnTimeUp={handleTimerExpired}
@@ -463,44 +455,11 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
         />
       }
 
-      {reviewIntentStarted && !fadeReady && !repoError && (
+      {/* Show loading message only when review is starting and not yet faded in */}
+      {/* Hide once fadeReady is true (UI has appeared) */}
+      {reviewIntentStarted && !fadeReady && (
         <div className="my-6">
           <div className="text-center text-tokyo-fg-dim mt-2">Preparing code review content...</div>
-        </div>
-      )}
-
-      {repoError && (
-        <div className="my-6 max-w-2xl mx-auto">
-          <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6">
-            <div className="flex items-start gap-3">
-              <svg
-                className="h-6 w-6 text-red-400 flex-shrink-0 mt-0.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div className="flex-1">
-                <h3 className="text-red-400 font-semibold mb-2">Repository Access Error</h3>
-                <p className="text-red-300 whitespace-pre-line text-sm">{repoError}</p>
-                <button
-                  onClick={() => {
-                    setRepoError(null);
-                    if (onScreenShareCancelled) onScreenShareCancelled();
-                  }}
-                  className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-sm"
-                >
-                  Go Back
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 

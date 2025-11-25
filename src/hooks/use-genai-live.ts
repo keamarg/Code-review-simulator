@@ -70,9 +70,10 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
   // register audio for streaming server -> speakers
   useEffect(() => {
     if (!audioStreamerRef.current) {
+      // Don't specify sampleRate - let browser use default to match MediaStream
       audioContext({
         id: "audio-out",
-        sampleRate: 24000, // Match AudioStreamer and AudioRecorder sample rate
+        // DON'T specify sampleRate - let browser use default
       }).then((audioCtx: AudioContext) => {
         audioStreamerRef.current = new AudioStreamer(audioCtx);
         audioStreamerRef.current

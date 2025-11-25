@@ -28,8 +28,18 @@ export const audioContext: (options?: GetAudioContextOptions) => Promise<AudioCo
       await a.play();
       if (options?.id && map.has(options.id)) {
         const ctx = map.get(options.id);
-        if (ctx) {
-          return ctx;
+        if (ctx && ctx.state !== "closed") {
+          // Verify the existing context has the same sample rate
+          if (!options.sampleRate || ctx.sampleRate === options.sampleRate) {
+            return ctx;
+          }
+          // If sample rate doesn't match, close the old one and create new
+          try {
+            await ctx.close();
+          } catch (e) {
+            // Ignore errors closing context
+          }
+          map.delete(options.id);
         }
       }
       const ctx = new AudioContext(options);
@@ -41,8 +51,18 @@ export const audioContext: (options?: GetAudioContextOptions) => Promise<AudioCo
       await didInteract;
       if (options?.id && map.has(options.id)) {
         const ctx = map.get(options.id);
-        if (ctx) {
-          return ctx;
+        if (ctx && ctx.state !== "closed") {
+          // Verify the existing context has the same sample rate
+          if (!options.sampleRate || ctx.sampleRate === options.sampleRate) {
+            return ctx;
+          }
+          // If sample rate doesn't match, close the old one and create new
+          try {
+            await ctx.close();
+          } catch (e) {
+            // Ignore errors closing context
+          }
+          map.delete(options.id);
         }
       }
       const ctx = new AudioContext(options);

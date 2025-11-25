@@ -83,7 +83,9 @@ export class AudioRecorder extends EventEmitter {
 
     this.starting = new Promise(async (resolve, reject) => {
       try {
-        // Use existing stream if provided, otherwise get new one
+        // SIMPLEST APPROACH: Don't specify sample rates - let browser use defaults
+        // Firefox will automatically match MediaStream and AudioContext sample rates if we don't force them
+        // Use existing stream if provided, otherwise get new one (no sampleRate constraint)
         if (existingStream) {
           this.stream = existingStream;
         } else {
@@ -93,31 +95,31 @@ export class AudioRecorder extends EventEmitter {
               noiseSuppression: true,
               autoGainControl: true,
               channelCount: 1,
+              // DON'T specify sampleRate - let browser choose
             },
           });
         }
 
-        // Get the actual sample rate from the MediaStream
-        const audioTrack = this.stream.getAudioTracks()[0];
-        const settings = audioTrack.getSettings();
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const actualSampleRate = settings.sampleRate || 44100; // fallback to 44.1kHz
-
-        // Create AudioContext using shared utility (handles autoplay policy)
+        // Create AudioContext WITHOUT specifying sampleRate - browser will use default
+        // This ensures it matches the MediaStream's rate automatically
         this.audioContext = await audioContext({
-          sampleRate: this.sampleRate,
-          // Don't reuse AudioContext on resume - create fresh one to avoid processing delays
-          // id: "audio-recorder-context", // Reuse the same AudioContext instance
+          id: "audio-recorder", // Simple ID - reuse same context
+          // DON'T specify sampleRate - let browser use default
         });
 
-        // Create source node
+        // Store the actual sample rate the browser chose
+        this.sampleRate = this.audioContext.sampleRate;
+        appLogger.generic.info(`AudioContext using browser default sample rate: ${this.sampleRate}Hz`);
+
+        // Create source node - should work because both use browser defaults
         this.source = this.audioContext.createMediaStreamSource(this.stream);
 
         // Get current environment from localStorage
         const currentEnvironment = localStorage.getItem("ai_vad_environment") || "QUIET";
 
-        // Create unique worklet name to avoid caching issues on refresh
-        const workletName = `audio-recorder-worklet-${Date.now()}`;
+        // Create unique worklet name to avoid "already registered" errors
+        // Use timestamp + random to ensure uniqueness even across page reloads
+        const workletName = `audio-recorder-worklet-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
         // Create environment-specific worklet source with correct initial thresholds
         const environmentSpecificWorklet = AudioRecordingWorklet.replace(
@@ -164,10 +166,12 @@ export class AudioRecorder extends EventEmitter {
             this.emit("data", arrayBufferString);
           }
         };
-        this.source.connect(this.recordingWorklet);
+        if (this.source && this.recordingWorklet) {
+          this.source.connect(this.recordingWorklet);
+        }
 
-        // vu meter worklet
-        const vuWorkletName = "vu-meter";
+        // vu meter worklet - use unique name to avoid "already registered" errors
+        const vuWorkletName = `vu-meter-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         const vuSrc = createWorketFromSrc(vuWorkletName, VolMeterWorket);
 
         // Register VU worklet, ignore "already registered" errors
@@ -186,7 +190,9 @@ export class AudioRecorder extends EventEmitter {
           this.emit("volume", ev.data.volume);
         };
 
-        this.source.connect(this.vuWorklet);
+        if (this.source && this.vuWorklet) {
+          this.source.connect(this.vuWorklet);
+        }
         this.recording = true;
         resolve();
         this.starting = null;
@@ -207,39 +213,71 @@ export class AudioRecorder extends EventEmitter {
 
     // Immediately disconnect worklets to stop data flow
     if (this.recordingWorklet) {
-      this.recordingWorklet.disconnect();
+      try {
+        this.recordingWorklet.disconnect();
+      } catch (e) {
+        // Ignore disconnect errors
+      }
       this.recordingWorklet = undefined;
     }
     if (this.vuWorklet) {
-      this.vuWorklet.disconnect();
+      try {
+        this.vuWorklet.disconnect();
+      } catch (e) {
+        // Ignore disconnect errors
+      }
       this.vuWorklet = undefined;
     }
 
     // its plausible that stop would be called before start completes
     // such as if the websocket immediately hangs up
     const handleStop = async () => {
-      // Worklets are already disconnected above, just clean up the rest
+      // Disconnect source node
+      if (this.source) {
+        try {
+          this.source.disconnect();
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+        this.source = undefined;
+      }
 
-      this.source?.disconnect();
-      this.stream?.getTracks().forEach((track) => track.stop());
-      // Close the AudioContext since we're not reusing it anymore
+      // Stop all MediaStream tracks immediately
+      if (this.stream) {
+        this.stream.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch (e) {
+            // Ignore stop errors
+          }
+        });
+        this.stream = undefined;
+      }
+
+      // Close the AudioContext and clean up worklet registry
       if (this.audioContext && this.audioContext.state !== "closed") {
         try {
+          // Clean up worklet registry entry for this context
+          const { registeredWorklets } = await import("./audioworklet-registry");
+          registeredWorklets.delete(this.audioContext);
+          
           await this.audioContext.close();
         } catch (closeError) {
-          // Error closing AudioContext
+          // Error closing AudioContext - ignore
         }
       }
-      this.stream = undefined;
-      // Clear AudioContext reference since we're not reusing it
+      
+      // Clear all references
       this.audioContext = undefined;
-      this.source = undefined;
       this.recording = false; // Ensure recording flag is reset
     };
 
     if (this.starting) {
       // Start in progress, will stop after start completes
-      this.starting.then(handleStop);
+      this.starting.then(handleStop).catch(() => {
+        // If start fails, still try to clean up
+        handleStop();
+      });
       return;
     }
     handleStop();

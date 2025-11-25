@@ -95,8 +95,13 @@
   display: grid;
   grid-auto-flow: column;
   grid-column-gap: 8px;
-  /* Explicit columns: [Mic] 64px, [Stop] 192px, [Change] 192px */
+  /* Default: 3 columns when connected [Mic] 64px, [Stop] 192px, [Change] 192px */
   grid-template-columns: 64px 192px 192px;
+
+  /* When paused: 2 columns [Mic] 64px, [Change] 192px (no Stop button) */
+  &.nav-paused {
+    grid-template-columns: 64px 192px;
+  }
 }
 
 /* Stabilize action button sizes to prevent post-fade adjustments */
