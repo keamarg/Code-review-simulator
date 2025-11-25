@@ -206,7 +206,7 @@ export default function Layout({ children, onVoiceChange, isSessionActive = fals
               (marg@kea.dk)
             </p>
             <p className="text-tokyo-fg text-xs text-tokyo-fg-dim">
-              Based on code reviewer module by Benjamin Hughes
+              Based on exam simulator module by Benjamin Hughes
             </p>
           </div>
         </div>
