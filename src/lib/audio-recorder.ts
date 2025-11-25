@@ -100,12 +100,12 @@ export class AudioRecorder extends EventEmitter {
         // Get the actual sample rate from the MediaStream
         const audioTrack = this.stream.getAudioTracks()[0];
         const settings = audioTrack.getSettings();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const actualSampleRate = settings.sampleRate || 44100; // fallback to 44.1kHz
 
         // Create AudioContext using shared utility (handles autoplay policy)
-        // Use the MediaStream's actual sample rate to avoid mismatch errors
         this.audioContext = await audioContext({
-          sampleRate: actualSampleRate,
+          sampleRate: this.sampleRate,
           // Don't reuse AudioContext on resume - create fresh one to avoid processing delays
           // id: "audio-recorder-context", // Reuse the same AudioContext instance
         });

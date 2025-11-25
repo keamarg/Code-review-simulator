@@ -21,11 +21,6 @@ import { AppRouter } from "./reviewer/navigation/AppRouter";
 function App() {
   useEffect(() => {
     // Handle browser refresh - redirect to home page
-    // Use a guard to prevent multiple redirects
-    if ((window as any).__redirecting) {
-      return;
-    }
-
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       // Store a flag to indicate this was a refresh
       sessionStorage.setItem("wasRefreshed", "true");
@@ -34,29 +29,21 @@ function App() {
     // Check if this page load was from a refresh
     const wasRefreshed = sessionStorage.getItem("wasRefreshed");
     if (wasRefreshed) {
-      // Clear the flag immediately
+      // Clear the flag
       sessionStorage.removeItem("wasRefreshed");
 
       // Get the basename from the current URL to match the router configuration
       const basename = new URL(process.env.PUBLIC_URL || "", window.location.origin).pathname;
       const homePath = basename + "/";
-      const currentPath = window.location.pathname;
 
-      // Only redirect if we're not already on the home page to prevent loops
-      if (currentPath !== homePath && currentPath !== basename) {
-        (window as any).__redirecting = true;
-        // Use replace instead of href to avoid adding to history
-        window.location.replace(homePath);
-        return;
-      }
+      // Redirect to home page using the correct path
+      window.location.href = homePath;
     }
 
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      // Clear redirect flag on unmount
-      (window as any).__redirecting = false;
     };
   }, []);
 

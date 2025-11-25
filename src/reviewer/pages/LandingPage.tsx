@@ -1,10 +1,12 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Layout from "../layout/Layout";
 import RecentCodeReviews from "../components/RecentCodeReviews";
+import { ReviewSetupModal } from "../components/ui/ReviewSetupModal";
 import { useAuth } from "../contexts/AuthContext";
 
 const LandingPage: React.FC = () => {
+  const [showQuickStartModal, setShowQuickStartModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -14,16 +16,10 @@ const LandingPage: React.FC = () => {
       // Clear the state to prevent it from reopening on subsequent visits
       window.history.replaceState({}, document.title);
 
-      // Navigate to /live with quick start data - modal will be shown there
-      navigate("/live", {
-        state: {
-          quickStart: true,
-          type: "Standard",
-          developerLevel: "intermediate",
-        },
-      });
+      // Open the quick start modal
+      setShowQuickStartModal(true);
     }
-  }, [user, location.state, navigate]);
+  }, [user, location.state]);
 
   // Check if user just signed in and wants to continue with quick start
   useEffect(() => {
@@ -31,17 +27,10 @@ const LandingPage: React.FC = () => {
       const quickStartIntent = localStorage.getItem("quickStartIntent");
       if (quickStartIntent) {
         localStorage.removeItem("quickStartIntent");
-        // Navigate to /live with quick start data - modal will be shown there
-        navigate("/live", {
-          state: {
-            quickStart: true,
-            type: "Standard",
-            developerLevel: "intermediate",
-          },
-        });
+        setShowQuickStartModal(true);
       }
     }
-  }, [user, navigate]);
+  }, [user]);
 
   useEffect(() => {
     // Auto fade-in elements that should appear immediately after page load
@@ -70,6 +59,25 @@ const LandingPage: React.FC = () => {
     return () => window.removeEventListener("scroll", fadeInOnScroll);
   }, []);
 
+  const handleQuickStart = (
+    type: string,
+    developerLevel: string,
+    repoUrl?: string,
+    fullScan?: boolean
+  ) => {
+    // Navigate to live page with quick start parameters and auto-start flag
+    navigate("/live", {
+      state: {
+        quickStart: true,
+        autoStart: true, // This will trigger automatic start
+        type,
+        developerLevel,
+        repoUrl, // Pass the repo URL if provided
+        fullScan, // Pass the fullScan option if provided
+      },
+    });
+  };
+
   const handleQuickStartButtonClick = () => {
     if (!user) {
       // Store the quick start intent and redirect to login
@@ -78,16 +86,8 @@ const LandingPage: React.FC = () => {
       return;
     }
 
-    // User is authenticated, navigate directly to /live
-    // The modal will be shown on /live page (unified flow)
-    navigate("/live", {
-      state: {
-        quickStart: true,
-        // Default values - user can change them in the modal on /live
-        type: "Standard",
-        developerLevel: "intermediate",
-      },
-    });
+    // User is authenticated, show the modal
+    setShowQuickStartModal(true);
   };
 
   return (
@@ -135,6 +135,23 @@ const LandingPage: React.FC = () => {
                   <p className="text-sm text-tokyo-fg-bright mt-3">
                     Start a general code review session immediately
                   </p>
+                  <p className="text-xs text-tokyo-fg-dim mt-2 flex items-center justify-center">
+                    <svg
+                      className="h-4 w-4 mr-1"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Google Chrome required for screen sharing and microphone
+                    access
+                  </p>
                 </div>
               </div>
             </div>
@@ -159,17 +176,20 @@ const LandingPage: React.FC = () => {
                 />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-tokyo-fg-bright mb-3">Research Project</h2>
+            <h2 className="text-2xl font-bold text-tokyo-fg-bright mb-3">
+              Research Project
+            </h2>
             <p className="text-lg text-tokyo-fg-bright mb-3">
-              This code review simulator is part of an academic research project investigating how
-              AI assisted task solving impacts worklife and skill development through interactive
-              code reviews.
+              This code review simulator is part of an academic research project
+              investigating how AI assisted task solving impacts worklife and
+              skill development through interactive code reviews.
             </p>
             <p className="text-tokyo-fg">
-              By participating, you contribute to research that intends to critically assess
-              generative AI’s impact on software development practises and explore vibe coding’s
-              methodological potential for creating rapid research probes. All participation is
-              anonymous and data is used for research purposes only.
+              By participating, you contribute to research that intends to
+              critically assess generative AI’s impact on software development
+              practises and explore vibe coding’s methodological potential for
+              creating rapid research probes. All participation is anonymous and
+              data is used for research purposes only.
             </p>
           </div>
         </section>
@@ -184,6 +204,13 @@ const LandingPage: React.FC = () => {
           </div>
         </section>
       </div>
+
+      {/* Quick Start Modal */}
+      <ReviewSetupModal
+        isOpen={showQuickStartModal}
+        onClose={() => setShowQuickStartModal(false)}
+        onStartReview={handleQuickStart}
+      />
 
       {/* CSS for animations */}
       <style>

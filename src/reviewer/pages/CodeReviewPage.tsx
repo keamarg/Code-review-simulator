@@ -25,19 +25,15 @@ export default function CodeReviewPage() {
   const reviewId = searchParams.get("id");
   const quickStartData = (location.state as any) || null;
 
-  // Generate ID: use reviewId if present (custom mode), otherwise generate one for quick start
   const id = reviewId || (quickStartData?.quickStart ? `quickstart-${Date.now()}` : undefined);
 
   const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
   const [isLoadingKey, setIsLoadingKey] = useState(true);
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
 
-  // Handle stream from landing page (quick start)
   useEffect(() => {
     const stream = mediaStreamService.getStream();
-    if (stream) {
-      if (!videoStream) setVideoStream(stream);
-    }
+    if (stream && !videoStream) setVideoStream(stream);
   }, [videoStream]);
 
   useEffect(() => {
@@ -88,17 +84,16 @@ export default function CodeReviewPage() {
   const { suggestions, extractSuggestions, clearAllSuggestions, isProcessing } =
     useLiveSuggestionExtractor();
 
-  const [reviewTemplate, setReviewTemplate] = useState<any>(null);
+  const [quickStartReview, setQuickStartReview] = useState<any>(null);
+  const [customReview, setCustomReview] = useState<any>(null);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [isReadyForAutoTrigger, setIsReadyForAutoTrigger] = useState(false);
+  const [customRepoUrl, setCustomRepoUrl] = useState<string | undefined>();
   const shouldAutoTriggerRef = useRef(false);
   const autoTriggerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasAutoTriggeredRef = useRef(false);
-  const hasClosedModalRef = useRef(false);
-  const hasShownModalRef = useRef(false); // Track if modal has been shown to prevent reopening
-  const hasAttemptedToShowModalRef = useRef(false); // Track if we've attempted to show modal (prevents double-show)
   const [shouldFadeInSessionUi, setShouldFadeInSessionUi] = useState(false);
-
+  const [uiFadeReady, setUiFadeReady] = useState(false);
   const handleSharingReady = useCallback(() => {
     const fontsAny = (document as any).fonts;
     const ready: Promise<any> | undefined = fontsAny?.ready;
@@ -132,95 +127,69 @@ export default function CodeReviewPage() {
     fetchApiKey();
   }, []);
 
-  const queueAutoStartFallback = useCallback(() => {
+  const queueAutoStartFallback = () => {
     if (autoTriggerTimeoutRef.current) clearTimeout(autoTriggerTimeoutRef.current);
     autoTriggerTimeoutRef.current = setTimeout(() => {
       if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
         setReviewIntentStarted(true);
       }
     }, 2000);
-  }, []);
+  };
 
-  // Load review template: from DB for custom mode, create temporary one for quick start
-  // This runs once when the component mounts or when reviewId/quickStartData changes
   useEffect(() => {
-    // CRITICAL: Don't run if modal was closed or review started - this prevents reopening
-    // Check these FIRST before anything else
-    if (
-      hasClosedModalRef.current ||
-      hasEverStartedRef.current ||
-      reviewIntentStarted ||
-      hasAttemptedToShowModalRef.current ||
-      hasShownModalRef.current
-    ) {
-      return;
+    if (quickStartData?.quickStart && !reviewId && !quickStartReview) {
+      const tempReview = {
+        id: id,
+        title:
+          quickStartData.type === "Github Repo"
+            ? "GitHub Repository Review"
+            : "General Code Review",
+        description:
+          quickStartData.type === "Github Repo"
+            ? `Code review of GitHub repository: ${quickStartData.repoUrl || "Repository URL not provided"}`
+            : "A general code review session focusing on code quality improvements and best practices.",
+        type: quickStartData.type || "Standard",
+        duration: 0,
+        learning_goals: quickStartData.developerLevel || "intermediate",
+        is_public: false,
+        created_at: new Date().toISOString(),
+        user_id: "quickstart",
+        repoUrl: quickStartData.repoUrl,
+        fullScan: quickStartData.fullScan,
+      };
+      setQuickStartReview(tempReview);
     }
-
-    // Don't reload if we already have a template (template exists means we've already loaded)
-    if (reviewTemplate) {
-      return;
-    }
-
-    const loadReview = async () => {
-      if (reviewId) {
-        // Custom mode: load from database
-        try {
-          const supabaseClient = await getSupabaseClient();
-          const { data, error } = await supabaseClient
-            .from("exams")
-            .select("*")
-            .eq("id", reviewId)
-            .single();
-          if (!error && data) {
-            setReviewTemplate(data);
-            // Mark that we've attempted to show modal and show it
-            if (!hasShownModalRef.current && !hasClosedModalRef.current) {
-              hasAttemptedToShowModalRef.current = true;
-              hasShownModalRef.current = true;
-              setShowSetupModal(true);
-            }
-          }
-        } catch (error) {
-          appLogger.error.general(error instanceof Error ? error.message : String(error));
-        }
-      } else if (quickStartData?.quickStart && id) {
-        // Quick start: create temporary template (same structure as custom mode)
-        const tempReview = {
-          id: id,
-          title: "Code Review",
-          description:
-            "A code review session focusing on code quality improvements and best practices.",
-          type: quickStartData.type || "Standard",
-          duration: 0, // Quick start has no timer
-          learning_goals: quickStartData.developerLevel || "intermediate",
-          is_public: false,
-          created_at: new Date().toISOString(),
-          user_id: "quickstart",
-          repoUrl: quickStartData.repoUrl,
-          fullScan: quickStartData.fullScan,
-        };
-        setReviewTemplate(tempReview);
-        // Show modal to get screen share (modal is now only shown on /live, not on LandingPage)
-        if (!hasShownModalRef.current && !hasClosedModalRef.current) {
-          hasAttemptedToShowModalRef.current = true;
-          hasShownModalRef.current = true;
-          setShowSetupModal(true);
-        }
-      }
-    };
-    loadReview();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    reviewId,
     quickStartData?.quickStart,
-    quickStartData?.type,
-    quickStartData?.developerLevel,
-    quickStartData?.repoUrl,
-    quickStartData?.fullScan,
+    reviewId,
     id,
-    reviewIntentStarted, // Include this so effect knows when review starts and can exit early
-    // reviewTemplate intentionally excluded - we check it inside the effect
+    quickStartReview,
+    quickStartData?.developerLevel,
+    quickStartData?.fullScan,
+    quickStartData?.repoUrl,
+    quickStartData?.type,
   ]);
+
+  useEffect(() => {
+    if (
+      quickStartData?.autoStart &&
+      quickStartReview &&
+      !reviewIntentStarted &&
+      !hasAutoTriggeredRef.current
+    ) {
+      shouldAutoTriggerRef.current = true;
+      setIsReadyForAutoTrigger(true);
+      autoTriggerTimeoutRef.current = setTimeout(() => {
+        if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
+          if (!isInitializingRef.current) {
+            setReviewIntentStarted(true);
+          }
+          shouldAutoTriggerRef.current = false;
+          hasAutoTriggeredRef.current = true;
+        }
+      }, 2000);
+    }
+  }, [quickStartData?.autoStart, quickStartReview, reviewIntentStarted]);
 
   useEffect(() => {
     if (reviewIntentStarted && !hasAutoTriggeredRef.current) {
@@ -264,6 +233,7 @@ export default function CodeReviewPage() {
   }, [shutdownSession]);
 
   const handleEndReview = () => {
+    // Summary modal is now handled inside workflow, but keep cleanup here for when modal closes
     setForceStopAudio(true);
     setForceStopVideo(true);
     appLogger.user.stopReview();
@@ -279,33 +249,28 @@ export default function CodeReviewPage() {
     clearAllSuggestions();
   };
 
-  const handleButtonReady = useCallback(
-    (triggerButton: () => void) => {
-      if (videoStream) {
-        return;
+  // Client ready hook reserved for future use
+
+  const handleButtonReady = useCallback((triggerButton: () => void) => {
+    if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
+      shouldAutoTriggerRef.current = false;
+      hasAutoTriggeredRef.current = true;
+      if (autoTriggerTimeoutRef.current) {
+        clearTimeout(autoTriggerTimeoutRef.current);
+        autoTriggerTimeoutRef.current = null;
       }
-      if (shouldAutoTriggerRef.current && !hasAutoTriggeredRef.current) {
-        shouldAutoTriggerRef.current = false;
-        hasAutoTriggeredRef.current = true;
-        if (autoTriggerTimeoutRef.current) {
-          clearTimeout(autoTriggerTimeoutRef.current);
-          autoTriggerTimeoutRef.current = null;
-        }
-        setTimeout(() => triggerButton(), 100);
-      }
-    },
-    [videoStream],
-  );
+      setTimeout(() => triggerButton(), 100);
+    }
+  }, []);
 
   const handleScreenShareCancelled = useCallback(() => {
     if (quickStartData?.quickStart) {
       navigate("/", { state: { reopenQuickStart: true } });
     } else {
-      // Don't reopen modal if it was already closed or session started
-      if (hasEverStartedRef.current || hasClosedModalRef.current || hasShownModalRef.current) {
+      // Do not reopen the setup modal after a pause or cancel; keep user in session view
+      if (hasEverStartedRef.current) {
         setShowSetupModal(false);
       } else {
-        hasShownModalRef.current = true;
         setShowSetupModal(true);
       }
     }
@@ -330,64 +295,44 @@ export default function CodeReviewPage() {
     }
   }, [blocker, shutdownSession]);
 
-  // Unified function to start review from template (identical for both modes)
-  const startReviewFromTemplate = useCallback(
-    (
-      template: any | null,
-      reviewType: string,
-      developerLevel: string,
-      repoUrl?: string,
-      fullScan?: boolean,
-    ) => {
-      if (!template) return;
+  useEffect(() => {
+    const getReview = async () => {
+      try {
+        const supabaseClient = await getSupabaseClient();
+        const { data, error } = await supabaseClient
+          .from("exams")
+          .select("*")
+          .eq("id", id)
+          .single();
+        if (!error && data) {
+          setCustomReview(data);
+          // Only show setup modal before the first session has ever started
+          if (!quickStartData?.autoStart && !reviewIntentStarted && !hasEverStartedRef.current) {
+            setShowSetupModal(true);
+          }
+        }
+      } catch (error) {
+        appLogger.error.general(error instanceof Error ? error.message : String(error));
+      }
+    };
+    if (!quickStartData?.quickStart && id) getReview();
+  }, [quickStartData?.quickStart, quickStartData?.autoStart, id, reviewIntentStarted]);
 
-      // Mark modal as closed FIRST to prevent any effects from reopening it
-      hasClosedModalRef.current = true;
-      hasShownModalRef.current = true;
-      hasAttemptedToShowModalRef.current = true;
-
-      // Close modal immediately
-      setShowSetupModal(false);
-
-      // Start the review intent
-      setReviewIntentStarted(true);
-
-      // Update template with user selections (same for both modes)
-      // This happens after modal is closed and refs are set, so it won't trigger modal to reopen
-      const finalReview = {
-        ...template,
-        type: reviewType,
-        learning_goals: developerLevel,
-        repoUrl: repoUrl || template.repoUrl,
-        fullScan: fullScan ?? template.fullScan,
-        title:
-          reviewType === "Github Repo"
-            ? "GitHub Repository Review"
-            : reviewType === "Standard"
-              ? "Standard Code Review"
-              : "Code Review",
-        description:
-          reviewType === "Github Repo"
-            ? `Code review of GitHub repository: ${repoUrl || template.repoUrl || "Repository URL not provided"}`
-            : "A code review session focusing on code quality improvements and best practices.",
-      };
-      setReviewTemplate(finalReview);
-
-      shouldAutoTriggerRef.current = true;
-      setIsReadyForAutoTrigger(true);
-      queueAutoStartFallback();
-    },
-    [queueAutoStartFallback],
-  );
-
-  // Unified handler - identical for both modes
-  const handleStartReview = (
+  const handleCustomStartReview = (
     reviewType: string,
     developerLevel: string,
     repoUrl?: string,
     fullScan?: boolean,
   ) => {
-    startReviewFromTemplate(reviewTemplate, reviewType, developerLevel, repoUrl, fullScan);
+    setCustomRepoUrl(repoUrl);
+    if (customReview) {
+      const unifiedReview = { ...customReview, repoUrl, fullScan };
+      setQuickStartReview(unifiedReview);
+    }
+    shouldAutoTriggerRef.current = true;
+    setIsReadyForAutoTrigger(true);
+    queueAutoStartFallback();
+    setShowSetupModal(false);
   };
 
   if (isLoadingKey) {
@@ -428,25 +373,6 @@ export default function CodeReviewPage() {
     );
   }
 
-  // Determine if this is quick start (only affects modal props, not session behavior)
-  const isQuickStart = Boolean(quickStartData?.quickStart);
-
-  // Modal props: custom mode has fixed values, quick start has initial (editable) values
-  const modalFixedType = isQuickStart ? undefined : reviewTemplate?.type;
-  const modalFixedDeveloperLevel = isQuickStart ? undefined : reviewTemplate?.learning_goals;
-  const modalInitialType = isQuickStart
-    ? quickStartData?.type || reviewTemplate?.type || "Standard"
-    : undefined;
-  const modalInitialDeveloperLevel = isQuickStart
-    ? quickStartData?.developerLevel || reviewTemplate?.learning_goals || "intermediate"
-    : undefined;
-  const modalInitialRepoUrl = isQuickStart
-    ? quickStartData?.repoUrl || reviewTemplate?.repoUrl
-    : undefined;
-  const modalInitialFullScan = isQuickStart
-    ? (quickStartData?.fullScan ?? reviewTemplate?.fullScan)
-    : undefined;
-
   return (
     <Layout
       isSessionActive={reviewIntentStarted}
@@ -456,26 +382,18 @@ export default function CodeReviewPage() {
       }}
     >
       <GenAILiveProvider apiKey={geminiApiKey}>
-        {/* Unified setup modal - same component for both modes */}
-        {showSetupModal && reviewTemplate && (
+        {showSetupModal && customReview && (
           <ReviewSetupModal
             isOpen={showSetupModal}
             onClose={() => {
-              hasClosedModalRef.current = true;
-              hasShownModalRef.current = true;
-              hasAttemptedToShowModalRef.current = true;
               setShowSetupModal(false);
               navigate("/");
             }}
-            onStartReview={handleStartReview}
-            fixedType={modalFixedType}
-            fixedDeveloperLevel={modalFixedDeveloperLevel}
-            reviewTitle={isQuickStart ? undefined : reviewTemplate?.title}
-            reviewDescription={isQuickStart ? undefined : reviewTemplate?.description}
-            initialType={modalInitialType}
-            initialDeveloperLevel={modalInitialDeveloperLevel}
-            initialRepoUrl={modalInitialRepoUrl}
-            initialFullScan={modalInitialFullScan}
+            onStartReview={handleCustomStartReview}
+            fixedType={customReview.type}
+            fixedDeveloperLevel={customReview.learning_goals}
+            reviewTitle={customReview.title}
+            reviewDescription={customReview.description}
           />
         )}
         <div
@@ -500,24 +418,27 @@ export default function CodeReviewPage() {
               onButtonClicked={(on: boolean) => setReviewIntentStarted(on)}
               forceStopAudio={forceStopAudio}
               forceStopVideo={forceStopVideo}
-              reviewTemplate={reviewTemplate}
+              quickStartReview={quickStartReview}
               onButtonReady={handleButtonReady}
               onScreenShareCancelled={handleScreenShareCancelled}
               hideMainButton={false}
-              initialRepoUrl={reviewTemplate?.repoUrl}
+              initialRepoUrl={quickStartData?.repoUrl || customRepoUrl}
               isReadyForAutoTrigger={isReadyForAutoTrigger}
               onEnvironmentChange={() => {}}
               requestedVoice={requestedVoice}
               onSharingReady={handleSharingReady}
-              onUiFadeReady={() => {}}
+              onUiFadeReady={() => setUiFadeReady(true)}
               sessionUiReady={shouldFadeInSessionUi}
               reviewDurationMs={
-                reviewTemplate?.duration ? Number(reviewTemplate.duration) * 60 * 1000 : 0
+                quickStartReview?.duration
+                  ? Number(quickStartReview.duration) * 60 * 1000
+                  : customReview?.duration
+                    ? Number(customReview.duration) * 60 * 1000
+                    : 0
               }
             />
-            {/* Show UserPromptInput and LiveSuggestions when review has started */}
             {reviewIntentStarted && (
-              <div className="mt-8">
+              <div className="mt-8" style={{ display: uiFadeReady ? undefined : "none" }}>
                 <div className="mb-4">
                   <UserPromptInput />
                 </div>
@@ -525,7 +446,7 @@ export default function CodeReviewPage() {
                   <LiveSuggestionsPanel
                     suggestions={suggestions}
                     isProcessing={isProcessing}
-                    isVisible={true}
+                    isVisible={uiFadeReady}
                     fadeIn={true}
                   />
                 )}
