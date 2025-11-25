@@ -388,10 +388,14 @@ export default function CodeReviewPage() {
             : reviewType === "Standard"
               ? "Standard Code Review"
               : "Code Review",
+        // Preserve the original description from the template - don't overwrite it
+        // Only use fallback if template doesn't have a description
         description:
-          reviewType === "Github Repo"
-            ? `Code review of GitHub repository: ${repoUrl || template.repoUrl || "Repository URL not provided"}`
-            : "A code review session focusing on code quality improvements and best practices.",
+          template.description && template.description.trim()
+            ? template.description
+            : reviewType === "Github Repo"
+              ? `Code review of GitHub repository: ${repoUrl || template.repoUrl || "Repository URL not provided"}`
+              : "A code review session focusing on code quality improvements and best practices.",
       };
       setReviewTemplate(finalReview);
 

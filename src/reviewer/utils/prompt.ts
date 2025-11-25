@@ -10,13 +10,25 @@ function getPrompt(
   reviewDurationMinutes: number,
   studentTask: string,
 ): string {
+  // PRIORITY: Start with review description/focus - this takes precedence
+  let prompt = "";
+  
+  // Add review description/focus at the beginning if it exists
+  if (reviewTemplate.description && reviewTemplate.description.trim()) {
+    prompt += `REVIEW FOCUS (HIGHEST PRIORITY - This should guide all your suggestions):\n${reviewTemplate.description.trim()}\n\n`;
+    prompt += `This review focus takes precedence over the standard instructions below. All your suggestions should align with this focus.\n\n`;
+    prompt += "=".repeat(50) + "\n\n";
+  }
+  
   // Use review-named key
-  let prompt: string = (prompts as any).mainPrompts.standardReview;
-  prompt = prompt.replace(/\$\{reviewDurationMinutes\}/g, String(reviewDurationMinutes));
-  prompt = prompt.replace(
+  let standardPrompt: string = (prompts as any).mainPrompts.standardReview;
+  standardPrompt = standardPrompt.replace(/\$\{reviewDurationMinutes\}/g, String(reviewDurationMinutes));
+  standardPrompt = standardPrompt.replace(
     /\$\{reviewTemplate\?\.title \|\| "code review"\}/g,
     reviewTemplate?.title || "code review",
   );
+  prompt += standardPrompt;
+  
   // No-op normalization retained
   const levelGuidance = getLevelSpecificGuidance(reviewTemplate.learning_goals || "intermediate");
   prompt += `
@@ -47,12 +59,24 @@ function getGithubPrompt(
   reviewDurationMinutes: number,
   githubQuestions: string,
 ): string {
-  let prompt: string = (prompts as any).mainPrompts.githubReview;
-  prompt = prompt.replace(/\$\{reviewDurationMinutes\}/g, String(reviewDurationMinutes));
-  prompt = prompt.replace(
+  // PRIORITY: Start with review description/focus - this takes precedence
+  let prompt = "";
+  
+  // Add review description/focus at the beginning if it exists
+  if (reviewTemplate.description && reviewTemplate.description.trim()) {
+    prompt += `REVIEW FOCUS (HIGHEST PRIORITY - This should guide all your suggestions):\n${reviewTemplate.description.trim()}\n\n`;
+    prompt += `This review focus takes precedence over the standard instructions below. All your suggestions should align with this focus.\n\n`;
+    prompt += "=".repeat(50) + "\n\n";
+  }
+  
+  let standardPrompt: string = (prompts as any).mainPrompts.githubReview;
+  standardPrompt = standardPrompt.replace(/\$\{reviewDurationMinutes\}/g, String(reviewDurationMinutes));
+  standardPrompt = standardPrompt.replace(
     /\$\{reviewTemplate\?\.title \|\| "code review"\}/g,
     reviewTemplate?.title || "code review",
   );
+  prompt += standardPrompt;
+  
   // No-op normalization retained
   const levelGuidance = getLevelSpecificGuidance(reviewTemplate.learning_goals || "intermediate");
   prompt += `
@@ -98,12 +122,24 @@ START BY: Greeting the developer, confirming you can see their screen, and askin
 }
 
 function getGeneralPrompt(reviewTemplate: any, studentTask: string): string {
-  let prompt: string = (prompts as any).mainPrompts.generalReview;
-  prompt = prompt.replace(
+  // PRIORITY: Start with review description/focus - this takes precedence
+  let prompt = "";
+  
+  // Add review description/focus at the beginning if it exists
+  if (reviewTemplate.description && reviewTemplate.description.trim()) {
+    prompt += `REVIEW FOCUS (HIGHEST PRIORITY - This should guide all your suggestions):\n${reviewTemplate.description.trim()}\n\n`;
+    prompt += `This review focus takes precedence over the standard instructions below. All your suggestions should align with this focus.\n\n`;
+    prompt += "=".repeat(50) + "\n\n";
+  }
+  
+  let standardPrompt: string = (prompts as any).mainPrompts.generalReview;
+  standardPrompt = standardPrompt.replace(
     '${reviewTemplate?.title || "general code review"}',
     reviewTemplate?.title || "general code review",
   );
-  prompt = prompt.replace(/\n/g, "\n");
+  standardPrompt = standardPrompt.replace(/\n/g, "\n");
+  prompt += standardPrompt;
+  
   const levelGuidanceGeneral = getLevelSpecificGuidance(
     reviewTemplate.learning_goals || "intermediate",
   );
