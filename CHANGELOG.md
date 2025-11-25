@@ -1,3 +1,226 @@
+[0.1.17] - 2025-11-25
+
+### Changed
+
+- **Complete Rebuild of Quick Start to Match Custom Mode**: Completely removed all quick start specific code and rebuilt it to use the exact same flow as custom mode
+  - **Removed All Quick Start Specific Logic**: Eliminated all `isQuickStartFlow`, `hasShownQuickStartModalRef`, `hadLandingStreamRef`, `autoStartedFromLandingRef` and other quick start specific refs and state
+  - **Unified Template Loading**: Both modes now use the same `loadReview` function - custom loads from DB, quick start creates temp template (same structure)
+  - **Unified Modal Flow**: Same `ReviewSetupModal` component, only difference is `fixed*` props (custom) vs `initial*` props (quick start)
+  - **Unified Start Handler**: Single `handleStartReview` function used by both modes - no conditional logic
+  - **Unified Template Update**: Single `startReviewFromTemplate` function - identical behavior for both modes
+  - **Identical Session Code**: After modal closes, `CodeReviewWorkflow` receives identical props and uses identical code paths
+  - **No Mode Detection in Session**: Once `reviewIntentStarted` is true, there is zero difference between modes
+  - **Only Differences**: Quick start has `duration: 0` (no timer) and modal values are editable vs fixed - that's it
+
+[0.1.16] - 2025-11-25
+
+### Changed
+
+- **Unified Quick Start and Custom Mode Sessions**: Quick start and custom mode now use identical session code after "Start Review" is clicked
+  - **Unified Template Structure**: Quick start template is now created with the same structure as custom mode templates
+  - **Unified Handler**: Both modes use the same `handleStartReview` function and `startReviewFromTemplate` helper
+  - **Unified Props**: `CodeReviewWorkflow` receives identical props regardless of mode
+  - **Same Prompt Generation**: Both modes use the same prompt generation logic based on review type
+  - **Identical Session UI**: Removed all quick start detection logic from `ControlTrayCustom` - UI is now completely identical
+  - **Unified Stream Detection**: Replaced `hasCheckedQuickStartRef` with generic `hasCheckedStreamRef` - no mode-specific logic
+  - **Same Buttons and Controls**: All buttons, status messages, and UI elements work identically in both modes
+  - **Only Difference**: Quick start has `duration: 0` (no timer), which is the only designed difference
+
+[0.1.15] - 2025-11-25
+
+### Fixed
+
+- **Quick Start Flow Only Runs Once**: When the quick start modal on the landing page has already captured a screen share, `/live` now auto-starts the session instead of forcing a second modal.
+  - **Stream Carry-Over Detection**: The landing stream is recorded before `mediaStreamService.getStream()` consumes it so `/live` knows a session is already staged.
+  - **Auto-Start Mirror**: A dedicated effect mirrors the modal's start handler to set `reviewIntentStarted`, mark refs as closed/shown, and raise the auto-trigger flags.
+  - **Single Modal Code Path**: Quick start now reuses the same `ReviewSetupModal` block and start handler as custom reviews, removing duplicate UI/state logic.
+
+- **Microphone Returns After Change Screen (Quick Start)**: Changing screens during quick start no longer kills the mic.
+  - **Deferred Recorder Restart**: `changeScreenShare` now flags the audio recorder for restart and waits for reconnection instead of using a fixed timeout.
+  - **Connection Hook**: The `connected` effect watches the restart flag and immediately restarts the recorder when the session reconnects, keeping audio flowing.
+  - **Fresh Mic Stream Each Swap**: Every screen change now discards the old microphone stream and acquires a new one, so multiple successive swaps keep audio responsive.
+
+[0.1.14] - 2025-11-24
+
+### Fixed
+
+- **Regular Mode: Fixed Duplicate Screen Sharing and Start Buttons**: Resolved issues where screen sharing was requested twice and duplicate start buttons appeared
+  - **Modal Closes on Navigation**: ReviewSetupModal now closes when navigating to `/live`, preventing duplicate buttons
+  - **Prevent Duplicate Screen Sharing**: ControlTrayCustom no longer requests screen sharing when stream already exists from modal
+  - **Button Visibility**: Main button properly hides during auto-start in regular mode
+  - **Stream Detection**: Improved logic to detect existing streams and avoid re-requesting screen sharing
+
+- **Quick Start Mode: Fixed Change Screen Button and Audio Response**: Resolved issues where change screen didn't work and audio stopped responding
+  - **Stream Reference Handling**: `changeScreenShare` now properly checks `activeVideoStream`, `videoRef.current.srcObject`, and `videoStreamRef.current` to find current stream
+  - **Audio Preservation**: Audio stream is now properly preserved and reconnected after screen change
+  - **Unified Stream Setup**: Uses `setupVideoStream()` function to ensure consistent state for both modes
+  - **Audio Recorder**: Ensures audio recorder is properly restarted after screen change
+
+[0.1.13] - 2025-11-24
+
+### Fixed
+
+- **Change Screen Button Works in Both Quick Start and Regular Mode**: Fixed change screen functionality to work consistently in both modes
+  - **Unified Stream Setup**: `changeScreenShare` now uses the unified `setupVideoStream()` function to ensure consistent state
+  - **Quick Start Mode**: Change screen now works properly in quick start mode by using the same setup logic
+  - **Regular Mode**: Change screen continues to work as before
+  - **State Consistency**: Both modes now use identical stream setup logic, ensuring consistent behavior
+
+- **Duplicate Start Button in Regular Mode**: Fixed duplicate "Start review" button appearing after auto-start in regular mode
+  - **Button Text Logic**: Updated `getButtonText()` to check `connected`/`hasEverConnected` first before checking `screenSharingGranted`
+  - **Auto-Start Detection**: Button now checks `hasAutoStartedRef.current` to avoid showing "Start review" after auto-start
+  - **Button Visibility**: Updated `shouldHideMainButtonForSetup` to hide button when auto-start has occurred
+  - **Result**: No more duplicate buttons - button shows "Pause" or "Resume" after auto-start, or hides if appropriate
+
+[0.1.12] - 2025-11-24
+
+### Fixed
+
+- **Change Screen Button Functionality**: Fixed the "Change Screen" button to properly update all stream references
+  - **Stream Updates**: Now properly updates `videoRef.current.srcObject`, `videoStreamRef.current`, and `activeVideoStream` state
+  - **State Synchronization**: Ensures `isScreenSharing` state is updated when screen is changed
+  - **Button Placement**: Moved button to appear after Stop button (right side) as intended
+  - **Flag Reset**: Properly resets `isChangingScreenRef.current` flag on both success and error
+
+- **Consolidated Quick Start and Regular Mode**: Unified stream setup logic for both modes
+  - **Unified Function**: Created `setupVideoStream()` function used by both quick start and regular modes
+  - **Same Logic**: Both modes now use identical stream setup code, only difference is `autoStart` parameter
+  - **Regular Mode**: Auto-starts review when stream is detected from modal (`autoStart=true`)
+  - **Quick Start Mode**: Sets up stream but waits for user to click button (`autoStart=false`)
+  - **Code Simplification**: Removed duplicate stream setup code, easier to maintain
+  - **Consistent Behavior**: Both modes now behave identically for screen sharing setup
+
+[0.1.11] - 2025-11-24
+
+### Fixed
+
+- **Two-Step Flow for All Browsers**: Simplified to a consistent two-step process for all browsers (Chrome, Firefox, Safari, Edge)
+  - **Step 1 - Share Screen**: First button click requests screen sharing only
+  - **Step 2 - Start Review**: After screen sharing is granted, button changes to "Start review" and requests microphone
+  - **Safari Compatibility**: `getDisplayMedia` is called synchronously from onClick handler (required for Safari gesture context)
+  - **Consistent UX**: All browsers now use the same two-step flow - no browser-specific logic needed
+  - **Simplified Code**: Removed all browser detection and special handling - one unified flow for everyone
+  - **Quick Start & Normal Mode**: Both modes use the same two-step flow
+  - **Impact**: Works reliably across all browsers, simpler codebase, easier to maintain
+
+- **Safari Reload Loop on Refresh (Cmd+R)**: Fixed infinite reload loop when pressing Cmd+R in Safari
+  - **Root Cause**: App component's refresh redirect logic was causing redirect loops:
+    1. Error handlers were set up AFTER React rendered, so early errors weren't caught
+    2. Redirect logic didn't check if already on home page, causing repeated redirects
+    3. Used `window.location.href` which adds to history and can cause loops
+    4. No guard to prevent multiple redirects
+  - **Solution**:
+    - Moved error handlers to very top of `index.tsx` (before imports) to catch errors as early as possible
+    - Added redirect guard (`__redirecting`) to prevent multiple redirects
+    - Only redirect if not already on home page to prevent loops
+    - Changed to `window.location.replace()` instead of `href` to avoid history issues
+    - Clear redirect flag on component unmount
+  - **Impact**: Safari no longer reloads repeatedly on refresh. Error handlers catch errors before they can cause reloads.
+
+[0.1.10] - 2025-11-24
+
+### Fixed
+
+- **Safari Infinite Loop Causing Repeated Requests on Page Refresh**: Fixed Safari "hammering" localhost with repeated requests when refreshing the page
+  - **Root Cause**: Multiple issues causing repeated requests on refresh:
+    1. useEffect hook had unstable dependencies (`audioRecorder`, `audioDataHandler`) causing it to run repeatedly
+    2. Quick start mode detection useEffect running on every refresh and attempting to get microphone access
+    3. Stale MediaStream objects persisting in video element across page refreshes
+    4. Stream validation only checked `stream.active` but not if tracks were actually live
+  - **Solution**:
+    - Added guard ref (`isStartingAudioRecorderRef`) to prevent repeated audio recorder start attempts
+    - Added guard ref (`hasCheckedQuickStartRef`) to prevent quick start detection from running multiple times
+    - Added proper stream validation: checks both `stream.active` AND `track.readyState === "live"` to ensure tracks are actually active
+    - Clear stale streams: automatically clears inactive streams from video element on mount
+    - Removed unstable dependencies from useEffect dependency arrays
+    - Added check to only request microphone if audio stream doesn't already exist
+    - Don't reset guard on error to prevent infinite retry loops
+  - **Prevention**: Effects now only run when actual state changes, not on every render or refresh. Stale streams are detected and cleared immediately.
+  - **Global Handler**: Added singleton check to prevent duplicate unhandled rejection handlers
+  - **Safari Compatibility**: Prevents infinite loops and repeated API requests that were causing Safari to continuously reload on page refresh. Works correctly even when browser keeps stale MediaStream objects across refreshes.
+  - **Enhanced Error Handling**:
+    - Set guard ref immediately at effect start to prevent any possibility of re-running
+    - Wrapped entire effect in try-catch to catch synchronous errors
+    - Added global error handler for uncaught errors in addition to unhandled promise rejections
+    - Removed cleanup function that was resetting guard (could cause remount loops)
+
+- **AudioContext Sample Rate Mismatch**: Fixed error "Connecting AudioNodes from AudioContexts with different sample-rate is currently not supported"
+  - **Root Cause**: AudioContext was created with fixed 16kHz sample rate while MediaStream had different sample rate (e.g., 48kHz in Firefox/Safari)
+  - **Solution**: AudioContext now uses the actual sample rate from the MediaStream to ensure compatibility
+  - **Cross-Browser Compatibility**: Resolves audio recording issues in Firefox, Safari, and other browsers with different default sample rates
+
+### Changed
+
+- **Cross-Browser Support**: Enabled support for Firefox, Safari, and other modern browsers
+  - **Removed Browser Restrictions**: Removed explicit browser detection blocks that prevented Safari and Firefox from running
+  - **Unified Flow**: All browsers now use the same unified flow for screen sharing and microphone access
+  - **Standard Web APIs**: Application uses standard Web APIs (`getDisplayMedia`, `getUserMedia`, `AudioContext`, `AudioWorklet`) that are supported across modern browsers
+  - **Better Compatibility**: Users can now use the application in Firefox, Safari, Edge, and other Chromium-based browsers, not just Chrome
+  - **Simplified Code**: Removed unused browser detection functions (`isFirefox`, `isSafari`) and related conditional logic
+
+[0.1.9] - 2025-11-24
+
+### Added
+
+- **GitHub Actions Auto-Deployment**: Added automatic deployment to GitHub Pages:
+  - Created `.github/workflows/deploy.yml` workflow for automatic deployment on push to `main`
+  - Workflow runs linter, builds, and deploys to GitHub Pages automatically
+  - Supports manual triggering via workflow_dispatch
+  - Created setup documentation: `docs/development/GITHUB_PAGES_SETUP.md`
+
+### Added
+
+- **New Utility Modules**: Created focused utility modules for better code reuse:
+  - `src/lib/utils/error-handling.ts` - Consistent error handling utilities (`getErrorMessage`, `isNetworkError`, `isTimeoutError`)
+  - `src/lib/utils/github.ts` - GitHub-related utilities (`parseGitHubUrl`, `isCodeFile`)
+  - Updated barrel export in `src/lib/utils.ts` to include all utility modules
+
+### Changed
+
+- **Code Organization & Refactoring**: Improved codebase structure and maintainability:
+  - Extracted duplicate `parseGitHubUrl` and `isCodeFile` functions from `getGithubRepoFiles.ts` to reusable utilities
+  - Updated `src/reviewer/utils/getGithubRepoFiles.ts` to use extracted GitHub utilities
+  - Removed code duplication (GitHub URL parsing and code file detection now centralized)
+  - Removed legacy `multimodal-live-types.ts` file (types now imported from `@google/genai` and `src/types`)
+  - Removed empty `src/components/altair/` directory
+  - Split `src/lib/utils.ts` into focused modules:
+    - `src/lib/utils/audio-context.ts` - Audio context management
+    - `src/lib/utils/base64.ts` - Base64 encoding/decoding utilities
+    - `src/lib/utils/logger.ts` - Application logging utilities
+    - `src/lib/utils/string-similarity.ts` - String similarity calculations (Levenshtein distance)
+  - Added TypeScript path aliases in `tsconfig.json` for cleaner imports (`@config/*`, `@lib/*`, `@reviewer/*`, etc.)
+  - Updated `src/lib/store-logger.ts` to import `StreamingLog` from correct location (`src/types` instead of legacy file)
+  - Extracted Levenshtein distance calculation from `useLiveSuggestionExtractor.ts` to reusable utility module
+  - Maintained backward compatibility: `src/lib/utils.ts` now acts as barrel export for existing imports
+  - Fixed `StreamingLog` type definition to include optional `count` property for duplicate log deduplication
+
+- **Component Structure Cleanup**: Removed empty directories and fixed import paths:
+  - Removed empty `src/components/control-tray/`, `src/components/logger/`, and `src/components/side-panel/` directories
+  - Fixed incorrect import path in `ControlTrayCustom.tsx` (changed from `../../../../src/components/` to `../../../components/`)
+  - Updated README.md to reference correct folder structure (`src/reviewer` instead of `src/exam-simulator`)
+
+- **Dependency Cleanup**: Removed unused dependencies to reduce bundle size:
+  - Removed `vega`, `vega-embed`, `vega-lite` (visualization libraries not used)
+  - Removed `@google/generative-ai` from devDependencies (not used)
+  - Reduced bundle size and faster install times
+
+- **NPM Scripts Simplification**: Streamlined to essential scripts only:
+  - Renamed `start-https` to `start:https` (consistent naming convention)
+  - Kept essential scripts: `start`, `start:https`, `build`, `test`, `lint`, `format`
+  - Kept deployment scripts: `predeploy` (runs automatically before `deploy`) and `deploy` (GitHub Pages)
+  - Removed extra variants and utility scripts to keep it simple
+  - Updated documentation: `docs/development/NPM_SCRIPTS.md` with simplified guide
+
+### Technical Details
+
+- All existing imports continue to work via barrel exports
+- New code can import directly from focused modules for better tree-shaking
+- Improved code organization makes it easier to locate and maintain utilities
+- Path aliases configured but not yet migrated (can be done incrementally)
+- Scripts follow consistent naming: `action:variant` pattern (e.g., `start:https`, `test:coverage`)
+
+---
+
 [0.1.8] - 2025-08-19
 
 ### Added

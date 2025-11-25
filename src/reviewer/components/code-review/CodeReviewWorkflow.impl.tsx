@@ -29,7 +29,7 @@ export interface CodeReviewWorkflowProps {
   onButtonClicked?: (isButtonOn: boolean) => void;
   forceStopAudio?: boolean;
   forceStopVideo?: boolean;
-  quickStartReview?: any;
+  reviewTemplate?: any;
   hideMainButton?: boolean;
   initialRepoUrl?: string;
   isReadyForAutoTrigger?: boolean;
@@ -108,7 +108,7 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
   // Preflight validation for starting the first screen share in GitHub Repo mode
   const preflightMessage = useCallback(() => {
     try {
-      const qt = props.quickStartReview;
+      const qt = props.reviewTemplate;
       if (!qt) return null;
       if (qt.type !== "Github Repo") return null;
       const effective = (repoUrl || qt.repoUrl || "").toString().trim();
@@ -125,13 +125,13 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     } catch {
       return "Invalid GitHub repository URL format";
     }
-  }, [props.quickStartReview, repoUrl]);
+  }, [props.reviewTemplate, repoUrl]);
 
   // Prepare prompt content when starting review
   useEffect(() => {
     const prepareContent = async () => {
-      if (!reviewId || !props.quickStartReview) return;
-      const reviewTemplate = props.quickStartReview;
+      if (!reviewId || !props.reviewTemplate) return;
+      const reviewTemplate = props.reviewTemplate;
       const durationMinutes = Number(reviewTemplate.duration || 0);
       try {
         let builtPrompt = "";
@@ -160,7 +160,7 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     if (reviewIntentStarted && !connected && !isConnectingRef.current && !promptText) {
       prepareContent();
     }
-  }, [reviewIntentStarted, connected, reviewId, props.quickStartReview, repoUrl, promptText]);
+  }, [reviewIntentStarted, connected, reviewId, props.reviewTemplate, repoUrl, promptText]);
 
   // Connect when prompt is ready (avoid reconnecting during active change-screen)
   useEffect(() => {
@@ -434,11 +434,11 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
           forceStopVideo={forceStopVideo}
           isReadyForAutoTrigger={isReadyForAutoTrigger}
           onEnvironmentChange={onEnvironmentChange}
-          showActions={fadeReady}
-          showIndicators={fadeReady}
+          showActions={fadeReady || connected || Boolean(reviewIntentStarted)}
+          showIndicators={fadeReady || connected || Boolean(reviewIntentStarted)}
           onSharingReady={onSharingReady}
           fadeInContainer={fadeReady}
-          visibleContainer={fadeReady}
+          visibleContainer={fadeReady || connected || Boolean(reviewIntentStarted)}
           timerTotalMs={reviewDurationMs}
           timerStartTrigger={connected}
           timerOnTimeUp={handleTimerExpired}
@@ -448,6 +448,8 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
         />
       }
 
+      {/* Show loading message only when review is starting and not yet faded in */}
+      {/* Hide once fadeReady is true (UI has appeared) */}
       {reviewIntentStarted && !fadeReady && (
         <div className="my-6">
           <div className="text-center text-tokyo-fg-dim mt-2">Preparing code review content...</div>

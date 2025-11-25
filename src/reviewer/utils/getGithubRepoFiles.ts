@@ -1,5 +1,6 @@
 import prompts from "../../prompts.json";
 import { appLogger } from "../../lib/utils";
+import { parseGitHubUrl, isCodeFile } from "../../lib/utils/github";
 
 function getLevelSpecificGuidance(level: string): string {
   switch (level) {
@@ -36,33 +37,7 @@ function getLevelSpecificGuidance(level: string): string {
   }
 }
 
-function parseGitHubUrl(url: string): { owner: string; repoName: string } {
-  const trimmed = url.trim().replace(/\/$/, "");
-  const cleanUrl = trimmed.replace(/^@(?=https?:\/\/)/, "");
-  const patterns = [
-    /^https?:\/\/github\.com\/([^/]+)\/([^/]+)(?:\/.*)?$/,
-    /^https?:\/\/api\.github\.com\/repos\/([^/]+)\/([^/]+)(?:\/.*)?$/,
-    /^git@github\.com:([^/]+)\/([^/]+)(?:\.git)?$/,
-    /^([^\s/]+)\/([^\s/]+)$/,
-  ];
-  for (const pattern of patterns) {
-    const match = cleanUrl.match(pattern);
-    if (match) {
-      const owner = match[1];
-      let repoName = match[2];
-      repoName = repoName.replace(/\.git$/, "");
-      repoName = repoName.replace(/\/.*$/, "");
-      return { owner, repoName };
-    }
-  }
-  throw new Error(
-    "Invalid GitHub repository URL format. Please use one of these formats:\n" +
-      "• https://github.com/owner/repo\n" +
-      "• https://api.github.com/repos/owner/repo\n" +
-      "• git@github.com:owner/repo.git\n" +
-      "• owner/repo",
-  );
-}
+// parseGitHubUrl is now imported from lib/utils/github
 
 function getRateLimitResetTime(response: Response): number {
   const resetHeader = response.headers.get("X-RateLimit-Reset");
@@ -75,55 +50,7 @@ function getRateLimitResetTime(response: Response): number {
   return 60;
 }
 
-function isCodeFile(filename: string): boolean {
-  const codeExtensions = [
-    ".js",
-    ".jsx",
-    ".ts",
-    ".tsx",
-    ".vue",
-    ".svelte",
-    ".java",
-    ".kt",
-    ".scala",
-    ".groovy",
-    ".py",
-    ".rb",
-    ".php",
-    ".go",
-    ".rs",
-    ".c",
-    ".cpp",
-    ".h",
-    ".hpp",
-    ".cs",
-    ".vb",
-    ".fs",
-    ".swift",
-    ".m",
-    ".mm",
-    ".html",
-    ".css",
-    ".scss",
-    ".sass",
-    ".less",
-    ".sql",
-    ".r",
-    ".jl",
-    ".dart",
-    ".elm",
-    ".ex",
-    ".exs",
-    ".clj",
-    ".cljs",
-    ".hs",
-    ".ml",
-    ".pl",
-    ".sh",
-    ".ps1",
-  ];
-  return codeExtensions.some((ext) => filename.toLowerCase().endsWith(ext));
-}
+// isCodeFile is now imported from lib/utils/github
 
 let isProcessingRepository = false;
 

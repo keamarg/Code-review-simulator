@@ -21,22 +21,18 @@
     "react-syntax-highlighter": "^15.6.1",
     "sass": "^1.80.6",
     "uuid": "^11.0.5",
-    "vega": "^5.30.0",
-    "vega-embed": "^6.29.0",
-    "vega-lite": "^5.22.0",
     "web-vitals": "^2.1.4",
     "zustand": "^5.0.1"
   },
   "scripts": {
-    "start-https": "HTTPS=true react-scripts start",
     "start": "react-scripts start",
+    "start:https": "HTTPS=true react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "predeploy": "npm run build && cp build/index.html build/404.html",
-    "deploy": "gh-pages -d build",
     "lint": "eslint src --ext .ts,.tsx",
-    "format": "prettier --write ."
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,css,scss,md}\"",
+    "predeploy": "npm run build && cp build/index.html build/404.html",
+    "deploy": "gh-pages -d build"
   },
   "eslintConfig": {
     "extends": [
@@ -58,7 +54,6 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-    "@google/generative-ai": "^0.21.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",

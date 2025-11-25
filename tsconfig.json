@@ -14,7 +14,17 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": "src",
+    "paths": {
+      "@config/*": ["config/*"],
+      "@lib/*": ["lib/*"],
+      "@reviewer/*": ["reviewer/*"],
+      "@hooks/*": ["hooks/*"],
+      "@components/*": ["components/*"],
+      "@types/*": ["types/*"],
+      "@contexts/*": ["contexts/*"]
+    }
   },
   "include": ["src", "src/**/*"],
   "ts-node": {

@@ -55,7 +55,7 @@ Comprehensive documentation is available in the `/docs` folder, including:
 
 ## Structure
 
-All code relevant for this application can be found in the `src/exam-simulator` folder.
+All code relevant for this application can be found in the `src/reviewer` folder.
 
 ## Contributing
 

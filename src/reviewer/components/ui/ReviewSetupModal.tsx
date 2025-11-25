@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { warmLayoutAssets } from "../../utils/preloadAssets";
 import twoScreenSetupImage from "../../../two-screen-setup.jpg";
 import { VAD_ENVIRONMENTS, getCurrentVADEnvironment } from "../../../config/aiConfig";
+import { mediaStreamService } from "../../lib/mediaStreamService";
 
 interface ReviewSetupModalProps {
   isOpen: boolean;
@@ -16,6 +17,11 @@ interface ReviewSetupModalProps {
   fixedDeveloperLevel?: string;
   reviewDescription?: string;
   reviewTitle?: string;
+  // For quick start: allow pre-filling values without making them fixed (editable)
+  initialType?: string;
+  initialDeveloperLevel?: string;
+  initialRepoUrl?: string;
+  initialFullScan?: boolean;
 }
 
 export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
@@ -26,18 +32,38 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
   fixedDeveloperLevel,
   reviewDescription,
   reviewTitle,
+  initialType,
+  initialDeveloperLevel,
+  initialRepoUrl,
+  initialFullScan,
 }) => {
-  const isCustomMode = !!fixedType;
+  // Custom mode: values are fixed and cannot be changed
+  // Quick start: values can be pre-filled but are editable
+  const isCustomMode = !!fixedType && !initialType;
 
-  const [type, setType] = useState(fixedType || "Standard");
-  const [developerLevel, setDeveloperLevel] = useState(fixedDeveloperLevel || "intermediate");
-  const [repoUrl, setRepoUrl] = useState("");
+  const [type, setType] = useState(initialType || fixedType || "Standard");
+  const [developerLevel, setDeveloperLevel] = useState(
+    initialDeveloperLevel || fixedDeveloperLevel || "intermediate",
+  );
+  const [repoUrl, setRepoUrl] = useState(initialRepoUrl || "");
   const [repoUrlError, setRepoUrlError] = useState("");
-  const [fullScan, setFullScan] = useState(false);
+  const [fullScan, setFullScan] = useState(initialFullScan || false);
   const [isFocused, setIsFocused] = useState(false);
   const [environment, setEnvironment] = useState<keyof typeof VAD_ENVIRONMENTS>(
     getCurrentVADEnvironment(),
   );
+
+  // Screen sharing state
+  const [screenSharingGranted, setScreenSharingGranted] = useState(false);
+  const [isRequestingScreenShare, setIsRequestingScreenShare] = useState(false);
+  const [screenShareError, setScreenShareError] = useState<string | null>(null);
+  const videoStreamRef = useRef<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Detect Safari
+  const isSafari =
+    /^((?!chrome|android).)*safari/i.test(navigator.userAgent) &&
+    !navigator.userAgent.toLowerCase().includes("chrome");
 
   const getRepoUrlError = (url: string): string => {
     if (!url.trim()) {
@@ -81,9 +107,17 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
 
   const handleStartReview = () => {
     if (type === "Github Repo" && !repoValid) return;
+
+    // Store video stream in service so CodeReviewPage can pick it up
+    if (videoStreamRef.current) {
+      mediaStreamService.setStream(videoStreamRef.current);
+    }
+
     // Persist chosen environment before starting so connect reads it
     localStorage.setItem("ai_vad_environment", environment);
 
+    // Navigate to /live - don't close modal here, let navigation handle it
+    // Closing modal might interfere with navigation
     onStartReview(type, developerLevel, type === "Github Repo" ? repoUrl : "", fullScan);
   };
 
@@ -98,12 +132,65 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
     setRepoUrl(e.target.value);
   };
 
+  const handleShareScreen = async () => {
+    if (isSafari) {
+      setScreenShareError(
+        "Safari is not currently supported. Please use Chrome, Firefox, or Edge.",
+      );
+      return;
+    }
+
+    setIsRequestingScreenShare(true);
+    setScreenShareError(null);
+
+    try {
+      const videoStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      videoStreamRef.current = videoStream;
+
+      setScreenSharingGranted(true);
+      setIsRequestingScreenShare(false);
+    } catch (error) {
+      setIsRequestingScreenShare(false);
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        setScreenShareError("Screen sharing was cancelled or denied. Please try again.");
+      } else {
+        setScreenShareError(
+          `Failed to start screen sharing: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+      }
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       // Warm fonts and icon glyphs as soon as modal opens to avoid layout shift when session UI renders
       warmLayoutAssets();
     }
   }, [isOpen]);
+
+  // Reset screen sharing state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setScreenSharingGranted(false);
+      setScreenShareError(null);
+      setIsRequestingScreenShare(false);
+      if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach((track) => track.stop());
+        videoStreamRef.current = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    }
+  }, [isOpen]);
+
+  // Set video element source when screen sharing is granted
+  useEffect(() => {
+    if (screenSharingGranted && videoStreamRef.current && videoRef.current) {
+      const videoOnlyStream = new MediaStream(videoStreamRef.current.getVideoTracks());
+      videoRef.current.srcObject = videoOnlyStream;
+    }
+  }, [screenSharingGranted]);
 
   if (!isOpen) return null;
 
@@ -378,51 +465,174 @@ export const ReviewSetupModal: React.FC<ReviewSetupModalProps> = ({
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="bg-tokyo-bg-darker rounded-b-lg px-6 py-4 flex justify-end space-x-3 border-t border-tokyo-selection">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border font-medium transition-all duration-200 rounded-md"
-            style={{
-              backgroundColor: "#334155",
-              color: "#e2e8f0",
-              borderColor: "#475569",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#475569";
-              e.currentTarget.style.color = "#f1f5f9";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#334155";
-              e.currentTarget.style.color = "#e2e8f0";
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleStartReview}
-            className="px-6 py-2 rounded-md transition-all duration-200 flex items-center text-white hover:shadow-lg transform hover:scale-102"
-            style={{
-              background: "linear-gradient(to right, #f97316, #ea580c)",
-            }}
-            disabled={type === "Github Repo" && !repoValid}
-          >
-            <svg
-              className="h-6 w-6 mr-2"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
-            </svg>
-            Share screen & start review
-          </button>
-        </div>
+        {/* Screen Sharing Section */}
+        {!screenSharingGranted && (
+          <div className="px-6 py-4 border-t border-tokyo-selection bg-tokyo-bg-darker">
+            {isSafari && (
+              <div className="mb-4 p-4 bg-yellow-100 border border-yellow-400 rounded text-yellow-800 text-center">
+                <p className="font-semibold mb-2">Safari is not currently supported</p>
+                <p className="text-sm">
+                  Please use Chrome, Firefox, or Edge to start a code review session.
+                </p>
+              </div>
+            )}
+            {screenShareError && (
+              <div className="mb-4 p-4 bg-red-100 border border-red-400 rounded text-red-800 text-center">
+                <p className="text-sm">{screenShareError}</p>
+              </div>
+            )}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border font-medium transition-all duration-200 rounded-md"
+                style={{
+                  backgroundColor: "#334155",
+                  color: "#e2e8f0",
+                  borderColor: "#475569",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#475569";
+                  e.currentTarget.style.color = "#f1f5f9";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#334155";
+                  e.currentTarget.style.color = "#e2e8f0";
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleShareScreen}
+                disabled={
+                  isRequestingScreenShare || isSafari || (type === "Github Repo" && !repoValid)
+                }
+                className="px-6 py-2 rounded-md transition-all duration-200 flex items-center text-white hover:shadow-lg transform hover:scale-102 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                style={{
+                  background: "linear-gradient(to right, #f97316, #ea580c)",
+                }}
+              >
+                <svg
+                  className="h-6 w-6 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                {isRequestingScreenShare ? "Requesting screen sharing..." : "Share screen"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Start Review Button (appears after screen sharing) */}
+        {screenSharingGranted && (
+          <div className="px-6 py-4 border-t border-tokyo-selection bg-tokyo-bg-darker">
+            {videoRef.current && (
+              <div className="mb-4">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full rounded-lg border border-tokyo-selection"
+                  style={{ maxHeight: "200px" }}
+                />
+              </div>
+            )}
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded text-blue-800 text-center">
+              <p className="text-sm font-semibold">Screen sharing active!</p>
+              <p className="text-xs mt-1">
+                Click "Start Review" below to begin your code review session.
+              </p>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  if (videoStreamRef.current) {
+                    videoStreamRef.current.getTracks().forEach((track) => track.stop());
+                    videoStreamRef.current = null;
+                  }
+                  setScreenSharingGranted(false);
+                  setScreenShareError(null);
+                }}
+                className="px-4 py-2 border font-medium transition-all duration-200 rounded-md"
+                style={{
+                  backgroundColor: "#334155",
+                  color: "#e2e8f0",
+                  borderColor: "#475569",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#475569";
+                  e.currentTarget.style.color = "#f1f5f9";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#334155";
+                  e.currentTarget.style.color = "#e2e8f0";
+                }}
+              >
+                Change Screen
+              </button>
+              <button
+                onClick={() => {
+                  // Stop screen sharing and go back to first screen (setup form)
+                  if (videoStreamRef.current) {
+                    videoStreamRef.current.getTracks().forEach((track) => track.stop());
+                    videoStreamRef.current = null;
+                  }
+                  // Reset screen sharing state to go back to first screen
+                  setScreenSharingGranted(false);
+                  setScreenShareError(null);
+                  // Don't call onClose - just reset to first screen
+                }}
+                className="px-4 py-2 border font-medium transition-all duration-200 rounded-md"
+                style={{
+                  backgroundColor: "#334155",
+                  color: "#e2e8f0",
+                  borderColor: "#475569",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "#475569";
+                  e.currentTarget.style.color = "#f1f5f9";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "#334155";
+                  e.currentTarget.style.color = "#e2e8f0";
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStartReview}
+                className="px-6 py-2 rounded-md transition-all duration-200 flex items-center text-white hover:shadow-lg transform hover:scale-102"
+                style={{
+                  background: "linear-gradient(to right, #f97316, #ea580c)",
+                }}
+                disabled={type === "Github Repo" && !repoValid}
+              >
+                <svg
+                  className="h-6 w-6 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                  />
+                </svg>
+                Start Review
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

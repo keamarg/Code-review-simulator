@@ -23,6 +23,7 @@ export interface StreamingLog {
   date: Date;
   type: string;
   message: any;
+  count?: number; // Optional count for duplicate log deduplication
 }
 
 // Chat message role types used across suggestion extraction and other chat-like flows
