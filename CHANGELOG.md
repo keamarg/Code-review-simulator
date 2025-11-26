@@ -1,3 +1,16 @@
+[0.1.24] - 2025-11-26
+
+### Fixed
+
+- **Timer Pause/Resume Time Accuracy**: Fixed issue where timer would add extra seconds when pausing and resuming
+  - **Root Cause**: Race condition where the timer interval could run one more time after pause was triggered, and localStorage restore on resume could use stale values
+  - **Solution**: 
+    - Added `timeLeftRef` to track current time value immediately (without waiting for React state updates)
+    - When pausing, immediately clear the interval and save current time from ref to localStorage
+    - When resuming, restore from localStorage to ensure exact paused time is used
+    - Only persist to localStorage when not paused to avoid race conditions
+  - **Result**: Timer now maintains exact time when pausing and resuming, with no extra seconds added
+
 [0.1.23] - 2025-11-26
 
 ### Fixed

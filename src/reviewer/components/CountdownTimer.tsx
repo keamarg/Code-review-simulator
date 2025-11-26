@@ -44,6 +44,9 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
   const hasCalledOnTimeUp = useRef(false);
   const hasCalledIntroduction = useRef(false);
   const hasCalledFarewell = useRef(false);
+  const pauseTimeRef = useRef<number | null>(null); // Track when we paused
+  const intervalRef = useRef<NodeJS.Timeout | null>(null); // Track the interval so we can clear it immediately
+  const timeLeftRef = useRef<number>(totalMs); // Track current time for immediate access
 
   // Update refs when callbacks change
   useEffect(() => {
@@ -62,6 +65,11 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
     }
   }, [timeLeft, totalMs]);
 
+  // Keep ref in sync with state
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
+
   // Persist remaining time to localStorage and restore on mount/prop changes
   useEffect(() => {
     if (!persistKey) return;
@@ -70,17 +78,19 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
       const n = saved ? parseInt(saved, 10) : NaN;
       if (Number.isFinite(n) && n >= 0 && n <= totalMs) {
         setTimeLeft(n);
+        timeLeftRef.current = n;
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistKey, totalMs]);
 
+  // Persist timeLeft to localStorage, but only when not paused to avoid race conditions
   useEffect(() => {
-    if (!persistKey) return;
+    if (!persistKey || pauseTrigger) return;
     try {
       localStorage.setItem(persistKey, String(timeLeft));
     } catch {}
-  }, [persistKey, timeLeft]);
+  }, [persistKey, timeLeft, pauseTrigger]);
 
   // Calculate percentage of time remaining for circle timer
   const timePercentage = Math.max(0, Math.min(100, (timeLeft / totalMs) * 100));
@@ -122,21 +132,79 @@ export const CountdownTimer: React.FC<CountdownTimerProps> = ({
     }
   }, [timeLeft, totalMs, running]);
 
+  // Handle pause: immediately clear interval and save current time
   useEffect(() => {
-    if (!running || pauseTrigger) return;
+    if (pauseTrigger && running) {
+      // Pausing: clear interval immediately and save current time
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      pauseTimeRef.current = Date.now();
+      // Save current timeLeft to localStorage immediately when pausing
+      // Use ref to get the latest value without waiting for state update
+      if (persistKey) {
+        try {
+          localStorage.setItem(persistKey, String(timeLeftRef.current));
+        } catch {}
+      }
+      appLogger.timer.paused();
+    } else if (!pauseTrigger && running && pauseTimeRef.current !== null) {
+      // Resuming: restore from localStorage to ensure we have the exact paused time
+      if (persistKey) {
+        try {
+          const saved = localStorage.getItem(persistKey);
+          const n = saved ? parseInt(saved, 10) : NaN;
+          if (Number.isFinite(n) && n >= 0 && n <= totalMs) {
+            setTimeLeft(n);
+            timeLeftRef.current = n;
+          }
+        } catch {}
+      }
+      pauseTimeRef.current = null;
+      appLogger.timer.resumed();
+    }
+  }, [pauseTrigger, running, persistKey, totalMs]);
 
-    const timer = setInterval(() => {
+  // Timer interval - only runs when running and not paused
+  useEffect(() => {
+    if (!running || pauseTrigger) {
+      // Ensure interval is cleared when paused
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
+    // Clear any existing interval first
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         const newTime = prev - 1000;
         if (newTime <= 0) {
-          clearInterval(timer);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           setRunning(false);
+          timeLeftRef.current = 0;
           return 0;
         }
+        timeLeftRef.current = newTime;
         return newTime;
       });
     }, 1000);
-    return () => clearInterval(timer);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
   }, [running, pauseTrigger]);
 
   // When startTrigger becomes true, start the timer
