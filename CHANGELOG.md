@@ -1,3 +1,13 @@
+[0.1.21] - 2025-11-26
+
+### Removed
+
+- **Unused Store Logger**: Removed `src/lib/store-logger.ts` - unused Zustand store for logging that was never connected to the UI
+
+### Fixed
+
+- **Trailing Whitespace**: Cleaned up trailing empty lines in api-key-server API route files (prompt1.ts, prompt2.ts, database.ts)
+
 [0.1.20] - 2025-11-26
 
 ### Changed
