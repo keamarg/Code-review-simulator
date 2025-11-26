@@ -12,9 +12,10 @@ function getPrompt(
 ): string {
   // PRIORITY: Start with review description/focus - this takes precedence
   let prompt = "";
+  const hasDescription = reviewTemplate.description && reviewTemplate.description.trim();
 
   // Add review description/focus at the beginning if it exists
-  if (reviewTemplate.description && reviewTemplate.description.trim()) {
+  if (hasDescription) {
     const reviewFocusHeader: string = (prompts as any).instructionComponents.reviewFocusHeader;
     const reviewFocusPrecedence: string = (prompts as any).instructionComponents
       .reviewFocusPrecedence;
@@ -27,14 +28,22 @@ function getPrompt(
 
   // Use review-named key
   let standardPrompt: string = (prompts as any).mainPrompts.standardReview;
-  standardPrompt = standardPrompt.replace(
-    /\$\{reviewDurationMinutes\}/g,
-    String(reviewDurationMinutes),
-  );
+  // Handle duration in opening line - use "an open-ended" when duration is 0, "a X minute" when > 0
+  const durationText =
+    reviewDurationMinutes > 0 ? `a ${reviewDurationMinutes} minute` : "an open-ended";
+  standardPrompt = standardPrompt.replace(/\$\{durationText\}/g, durationText);
   standardPrompt = standardPrompt.replace(
     /\$\{reviewTemplate\?\.title \|\| "code review"\}/g,
     reviewTemplate?.title || "code review",
   );
+
+  // Conditionally add duration instruction
+  const durationInstruction =
+    reviewDurationMinutes > 0
+      ? `\\n7. Do NOT end the review early - use the full ${reviewDurationMinutes} minutes to provide comprehensive suggestions.`
+      : "";
+  standardPrompt = standardPrompt.replace(/\$\{durationInstruction\}/g, durationInstruction);
+
   prompt += standardPrompt;
 
   // No-op normalization retained
@@ -48,18 +57,33 @@ function getPrompt(
   let additionalContext: string = (prompts as any).instructionComponents.additionalContext;
   const fallbackContextStandard: string = (prompts as any).instructionComponents
     .fallbackContextStandard;
-  additionalContext = additionalContext.replace(
-    "${description}",
-    reviewTemplate.description || fallbackContextStandard,
-  );
-  additionalContext = additionalContext.replace("${studentTask}", studentTask);
+
+  // Only include description section if it wasn't already shown in review focus
+  const descriptionSection = hasDescription
+    ? ""
+    : `Additional context about the code being reviewed:\n${reviewTemplate.description || fallbackContextStandard}\n\n`;
+  additionalContext = additionalContext.replace("${descriptionSection}", descriptionSection);
+
+  // Handle empty studentTask
+  const effectiveStudentTask =
+    studentTask && studentTask.trim() && studentTask.trim() !== '"""'
+      ? studentTask
+      : (prompts as any).instructionComponents.defaultStudentTask;
+  additionalContext = additionalContext.replace("${studentTask}", effectiveStudentTask);
   prompt += additionalContext.replace(/\n/g, "\n");
+
   // Keep a single guideline block; avoid redundancy elsewhere in prompt builders
   let levelSpecificSuffix: string = (prompts as any).instructionComponents.levelSpecificSuffix;
-  levelSpecificSuffix = levelSpecificSuffix.replace(
-    "${level}",
-    reviewTemplate.learning_goals || "intermediate",
-  );
+  const level = reviewTemplate.learning_goals || "intermediate";
+  levelSpecificSuffix = levelSpecificSuffix.replace("${level}", level);
+
+  // Only include guidance for the actual level being used
+  const levelGuidanceText =
+    (prompts as any).instructionComponents.levelGuidanceText?.[level] ||
+    (prompts as any).instructionComponents.levelGuidanceText?.default ||
+    "Provide balanced suggestions with specific line references.";
+  levelSpecificSuffix = levelSpecificSuffix.replace("${levelGuidanceText}", levelGuidanceText);
+
   prompt += levelSpecificSuffix.replace(/\n/g, "\n");
   return prompt;
 }
@@ -71,9 +95,10 @@ function getGithubPrompt(
 ): string {
   // PRIORITY: Start with review description/focus - this takes precedence
   let prompt = "";
+  const hasDescription = reviewTemplate.description && reviewTemplate.description.trim();
 
   // Add review description/focus at the beginning if it exists
-  if (reviewTemplate.description && reviewTemplate.description.trim()) {
+  if (hasDescription) {
     const reviewFocusHeader: string = (prompts as any).instructionComponents.reviewFocusHeader;
     const reviewFocusPrecedence: string = (prompts as any).instructionComponents
       .reviewFocusPrecedence;
@@ -85,14 +110,22 @@ function getGithubPrompt(
   }
 
   let standardPrompt: string = (prompts as any).mainPrompts.githubReview;
-  standardPrompt = standardPrompt.replace(
-    /\$\{reviewDurationMinutes\}/g,
-    String(reviewDurationMinutes),
-  );
+  // Handle duration in opening line - use "an open-ended" when duration is 0, "a X minute" when > 0
+  const durationText =
+    reviewDurationMinutes > 0 ? `a ${reviewDurationMinutes} minute` : "an open-ended";
+  standardPrompt = standardPrompt.replace(/\$\{durationText\}/g, durationText);
   standardPrompt = standardPrompt.replace(
     /\$\{reviewTemplate\?\.title \|\| "code review"\}/g,
     reviewTemplate?.title || "code review",
   );
+
+  // Conditionally add duration instruction
+  const durationInstruction =
+    reviewDurationMinutes > 0
+      ? `\\n7. Do NOT end the review early - use the full ${reviewDurationMinutes} minutes to provide comprehensive suggestions.`
+      : "";
+  standardPrompt = standardPrompt.replace(/\$\{durationInstruction\}/g, durationInstruction);
+
   prompt += standardPrompt;
 
   // No-op normalization retained
@@ -108,7 +141,6 @@ function getGithubPrompt(
     .githubBackgroundContextIntro;
   const githubBackgroundContextCritical: string = (prompts as any).instructionComponents
     .githubBackgroundContextCritical;
-  const levelGuidanceHeader: string = (prompts as any).instructionComponents.levelGuidanceHeader;
 
   prompt += `
 
@@ -116,7 +148,7 @@ ${focusAreasIntro}
 ${levelGuidance.replace(/\n/g, "\n")}
 
 ${additionalContextLabel}
-${reviewTemplate.description || fallbackContextStandard}
+${hasDescription ? fallbackContextStandard : reviewTemplate.description || fallbackContextStandard}
 
 ${githubBackgroundContextHeader}
 ${githubBackgroundContextIntro}
@@ -127,15 +159,10 @@ ${githubBackgroundContextCritical}
 `;
   let githubSpecificSuffix: string = (prompts as any).instructionComponents.githubSpecificSuffix;
   githubSpecificSuffix = githubSpecificSuffix.replace("${githubQuestions}", githubQuestions);
-  githubSpecificSuffix = githubSpecificSuffix.replace(
-    "${level}",
-    reviewTemplate.learning_goals || "intermediate",
-  );
-  // Include level-specific guidance inline for GitHub prompt
-  const reviewerLevelGuidance = getLevelSpecificGuidance(
-    reviewTemplate.learning_goals || "intermediate",
-  );
-  prompt += `\n\n${levelGuidanceHeader}\n${reviewerLevelGuidance.replace(/\n/g, "\n")}`;
+  const level = reviewTemplate.learning_goals || "intermediate";
+  githubSpecificSuffix = githubSpecificSuffix.replace("${level}", level);
+
+  // Level guidance is already included in the focus areas section above, so we don't need to repeat it here
   prompt += githubSpecificSuffix.replace(/\n/g, "\n");
   return prompt;
 }
@@ -143,9 +170,10 @@ ${githubBackgroundContextCritical}
 function getGeneralPrompt(reviewTemplate: any, studentTask: string): string {
   // PRIORITY: Start with review description/focus - this takes precedence
   let prompt = "";
+  const hasDescription = reviewTemplate.description && reviewTemplate.description.trim();
 
   // Add review description/focus at the beginning if it exists
-  if (reviewTemplate.description && reviewTemplate.description.trim()) {
+  if (hasDescription) {
     const reviewFocusHeader: string = (prompts as any).instructionComponents.reviewFocusHeader;
     const reviewFocusPrecedence: string = (prompts as any).instructionComponents
       .reviewFocusPrecedence;
@@ -178,21 +206,33 @@ function getGeneralPrompt(reviewTemplate: any, studentTask: string): string {
   const fallbackContextGeneral: string = (prompts as any).instructionComponents
     .fallbackContextGeneral;
   const defaultStudentTask: string = (prompts as any).instructionComponents.defaultStudentTask;
-  additionalContext = additionalContext.replace(
-    "${description}",
-    reviewTemplate.description || fallbackContextGeneral,
-  );
-  additionalContext = additionalContext.replace(
-    "${studentTask}",
-    studentTask || defaultStudentTask,
-  );
+
+  // Only include description section if it wasn't already shown in review focus
+  const descriptionSection = hasDescription
+    ? ""
+    : `Additional context about the code being reviewed:\n${reviewTemplate.description || fallbackContextGeneral}\n\n`;
+  additionalContext = additionalContext.replace("${descriptionSection}", descriptionSection);
+
+  // Handle empty studentTask
+  const effectiveStudentTask =
+    studentTask && studentTask.trim() && studentTask.trim() !== '"""'
+      ? studentTask
+      : defaultStudentTask;
+  additionalContext = additionalContext.replace("${studentTask}", effectiveStudentTask);
   prompt += additionalContext.replace(/\n/g, "\n");
+
   // Keep a single guideline block; avoid redundancy elsewhere
   let levelSpecificSuffix: string = (prompts as any).instructionComponents.levelSpecificSuffix;
-  levelSpecificSuffix = levelSpecificSuffix.replace(
-    "${level}",
-    reviewTemplate.learning_goals || "intermediate",
-  );
+  const level = reviewTemplate.learning_goals || "intermediate";
+  levelSpecificSuffix = levelSpecificSuffix.replace("${level}", level);
+
+  // Only include guidance for the actual level being used
+  const levelGuidanceText =
+    (prompts as any).instructionComponents.levelGuidanceText?.[level] ||
+    (prompts as any).instructionComponents.levelGuidanceText?.default ||
+    "Provide balanced suggestions with specific line references.";
+  levelSpecificSuffix = levelSpecificSuffix.replace("${levelGuidanceText}", levelGuidanceText);
+
   prompt += levelSpecificSuffix.replace(/\n/g, "\n");
   return prompt;
 }

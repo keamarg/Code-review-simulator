@@ -43,6 +43,18 @@ export interface CodeReviewWorkflowProps {
   onUiFadeReady?: () => void;
   /** Optional callback to receive the text input tracker function */
   onTextInputTrackerReady?: (trackTextInput: (text: string) => void) => void;
+  /** Callback when a repository error is detected (private, not found, or rate limit) */
+  onRepositoryError?: (
+    repoUrl: string,
+    errorType: "private" | "notFound" | "rateLimit",
+    minutesRemaining?: number,
+  ) => void;
+  /** Repository error state from parent - used to hide loading message */
+  repositoryError?: {
+    repoUrl: string;
+    errorType: "private" | "notFound" | "rateLimit";
+    minutesRemaining?: number;
+  } | null;
 }
 
 export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
@@ -67,6 +79,11 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     sessionUiReady,
     onUiFadeReady,
     onTextInputTrackerReady,
+    repositoryError,
+    reviewTemplate,
+    onRepositoryError,
+    onTranscriptChunk,
+    initialRepoUrl,
   } = props;
 
   const { connected, connect, disconnect, client } = useGenAILiveContext();
@@ -84,17 +101,37 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
   const [hasAiStartedSpeaking, setHasAiStartedSpeaking] = useState<boolean>(false);
   const [fadeReady, setFadeReady] = useState<boolean>(false);
   const sessionUidRef = useRef<string>("");
+  const repositoryErrorUrlRef = useRef<string | null>(null);
 
   const { user } = useAuth();
   const { generateSummaryWithOpenAI, clearConversation, saveTranscriptToDatabase, trackTextInput } =
-    useConversationTracker(client, props.onTranscriptChunk);
+    useConversationTracker(client, onTranscriptChunk);
 
   // Default config no longer used; prompt-driven config is prepared before connect
 
   // Track repo URL from props
   useEffect(() => {
-    if (props.initialRepoUrl) setRepoUrl(props.initialRepoUrl);
-  }, [props.initialRepoUrl]);
+    if (initialRepoUrl) setRepoUrl(initialRepoUrl);
+  }, [initialRepoUrl]);
+
+  // Reset repository error ref when error is cleared (new review started) or repo URL changes
+  useEffect(() => {
+    if (!repositoryError) {
+      repositoryErrorUrlRef.current = null;
+    }
+  }, [repositoryError]);
+
+  // Reset error ref when repo URL changes (user trying a different repo)
+  useEffect(() => {
+    const currentRepoUrl = repoUrl || reviewTemplate?.repoUrl;
+    if (
+      currentRepoUrl &&
+      repositoryErrorUrlRef.current &&
+      repositoryErrorUrlRef.current !== currentRepoUrl
+    ) {
+      repositoryErrorUrlRef.current = null;
+    }
+  }, [repoUrl, reviewTemplate?.repoUrl]);
 
   // Generate a fresh session UID when a new intent starts to avoid reusing persisted timer state
   useEffect(() => {
@@ -109,7 +146,7 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
   // Preflight validation for starting the first screen share in GitHub Repo mode
   const preflightMessage = useCallback(() => {
     try {
-      const qt = props.reviewTemplate;
+      const qt = reviewTemplate;
       if (!qt) return null;
       if (qt.type !== "Github Repo") return null;
       const effective = (repoUrl || qt.repoUrl || "").toString().trim();
@@ -126,18 +163,24 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     } catch {
       return "Invalid GitHub repository URL format";
     }
-  }, [props.reviewTemplate, repoUrl]);
+  }, [reviewTemplate, repoUrl]);
 
   // Prepare prompt content when starting review
   useEffect(() => {
     const prepareContent = async () => {
-      if (!reviewId || !props.reviewTemplate) return;
-      const reviewTemplate = props.reviewTemplate;
+      if (!reviewId || !reviewTemplate) return;
+
+      const effectiveUrl = (repoUrl || reviewTemplate.repoUrl) as string | undefined;
+
+      // Don't retry if we've already encountered a repository error for THIS specific repo
+      if (effectiveUrl && repositoryErrorUrlRef.current === effectiveUrl) {
+        return;
+      }
+
       const durationMinutes = Number(reviewTemplate.duration || 0);
       try {
         let builtPrompt = "";
-        if (reviewTemplate.type === "Github Repo" && (repoUrl || reviewTemplate.repoUrl)) {
-          const effectiveUrl = (repoUrl || reviewTemplate.repoUrl) as string;
+        if (reviewTemplate.type === "Github Repo" && effectiveUrl) {
           const questions = await fetchRepoQuestions(
             effectiveUrl,
             reviewTemplate.learning_goals || "intermediate",
@@ -151,17 +194,69 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
         }
         setPromptText(builtPrompt);
       } catch (e) {
-        appLogger.error.general(e instanceof Error ? e.message : String(e));
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        appLogger.error.general(errorMessage);
+
+        // Check if this is a repository error (private, not found, or rate limit)
+        if (effectiveUrl && onRepositoryError) {
+          // Extract minutes from rate limit error message
+          const rateLimitMatch = errorMessage.match(/try again in (\d+) minutes?/i);
+          const minutesRemaining = rateLimitMatch ? parseInt(rateLimitMatch[1], 10) : undefined;
+
+          if (
+            errorMessage.includes("rate limit") ||
+            errorMessage.includes("Rate limit") ||
+            errorMessage.includes("rate limit exceeded")
+          ) {
+            // Mark that we've encountered a repository error for THIS repo to prevent retries
+            repositoryErrorUrlRef.current = effectiveUrl;
+            onRepositoryError(effectiveUrl, "rateLimit", minutesRemaining);
+          } else if (
+            errorMessage.includes("private") ||
+            errorMessage.includes("restricted") ||
+            errorMessage.includes("Private Repository")
+          ) {
+            // Mark that we've encountered a repository error for THIS repo to prevent retries
+            repositoryErrorUrlRef.current = effectiveUrl;
+            onRepositoryError(effectiveUrl, "private");
+          } else if (
+            errorMessage.includes("not found") ||
+            errorMessage.includes("404") ||
+            (errorMessage.includes("Repository") && errorMessage.includes("not found"))
+          ) {
+            // Mark that we've encountered a repository error for THIS repo to prevent retries
+            repositoryErrorUrlRef.current = effectiveUrl;
+            onRepositoryError(effectiveUrl, "notFound");
+          }
+        }
       } finally {
         // no-op; preparing prompt no longer toggles a local loading flag
       }
     };
 
     // Only prepare once per session; avoid re-preparing during transient reconnects (e.g., change screen)
-    if (reviewIntentStarted && !connected && !isConnectingRef.current && !promptText) {
+    // Also don't retry if we've already encountered a repository error for the current repo
+    const currentRepoUrl = (repoUrl || reviewTemplate?.repoUrl) as string | undefined;
+    const shouldSkip = currentRepoUrl && repositoryErrorUrlRef.current === currentRepoUrl;
+
+    if (
+      reviewIntentStarted &&
+      !connected &&
+      !isConnectingRef.current &&
+      !promptText &&
+      !shouldSkip
+    ) {
       prepareContent();
     }
-  }, [reviewIntentStarted, connected, reviewId, props.reviewTemplate, repoUrl, promptText]);
+  }, [
+    reviewIntentStarted,
+    connected,
+    reviewId,
+    reviewTemplate,
+    repoUrl,
+    promptText,
+    onRepositoryError,
+  ]);
 
   // Connect when prompt is ready (avoid reconnecting during active change-screen)
   useEffect(() => {
@@ -437,8 +532,8 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
       }
 
       {/* Show loading message only when review is starting and not yet faded in */}
-      {/* Hide once fadeReady is true (UI has appeared) */}
-      {reviewIntentStarted && !fadeReady && (
+      {/* Hide once fadeReady is true (UI has appeared) or when there's a repository error */}
+      {reviewIntentStarted && !fadeReady && !repositoryError && (
         <div className="my-6">
           <div className="text-center text-tokyo-fg-dim mt-2">Preparing code review content...</div>
         </div>

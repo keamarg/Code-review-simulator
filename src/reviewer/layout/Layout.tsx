@@ -31,11 +31,6 @@ export default function Layout({ children, isSessionActive = false }: LayoutProp
     setIsSettingsOpen(false);
   };
 
-  const handleVoiceChange = async (newVoice: string) => {
-    // Store the preference for future sessions
-    appLogger.user.changeVoice(newVoice);
-  };
-
   // Environment changes are now set in the setup modal before starting a session
 
   return (

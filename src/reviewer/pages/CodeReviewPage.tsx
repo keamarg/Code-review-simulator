@@ -4,6 +4,7 @@ import Layout from "../layout/Layout";
 import { CodeReviewWorkflow } from "../components/code-review/CodeReviewWorkflow.impl";
 import { GenAILiveProvider } from "../../contexts/GenAILiveContext";
 import { ReviewSetupModal } from "../components/ui/ReviewSetupModal";
+import { PrivateRepositoryError } from "../components/ui/PrivateRepositoryError";
 import { getSupabaseClient } from "../config/supabaseClient";
 import { useLiveSuggestionExtractor } from "../hooks/useLiveSuggestionExtractor";
 import { LiveSuggestionsPanel } from "../components/ui/LiveSuggestionsPanel";
@@ -75,19 +76,17 @@ export default function CodeReviewPage() {
   const [forceStopAudio, setForceStopAudio] = useState(false);
   const [forceStopVideo, setForceStopVideo] = useState(false);
   const genaiClientRef = useRef<any>(null);
-  const [requestedVoice, setRequestedVoice] = useState<string | undefined>(
+  const [requestedVoice] = useState<string | undefined>(
     localStorage.getItem("ai_voice_setting") || undefined,
   );
 
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => {
-      if (!hasSessionStartedRef.current) return false;
-      // With hash routing, check if the full location (pathname + hash) changes
-      const currentFullPath = currentLocation.pathname + currentLocation.hash;
-      const nextFullPath = nextLocation.pathname + nextLocation.hash;
-      return currentFullPath !== nextFullPath;
-    },
-  );
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    if (!hasSessionStartedRef.current) return false;
+    // With hash routing, check if the full location (pathname + hash) changes
+    const currentFullPath = currentLocation.pathname + currentLocation.hash;
+    const nextFullPath = nextLocation.pathname + nextLocation.hash;
+    return currentFullPath !== nextFullPath;
+  });
   const cleanupAfterProceedRef = useRef(false);
 
   const { suggestions, extractSuggestions, clearAllSuggestions, isProcessing } =
@@ -95,10 +94,15 @@ export default function CodeReviewPage() {
 
   const [reviewTemplate, setReviewTemplate] = useState<any>(null);
   const [showSetupModal, setShowSetupModal] = useState(false);
+  const [repositoryError, setRepositoryError] = useState<{
+    repoUrl: string;
+    errorType: "private" | "notFound" | "rateLimit";
+    minutesRemaining?: number;
+  } | null>(null);
   const [isReadyForAutoTrigger, setIsReadyForAutoTrigger] = useState(false);
   const trackTextInputRef = useRef<((text: string) => void) | null>(null);
   const [trackTextInput, setTrackTextInput] = useState<((text: string) => void) | null>(null);
-  
+
   // Update ref when trackTextInput changes
   useEffect(() => {
     trackTextInputRef.current = trackTextInput;
@@ -308,7 +312,7 @@ export default function CodeReviewPage() {
   useEffect(() => {
     // Capture ref at effect time - we want the latest value at unmount time, but linter requires capture
     const genaiClientRefValue = genaiClientRef;
-    
+
     return () => {
       // Only cleanup on actual unmount (navigation away), not on pause/resume or stream changes
       if (hasSessionStartedRef.current) {
@@ -456,6 +460,8 @@ export default function CodeReviewPage() {
     repoUrl?: string,
     fullScan?: boolean,
   ) => {
+    // Clear any repository error when starting a new review (allows retry with different repo)
+    setRepositoryError(null);
     startReviewFromTemplate(reviewTemplate, reviewType, developerLevel, repoUrl, fullScan);
   };
 
@@ -517,9 +523,7 @@ export default function CodeReviewPage() {
     : undefined;
 
   return (
-    <Layout
-      isSessionActive={reviewIntentStarted}
-    >
+    <Layout isSessionActive={reviewIntentStarted}>
       <GenAILiveProvider apiKey={geminiApiKey}>
         {/* Unified setup modal - same component for both modes */}
         {showSetupModal && reviewTemplate && (
@@ -583,12 +587,38 @@ export default function CodeReviewPage() {
                 setTrackTextInput(() => fn);
                 trackTextInputRef.current = fn;
               }}
+              onRepositoryError={(repoUrl, errorType, minutesRemaining) => {
+                setRepositoryError({ repoUrl, errorType, minutesRemaining });
+              }}
+              repositoryError={repositoryError}
             />
+            {/* Show repository error if detected - appears where "Preparing code review content..." would be */}
+            {repositoryError && (
+              <PrivateRepositoryError
+                repoUrl={repositoryError.repoUrl}
+                errorType={repositoryError.errorType}
+                minutesRemaining={repositoryError.minutesRemaining}
+                onReturnToSetup={() => {
+                  // Stop all streams and cleanup session before returning to setup
+                  shutdownSession();
+                  // Also stop any stream in the service
+                  const serviceStream = mediaStreamService.getStream();
+                  if (serviceStream) {
+                    serviceStream.getTracks().forEach((track) => track.stop());
+                    mediaStreamService.setStream(null);
+                  }
+                  setRepositoryError(null);
+                  setShowSetupModal(true);
+                }}
+              />
+            )}
             {/* Show UserPromptInput and LiveSuggestions when review has started */}
             {reviewIntentStarted && (
               <div className="mt-8">
                 <div className="mb-4">
-                  <UserPromptInput onTextInput={trackTextInputRef.current ?? trackTextInput ?? undefined} />
+                  <UserPromptInput
+                    onTextInput={trackTextInputRef.current ?? trackTextInput ?? undefined}
+                  />
                 </div>
                 {AI_CONFIG.FEATURES.LIVE_SUGGESTION_EXTRACTION && (
                   <LiveSuggestionsPanel
