@@ -1,3 +1,15 @@
+[0.1.20] - 2025-11-26
+
+### Changed
+
+- **Hash Routing for GitHub Pages**: Switched from browser router to hash router to fix direct URL navigation on GitHub Pages
+  - **Router Type**: Changed `createBrowserRouter` to `createHashRouter` in `AppRouter.tsx`
+  - **404 Redirect**: Updated `404.html` to preserve path in hash when redirecting
+  - **Refresh Logic**: Updated `App.tsx` to check hash instead of pathname for refresh redirects
+  - **URL Generation**: Updated Dashboard copy link to include hash in URL format
+  - **Supabase Redirect**: Updated email confirmation redirect URL to use hash routing format (`/#/login`)
+  - **Direct URL Access**: Users can now paste URLs directly into browser and navigate correctly (e.g., `/#/login`)
+
 [0.1.19] - 2025-11-25
 
 ### Added

@@ -1,6 +1,6 @@
 import React from "react";
 import {
-  createBrowserRouter,
+  createHashRouter,
   RouterProvider,
   Route,
   createRoutesFromElements,
@@ -14,9 +14,8 @@ import { ProtectedRoute } from "./../pages/ProtectedRoute";
 import LoginPage from "../pages/Login";
 import SignupPage from "./../pages/Signup";
 
-const basename = new URL(process.env.PUBLIC_URL || "", window.location.origin).pathname;
-
-const router = createBrowserRouter(
+// With hash routing, basename is not needed since hash is always relative to current page
+const router = createHashRouter(
   createRoutesFromElements(
     <Route path="/" element={<RootLayout />}>
       <Route index element={<LandingPage />} />
@@ -29,7 +28,6 @@ const router = createBrowserRouter(
       </Route>
     </Route>,
   ),
-  { basename: basename },
 );
 
 export function AppRouter() {

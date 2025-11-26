@@ -39,7 +39,8 @@ export const VAD_ENVIRONMENTS = {
 
 export const AI_CONFIG = {
   // Gemini model configuration
-  DEFAULT_MODEL: "models/gemini-2.0-flash-live-001",
+  //DEFAULT_MODEL: "models/gemini-2.0-flash-live-001",
+  DEFAULT_MODEL: "models/gemini-2.5-flash-native-audio-preview-09-2025",
 
   // Alternative models (uncomment to use)
   // DEFAULT_MODEL: "models/gemini-1.5-pro",
@@ -47,6 +48,7 @@ export const AI_CONFIG = {
   // DEFAULT_MODEL: "models/gemini-2.0-flash-exp",
   // DEFAULT_MODEL: "models/gemini-2.5-flash-preview-04-17", // Not Live API compatible
   // DEFAULT_MODEL: "models/gemini-2.5-flash-preview-05-20", // Not Live API compatible
+  // DEFAULT_MODEL: "models/gemini-2.5-flash-native-audio-preview-09-2025",
 
   // Voice configuration
   DEFAULT_VOICE: "Aoede", // Breezy and relaxed voice

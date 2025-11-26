@@ -5,8 +5,10 @@
     <script>
       /* redirect any unknown path back to the SPA entry point */
       const repo = "/Code-review-simulator";
-      const newPath =
-        repo + "/index.html" + window.location.search + window.location.hash;
+      // Get the original path (remove repo prefix if present)
+      const path = window.location.pathname.replace(repo, '') || '/';
+      // Preserve the path in the hash so React Router can handle it
+      const newPath = repo + "/index.html#" + path + window.location.search;
       window.location.replace(newPath);
     </script>
   </head>

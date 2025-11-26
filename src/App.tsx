@@ -37,16 +37,14 @@ function App() {
       // Clear the flag immediately
       sessionStorage.removeItem("wasRefreshed");
 
-      // Get the basename from the current URL to match the router configuration
-      const basename = new URL(process.env.PUBLIC_URL || "", window.location.origin).pathname;
-      const homePath = basename + "/";
-      const currentPath = window.location.pathname;
+      // With hash routing, check the hash instead of pathname
+      const currentPath = window.location.hash.replace('#', '') || '/';
 
       // Only redirect if we're not already on the home page to prevent loops
-      if (currentPath !== homePath && currentPath !== basename) {
+      if (currentPath !== '/' && currentPath !== '') {
         (window as any).__redirecting = true;
-        // Use replace instead of href to avoid adding to history
-        window.location.replace(homePath);
+        // With hash routing, just update the hash to redirect to home
+        window.location.hash = '#/';
         return;
       }
     }

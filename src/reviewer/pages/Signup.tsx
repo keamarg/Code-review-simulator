@@ -34,7 +34,7 @@ const SignUp = () => {
         password: formData.password,
         options: {
           emailRedirectTo:
-            "https://keamarg.github.io/Code-review-simulator/login",
+            "https://keamarg.github.io/Code-review-simulator/#/login",
           data: {
             full_name: formData.fullName,
             organization: formData.organization,

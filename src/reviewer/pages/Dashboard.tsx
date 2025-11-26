@@ -57,7 +57,7 @@ function ReviewTemplateCard({
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent menu close from click outside
     try {
-      const fullUrl = `${window.location.origin}/Code-review-simulator/live?id=${sim.id}`;
+      const fullUrl = `${window.location.origin}/Code-review-simulator/#/live?id=${sim.id}`;
       await navigator.clipboard.writeText(fullUrl);
       setMenuOpen(false);
       showToast("Link copied to clipboard!");
