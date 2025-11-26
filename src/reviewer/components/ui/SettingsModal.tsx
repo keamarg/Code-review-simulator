@@ -4,8 +4,6 @@ import { getCurrentVoice } from "../../../config/aiConfig";
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // Optional props for mid-session voice changes
-  onVoiceChange?: (newVoice: string) => void;
   isSessionActive?: boolean;
 }
 
@@ -28,7 +26,6 @@ const VOICE_OPTIONS: VoiceOption[] = [
 export function SettingsModal({
   isOpen,
   onClose,
-  onVoiceChange,
   isSessionActive = false,
 }: SettingsModalProps) {
   const [selectedVoice, setSelectedVoice] = useState<string>(getCurrentVoice());
@@ -43,6 +40,11 @@ export function SettingsModal({
   }, [isOpen]);
 
   const handleVoiceChange = (voiceName: string) => {
+    // Don't allow voice changes during active sessions
+    if (isSessionActive) {
+      return;
+    }
+    
     setSelectedVoice(voiceName);
     setJustSelected(voiceName);
 
@@ -50,11 +52,6 @@ export function SettingsModal({
     setTimeout(() => {
       // Save immediately
       localStorage.setItem("ai_voice_setting", voiceName);
-
-      // If we're in an active session and have a voice change handler, trigger mid-session change
-      if (isSessionActive && onVoiceChange) {
-        onVoiceChange(voiceName);
-      }
 
       // Close modal
       onClose();
@@ -107,17 +104,19 @@ export function SettingsModal({
             </h3>
             {isSessionActive && (
               <p className="text-sm text-tokyo-fg-dim mb-4">
-                ⚡ Voice will change immediately in your active session
+                ⚠️ Voice can only be changed before starting a review session
               </p>
             )}
             <div className="space-y-3">
               {VOICE_OPTIONS.map((voice) => (
                 <label
                   key={voice.name}
-                  className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all duration-300 ${
-                    justSelected === voice.name
-                      ? "bg-tokyo-fg-bright text-tokyo-bg border-tokyo-fg-bright"
-                      : "border-tokyo-selection hover:bg-tokyo-bg-lightest"
+                  className={`flex items-center p-3 border rounded-lg transition-all duration-300 ${
+                    isSessionActive
+                      ? "opacity-50 cursor-not-allowed"
+                      : justSelected === voice.name
+                      ? "bg-tokyo-fg-bright text-tokyo-bg border-tokyo-fg-bright cursor-pointer"
+                      : "border-tokyo-selection hover:bg-tokyo-bg-lightest cursor-pointer"
                   }`}
                 >
                   <input
@@ -126,6 +125,7 @@ export function SettingsModal({
                     value={voice.name}
                     checked={selectedVoice === voice.name}
                     onChange={() => handleVoiceChange(voice.name)}
+                    disabled={isSessionActive}
                     className="mr-3 text-tokyo-accent"
                   />
                   <div className="flex-1">

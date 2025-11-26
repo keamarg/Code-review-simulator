@@ -3,9 +3,10 @@ import { useGenAILiveContext } from "../../../contexts/GenAILiveContext";
 
 interface UserPromptInputProps {
   className?: string;
+  onTextInput?: (text: string) => void;
 }
 
-export const UserPromptInput: React.FC<UserPromptInputProps> = ({ className }) => {
+export const UserPromptInput: React.FC<UserPromptInputProps> = ({ className, onTextInput }) => {
   const { client, connected, status, stopAudio } = useGenAILiveContext();
   const [text, setText] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -32,6 +33,12 @@ export const UserPromptInput: React.FC<UserPromptInputProps> = ({ className }) =
           stopAudio();
         } catch {}
         client.send([{ text: trimmed }]);
+        // Track text input for transcript
+        if (onTextInput) {
+          onTextInput(trimmed);
+        } else {
+          console.warn("[UserPromptInput] onTextInput callback not available");
+        }
         setText("");
       } catch {
         // no-op
@@ -39,7 +46,7 @@ export const UserPromptInput: React.FC<UserPromptInputProps> = ({ className }) =
         setIsSending(false);
       }
     },
-    [client, stopAudio, text, isDisabled],
+    [client, stopAudio, text, isDisabled, onTextInput],
   );
 
   return (

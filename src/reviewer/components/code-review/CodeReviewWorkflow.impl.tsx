@@ -41,6 +41,8 @@ export interface CodeReviewWorkflowProps {
   /** Optional synced session UI flag to control tray container visibility */
   sessionUiReady?: boolean;
   onUiFadeReady?: () => void;
+  /** Optional callback to receive the text input tracker function */
+  onTextInputTrackerReady?: (trackTextInput: (text: string) => void) => void;
 }
 
 export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
@@ -64,6 +66,7 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     onSharingReady,
     sessionUiReady,
     onUiFadeReady,
+    onTextInputTrackerReady,
   } = props;
 
   const { connected, connect, disconnect, client } = useGenAILiveContext();
@@ -78,14 +81,12 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
   const isReconnectingRef = useRef<boolean>(false);
   const [promptText, setPromptText] = useState<string>("");
   const [repoUrl, setRepoUrl] = useState<string | undefined>(undefined);
-  const lastAppliedVoiceRef = useRef<string | undefined>(undefined);
-  const pendingVoiceRef = useRef<string | undefined>(undefined);
   const [hasAiStartedSpeaking, setHasAiStartedSpeaking] = useState<boolean>(false);
   const [fadeReady, setFadeReady] = useState<boolean>(false);
   const sessionUidRef = useRef<string>("");
 
   const { user } = useAuth();
-  const { generateSummaryWithOpenAI, clearConversation, saveTranscriptToDatabase } =
+  const { generateSummaryWithOpenAI, clearConversation, saveTranscriptToDatabase, trackTextInput } =
     useConversationTracker(client, props.onTranscriptChunk);
 
   // Default config no longer used; prompt-driven config is prepared before connect
@@ -167,14 +168,10 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     if (!reviewIntentStarted || connected || !promptText || isConnectingRef.current) return;
     isConnectingRef.current = true;
     lastIntentRef.current = true;
-    // Pass requested voice at initial connect to avoid follow-up voice-change reconnection
+    // Pass requested voice at initial connect
     const cfg = createLiveConfig(promptText, {
       voiceName: requestedVoice,
     });
-    if (requestedVoice) {
-      lastAppliedVoiceRef.current = requestedVoice;
-      pendingVoiceRef.current = undefined;
-    }
     connect(getCurrentModel(), cfg)
       .catch(() => {
         lastIntentRef.current = false;
@@ -234,49 +231,6 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
       }
     })();
   }, [generateSummaryWithOpenAI]);
-
-  // Apply mid-session voice changes (defer until connected)
-  useEffect(() => {
-    if (!client) return;
-    if (!requestedVoice || requestedVoice === lastAppliedVoiceRef.current) return;
-    if (!connected) {
-      pendingVoiceRef.current = requestedVoice;
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const ok = await (client as any).changeVoice?.(requestedVoice);
-        if (ok && !cancelled) {
-          lastAppliedVoiceRef.current = requestedVoice;
-          pendingVoiceRef.current = undefined;
-        }
-      } catch (e) {
-        appLogger.error.session(e instanceof Error ? e.message : String(e));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [requestedVoice, client, connected]);
-
-  // If a voice change was requested while disconnected, apply on connect
-  useEffect(() => {
-    if (!client || !connected) return;
-    const pending = pendingVoiceRef.current;
-    if (!pending || pending === lastAppliedVoiceRef.current) return;
-    (async () => {
-      try {
-        const ok = await (client as any).changeVoice?.(pending);
-        if (ok) {
-          lastAppliedVoiceRef.current = pending;
-          pendingVoiceRef.current = undefined;
-        }
-      } catch (e) {
-        appLogger.error.session(e instanceof Error ? e.message : String(e));
-      }
-    })();
-  }, [client, connected]);
 
   // Post-intro nudge if user is silent after AI's first turn completes
   useEffect(() => {
@@ -383,8 +337,6 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
       // Only try to resume if the user hasn't paused/stopped
       if (!reviewIntentStarted) return;
       if (isConnectingRef.current || isReconnectingRef.current) return;
-      // If a mid-session voice change is in progress, let that flow handle resumption
-      if ((client as any).isVoiceChangeInProgress) return;
       isReconnectingRef.current = true;
       try {
         // Prefer session resumption to preserve context
@@ -435,6 +387,13 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
       } catch {}
     }
   }, [fadeReady, onUiFadeReady]);
+
+  // Expose trackTextInput to parent component
+  useEffect(() => {
+    if (trackTextInput && onTextInputTrackerReady) {
+      onTextInputTrackerReady(trackTextInput);
+    }
+  }, [trackTextInput, onTextInputTrackerReady]);
 
   return (
     <div>

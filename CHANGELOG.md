@@ -1,3 +1,24 @@
+[0.1.26] - 2025-11-26
+
+### Fixed
+
+- **GoAway Message Handling**: Added proactive reconnection handling for GoAway messages from Google GenAI Live API
+  - **Proactive Reconnection**: When a GoAway message is received (server warning before connection closes), the client now attempts to reconnect automatically using session resumption before the connection actually closes
+  - **Session Preservation**: Reconnection attempts preserve conversation context using session resumption handles
+  - **Event Handling**: Added `goAway` event listener in `use-genai-live.ts` hook to provide user feedback and logging
+  - **Graceful Handling**: The handler checks for available time before connection closes and attempts reconnection with appropriate delays
+  - **Error Logging**: Improved logging to help diagnose GoAway causes (API quota limits, server resource constraints, etc.)
+
+[0.1.25] - 2025-11-26
+
+### Added
+
+- **Text Input Prompts in Summary and Database**: User prompts from the text input field are now tracked and displayed in the summary screen
+  - **Summary Display**: Text input prompts appear in the summary screen marked as "User (text input):" to distinguish them from voice transcripts
+  - **Database Storage**: Text input prompts are saved in the Supabase database along with other transcript entries in both the `transcript` column and `full_conversation` JSONB field
+  - **Conversation Tracking**: Added new `user_text_input` entry type to conversation tracker to properly categorize text-based user prompts
+  - **Metadata Tracking**: Text input count is now included in the transcript metadata for analytics
+
 [0.1.24] - 2025-11-26
 
 ### Fixed

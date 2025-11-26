@@ -90,9 +90,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   private reconnectionAttempts: number = 0;
   private readonly maxReconnectionAttempts: number = 1; // Enable automatic reconnection with session resumption
   private manualDisconnect: boolean = false;
-  private voiceChangeInProgress: boolean = false;
   private hasLoggedVadSettings: boolean = false;
   private hasLoggedSystemInstruction: boolean = false;
+  private goAwayReconnectionInProgress: boolean = false; // Flag to prevent double reconnection on GoAway
 
   private _session: Session | null = null;
   public get session() {
@@ -108,10 +108,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
 
   public getConfig() {
     return { ...this.config };
-  }
-
-  public get isVoiceChangeInProgress() {
-    return this.voiceChangeInProgress;
   }
 
   constructor(options: LiveClientOptions) {
@@ -256,138 +252,80 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     }
   }
 
-  // Add method to change voice while preserving session context
-  public async changeVoice(newVoiceName: string): Promise<boolean> {
-    if (!this.config || !this._model) {
-      appLogger.error.session("Cannot change voice: Missing config or model");
-      return false;
-    }
+  // Handle GoAway message proactively - attempt reconnection before connection closes
+  private async handleGoAway(timeLeft: number): Promise<void> {
+    // If we have time left, attempt proactive reconnection
+    if (timeLeft > 0) {
+      // Check if we can attempt reconnection
+      if (
+        this.sessionResumptionHandle &&
+        this.config &&
+        this._model &&
+        this.reconnectionAttempts < this.maxReconnectionAttempts &&
+        !this.manualDisconnect &&
+        this._status === "connected" &&
+        !this.goAwayReconnectionInProgress
+      ) {
+        // Set flag to prevent double reconnection when onclose fires
+        this.goAwayReconnectionInProgress = true;
+        this.reconnectionAttempts++;
+        appLogger.connection.reconnecting();
+        this.log(
+          "client.goAway.reconnect",
+          `🔄 GoAway received: Attempting proactive reconnection with session resumption (attempt ${this.reconnectionAttempts}/${this.maxReconnectionAttempts})`,
+        );
 
-    // Set flag to prevent concurrent UI logic from interfering
-    this.voiceChangeInProgress = true;
-    appLogger.user.changeVoice(newVoiceName);
-
-    // Create new config with updated voice but keep everything else the same
-    const newConfig = {
-      ...this.config,
-      speechConfig: {
-        ...this.config.speechConfig,
-        voiceConfig: {
-          prebuiltVoiceConfig: {
-            voiceName: newVoiceName,
-          },
-        },
-      },
-    };
-
-    // Update stored config for future use
-    this.config = newConfig;
-
-    // Helper function to wait for status change
-    const waitForDisconnect = async (maxWait: number = 2000): Promise<boolean> => {
-      const startTime = Date.now();
-      while (this._status !== "disconnected" && Date.now() - startTime < maxWait) {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-      return this._status === "disconnected";
-    };
-
-    // If we have a session resumption handle, use it to preserve context
-    if (this.sessionResumptionHandle) {
-      // Disconnect current session (preserves session handle)
-      const wasConnected = this._status === "connected";
-      if (wasConnected) {
-        this.disconnect();
-        // Wait for actual disconnect to complete
-        const disconnected = await waitForDisconnect();
-        if (!disconnected) {
-          appLogger.error.connection("Failed to disconnect properly");
-          return false;
-        }
-      }
-
-      // Use session resumption to continue the conversation with new voice
-      const resumptionConfig: any = {
-        ...newConfig,
-        sessionResumption: { handle: this.sessionResumptionHandle },
-      };
-      if (resumptionConfig && resumptionConfig.systemInstruction) {
-        delete resumptionConfig.systemInstruction;
-      }
-
-      try {
-        const success = await this.connect(this._model, resumptionConfig);
-        if (success) {
-          // Send continuation message to let AI know we're back, similar to pause/resume
-          // Wait a moment for connection to fully establish before sending
-          setTimeout(() => {
-            if (this._status === "connected") {
-              this.send([
-                {
-                  text: `Voice changed successfully. Please continue with the code review.`,
-                },
-              ]);
-            }
-          }, 1000); // 1 second delay to ensure connection is ready
-        } else {
-          appLogger.error.connection("Failed to reconnect with session resumption");
-        }
-        // Clear flag before returning
-        this.voiceChangeInProgress = false;
-        return success;
-      } catch (error) {
-        appLogger.error.connection("Voice change with resumption failed: " + error);
-        // Clear flag before returning
-        this.voiceChangeInProgress = false;
-        return false;
-      }
-    } else {
-      // No session resumption handle available - this is normal for early session changes
-      // Applying voice change with fresh connection
-
-      try {
-        // Disconnect if currently connected
-        if (this._status === "connected") {
-          this.disconnect();
-          // Wait for actual disconnect to complete
-          const disconnected = await waitForDisconnect();
-          if (!disconnected) {
-            appLogger.generic.warn("❌ Failed to disconnect properly");
-            // Clear flag before returning
-            this.voiceChangeInProgress = false;
-            return false;
+        // Disconnect current session gracefully before it closes
+        if (this.session) {
+          try {
+            this.session.close();
+          } catch (e) {
+            // Ignore errors during graceful close
           }
         }
 
-        const success = await this.connect(this._model, newConfig);
-        if (success) {
-          // Voice changed (fresh connection - no conversation context to preserve)
-
-          // Voice settings sent to server
-
-          // Send continuation message for fresh connection voice changes
-          // Wait a moment for connection to fully establish before sending
-          setTimeout(() => {
-            if (this._status === "connected") {
-              this.send([
-                {
-                  text: `Voice changed successfully. Please continue with the code review.`,
-                },
-              ]);
-            }
-          }, 1000); // 1 second delay to ensure connection is ready
-        } else {
-          // Failed to reconnect with new voice
+        const resumptionConfig: any = {
+          ...this.config,
+          sessionResumption: { handle: this.sessionResumptionHandle },
+        };
+        // Avoid re-sending systemInstruction on a resumed session
+        if (resumptionConfig && resumptionConfig.systemInstruction) {
+          delete resumptionConfig.systemInstruction;
         }
-        // Clear flag before returning
-        this.voiceChangeInProgress = false;
-        return success;
-      } catch (error) {
-        appLogger.error.general(error instanceof Error ? error.message : String(error));
-        // Clear flag before returning
-        this.voiceChangeInProgress = false;
-        return false;
+
+        // Attempt reconnection with a small delay to ensure clean disconnection
+        setTimeout(async () => {
+          try {
+            const success = await this.connect(this._model!, resumptionConfig);
+            if (success) {
+              appLogger.connection.reconnected();
+              this.log("client.goAway.reconnect.success", "Proactive reconnection successful");
+              this.goAwayReconnectionInProgress = false; // Reset flag on success
+            } else {
+              appLogger.error.connection("Proactive reconnection failed");
+              this.goAwayReconnectionInProgress = false; // Reset flag on failure
+            }
+          } catch (e) {
+            appLogger.error.general(e instanceof Error ? e.message : String(e));
+            this.log("client.goAway.reconnect.error", (e as Error).message);
+            this.goAwayReconnectionInProgress = false; // Reset flag on error
+          }
+        }, Math.min(100, timeLeft / 2)); // Use half the time left, but at least 100ms
+      } else {
+        // Cannot reconnect - log why
+        if (!this.sessionResumptionHandle) {
+          this.log("client.goAway.reconnect.skip", "No session resumption handle available");
+        } else if (this.reconnectionAttempts >= this.maxReconnectionAttempts) {
+          this.log("client.goAway.reconnect.skip", "Max reconnection attempts reached");
+        } else if (this.manualDisconnect) {
+          this.log("client.goAway.reconnect.skip", "Manual disconnect in progress");
+        } else if (this.goAwayReconnectionInProgress) {
+          this.log("client.goAway.reconnect.skip", "GoAway reconnection already in progress");
+        }
       }
+    } else {
+      // No time left - connection closing immediately
+      this.log("client.goAway.immediate", "Connection closing immediately (0ms)");
     }
   }
 
@@ -398,8 +336,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       return false;
     }
 
-    // Set flag to prevent concurrent UI logic from interfering
-    this.voiceChangeInProgress = true; // Reuse the same flag since it serves the same purpose
+    // Note: Environment changes use session resumption to preserve context
 
     // Update localStorage with the new environment immediately
     localStorage.setItem("ai_vad_environment", newEnvironment);
@@ -490,13 +427,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         } else {
           appLogger.error.connection("Failed to reconnect with session resumption");
         }
-        // Clear flag before returning
-        this.voiceChangeInProgress = false;
         return success;
       } catch (error) {
         appLogger.error.connection("Environment change with resumption failed: " + error);
-        // Clear flag before returning
-        this.voiceChangeInProgress = false;
         return false;
       }
     } else {
@@ -511,8 +444,6 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
           const disconnected = await waitForDisconnect();
           if (!disconnected) {
             appLogger.generic.warn("❌ Failed to disconnect properly");
-            // Clear flag before returning
-            this.voiceChangeInProgress = false;
             return false;
           }
         }
@@ -537,13 +468,9 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
         } else {
           // Failed to reconnect with new environment
         }
-        // Clear flag before returning
-        this.voiceChangeInProgress = false;
         return success;
       } catch (error) {
         console.error("❌ Environment change with fresh connection failed:", error);
-        // Clear flag before returning
-        this.voiceChangeInProgress = false;
         return false;
       }
     }
@@ -572,6 +499,7 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     this.config = null;
     this._model = null;
     this.reconnectionAttempts = 0;
+    this.goAwayReconnectionInProgress = false;
     if (this.session) {
       try {
         this.session.close();
@@ -608,13 +536,15 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
     // For all other disconnections (network issues, server errors), preserve session data for manual reconnection
 
     // Try automatic reconnection only for specific error codes
+    // Skip if GoAway handler already initiated reconnection
     if (
       e.code === 1011 &&
       this.sessionResumptionHandle &&
       this.config &&
       this._model &&
       this.reconnectionAttempts < this.maxReconnectionAttempts &&
-      !this.manualDisconnect
+      !this.manualDisconnect &&
+      !this.goAwayReconnectionInProgress
     ) {
       // reconnect with resumption handle
       // BUT only once! keep a counter
@@ -683,6 +613,10 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
       appLogger.generic.warn(`⚠️ GoAway message received: Connection will close in ${timeLeft}ms`);
       this.log("server.goAway", `Connection closing in ${timeLeft}ms`);
       this.emit("goAway", timeLeft);
+      // Attempt proactive reconnection if possible
+      this.handleGoAway(timeLeft).catch((error) => {
+        appLogger.error.connection(`GoAway handler error: ${error instanceof Error ? error.message : String(error)}`);
+      });
       return;
     }
 

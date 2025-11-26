@@ -96,6 +96,13 @@ export default function CodeReviewPage() {
   const [reviewTemplate, setReviewTemplate] = useState<any>(null);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [isReadyForAutoTrigger, setIsReadyForAutoTrigger] = useState(false);
+  const trackTextInputRef = useRef<((text: string) => void) | null>(null);
+  const [trackTextInput, setTrackTextInput] = useState<((text: string) => void) | null>(null);
+  
+  // Update ref when trackTextInput changes
+  useEffect(() => {
+    trackTextInputRef.current = trackTextInput;
+  }, [trackTextInput]);
   const shouldAutoTriggerRef = useRef(false);
   const autoTriggerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasAutoTriggeredRef = useRef(false);
@@ -512,10 +519,6 @@ export default function CodeReviewPage() {
   return (
     <Layout
       isSessionActive={reviewIntentStarted}
-      onVoiceChange={(newVoice) => {
-        localStorage.setItem("ai_voice_setting", newVoice);
-        setRequestedVoice(newVoice);
-      }}
     >
       <GenAILiveProvider apiKey={geminiApiKey}>
         {/* Unified setup modal - same component for both modes */}
@@ -576,12 +579,16 @@ export default function CodeReviewPage() {
               reviewDurationMs={
                 reviewTemplate?.duration ? Number(reviewTemplate.duration) * 60 * 1000 : 0
               }
+              onTextInputTrackerReady={(fn) => {
+                setTrackTextInput(() => fn);
+                trackTextInputRef.current = fn;
+              }}
             />
             {/* Show UserPromptInput and LiveSuggestions when review has started */}
             {reviewIntentStarted && (
               <div className="mt-8">
                 <div className="mb-4">
-                  <UserPromptInput />
+                  <UserPromptInput onTextInput={trackTextInputRef.current ?? trackTextInput ?? undefined} />
                 </div>
                 {AI_CONFIG.FEATURES.LIVE_SUGGESTION_EXTRACTION && (
                   <LiveSuggestionsPanel

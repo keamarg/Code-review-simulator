@@ -93,15 +93,28 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
     };
 
     const onClose = () => {
-      // During mid-session voice/environment changes we deliberately reconnect;
+      // During mid-session environment changes we deliberately reconnect;
       // suppress UI flicker by keeping "connected" true while the client is handling resumption
-      const suppressUI =
-        (client as any).isVoiceChangeInProgress === true ||
-        (client as any).screenChangeInProgress === true;
+      const suppressUI = (client as any).screenChangeInProgress === true;
       if (!suppressUI) {
         setConnected(false);
         // Stop audio streamer when connection closes to immediately stop voice
         audioStreamerRef.current?.stop();
+      }
+    };
+
+    const onGoAway = (timeLeft: number) => {
+      // GoAway message received - connection will close soon
+      // The client will attempt proactive reconnection automatically
+      // We just need to log and potentially update UI
+      if (timeLeft === 0) {
+        // Connection closing immediately - update UI
+        appLogger.info.warning("Connection closing immediately due to GoAway message");
+      } else {
+        // Connection will close soon - client is attempting reconnection
+        appLogger.info.warning(
+          `Connection will close in ${timeLeft}ms - attempting reconnection...`,
+        );
       }
     };
 
@@ -112,6 +125,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
     client
       .on("open", onOpen)
       .on("close", onClose)
+      .on("goAway", onGoAway)
       .on("interrupted", stopAudioStreamer)
       .on("audio", onAudio);
 
@@ -119,6 +133,7 @@ export function useGenAILive(options: LiveClientOptions): UseGenAILiveResults {
       client
         .off("open", onOpen)
         .off("close", onClose)
+        .off("goAway", onGoAway)
         .off("interrupted", stopAudioStreamer)
         .off("audio", onAudio);
     };

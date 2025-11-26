@@ -5,7 +5,7 @@ import { appLogger } from "../../lib/utils";
 
 interface ConversationEntry {
   timestamp: Date;
-  type: "ai_transcript" | "user_transcript" | "session_start" | "session_end" | "user_interaction";
+  type: "ai_transcript" | "user_transcript" | "user_text_input" | "session_start" | "session_end" | "user_interaction";
   content?: string;
   metadata?: {
     audio_size?: number;
@@ -241,6 +241,19 @@ export function useConversationTracker(
     return summary;
   };
 
+  const trackTextInput = useCallback((text: string) => {
+    if (!text || typeof text !== "string" || !text.trim()) return;
+
+    const textInputEntry: ConversationEntry = {
+      type: "user_text_input",
+      content: text.trim(),
+      timestamp: new Date(),
+    };
+
+    entriesRef.current.push(textInputEntry);
+    appLogger.generic.info(`[Text Input Tracked] ${text.trim()}`);
+  }, []);
+
   const clearConversation = () => {
     entriesRef.current = [];
     sessionStartTime.current = null;
@@ -325,9 +338,16 @@ export function useConversationTracker(
           ? Math.round((new Date().getTime() - sessionStartTime.current.getTime()) / 1000)
           : 0;
 
-        // Get all transcript entries sorted by timestamp
+        // Get all transcript entries sorted by timestamp (including text inputs)
+        const textInputEntries = entriesRef.current.filter((e) => e.type === "user_text_input");
+        appLogger.generic.info(`[Save Transcript] Found ${textInputEntries.length} text input entries`);
+        
         const conversationEntries = entriesRef.current
-          .filter((e) => e.type === "ai_transcript" || e.type === "user_transcript")
+          .filter((e) => 
+            e.type === "ai_transcript" || 
+            e.type === "user_transcript" || 
+            e.type === "user_text_input"
+          )
           .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
         // Build combined transcript in chronological order (like review summary)
@@ -336,6 +356,8 @@ export function useConversationTracker(
           if (entry.content && entry.content.trim()) {
             if (entry.type === "user_transcript") {
               combinedTranscript += `User: ${entry.content.trim()}\n\n`;
+            } else if (entry.type === "user_text_input") {
+              combinedTranscript += `User (text input): ${entry.content.trim()}\n\n`;
             } else if (entry.type === "ai_transcript") {
               combinedTranscript += `AI: ${entry.content.trim()}\n\n`;
             }
@@ -355,10 +377,12 @@ export function useConversationTracker(
         // Prepare metadata
         const aiTranscriptEntries = entriesRef.current.filter((e) => e.type === "ai_transcript");
         const userTranscriptEntries = entriesRef.current.filter((e) => e.type === "user_transcript");
+        const userTextInputEntries = entriesRef.current.filter((e) => e.type === "user_text_input");
         const metadata = {
           interaction_count: userInteractionCount.current,
           ai_transcript_entries: aiTranscriptEntries.length,
           user_transcript_entries: userTranscriptEntries.length,
+          user_text_input_entries: userTextInputEntries.length,
         };
 
         // Extract separate transcripts for backward compatibility (if old schema still exists)
@@ -417,6 +441,7 @@ export function useConversationTracker(
     clearConversation,
     getTranscripts,
     saveTranscriptToDatabase,
+    trackTextInput,
     entryCount: entriesRef.current.length,
     transcriptCount: entriesRef.current.filter((e) => e.type === "ai_transcript").length,
     getDebugInfo,
@@ -483,14 +508,32 @@ function generateTranscriptBasedSummary(
 
   summary += "\n";
 
-  // Create chronological conversation if we have both AI and user transcripts
-  if (allUserTranscripts && allUserTranscripts.trim() && allEntries) {
+  // Create chronological conversation if we have entries
+  const textInputEntriesInSummary = allEntries?.filter(
+    (e: ConversationEntry) => e.type === "user_text_input" && e.content
+  ) || [];
+  const hasUserEntries = allEntries && allEntries.some(
+    (e: ConversationEntry) => 
+      (e.type === "user_transcript" || e.type === "user_text_input") && e.content
+  );
+
+  // Debug: Log text input entries found
+  if (textInputEntriesInSummary.length > 0) {
+    console.log(`[Summary] Found ${textInputEntriesInSummary.length} text input entries:`, 
+      textInputEntriesInSummary.map(e => e.content));
+  }
+
+  if (hasUserEntries && allEntries) {
     summary += "Full Conversation Transcript:\n";
     summary += "-".repeat(15) + "\n";
 
-    // Get all entries sorted by timestamp
+    // Get all entries sorted by timestamp (including text inputs)
     const conversationEntries = allEntries
-      .filter((e: ConversationEntry) => e.type === "ai_transcript" || e.type === "user_transcript")
+      .filter((e: ConversationEntry) => 
+        e.type === "ai_transcript" || 
+        e.type === "user_transcript" || 
+        e.type === "user_text_input"
+      )
       .sort(
         (a: ConversationEntry, b: ConversationEntry) =>
           a.timestamp.getTime() - b.timestamp.getTime(),
@@ -500,6 +543,8 @@ function generateTranscriptBasedSummary(
     conversationEntries.forEach((entry: ConversationEntry) => {
       if (entry.type === "user_transcript" && entry.content) {
         summary += `User: ${entry.content}\n\n`;
+      } else if (entry.type === "user_text_input" && entry.content) {
+        summary += `User (text input): ${entry.content}\n\n`;
       } else if (entry.type === "ai_transcript" && entry.content) {
         summary += `AI: ${entry.content}\n\n`;
       }
@@ -507,7 +552,7 @@ function generateTranscriptBasedSummary(
 
     summary += "-".repeat(15) + "\n\n";
   } else {
-    // Fallback to just AI transcript if no user transcripts
+    // Fallback to just AI transcript if no user entries
     summary += "Full AI Review Transcript:\n";
     summary += "-".repeat(15) + "\n";
     summary += allTranscripts;

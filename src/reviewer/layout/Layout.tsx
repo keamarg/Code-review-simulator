@@ -6,11 +6,10 @@ import { SettingsModal } from "../components/ui/SettingsModal";
 
 interface LayoutProps {
   children: React.ReactNode;
-  onVoiceChange?: (newVoice: string) => void;
   isSessionActive?: boolean;
 }
 
-export default function Layout({ children, onVoiceChange, isSessionActive = false }: LayoutProps) {
+export default function Layout({ children, isSessionActive = false }: LayoutProps) {
   const { user, signOut } = useAuth(); // Get user and signOut from context
   const navigate = useNavigate();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -33,13 +32,8 @@ export default function Layout({ children, onVoiceChange, isSessionActive = fals
   };
 
   const handleVoiceChange = async (newVoice: string) => {
-    if (onVoiceChange) {
-      // If we have a voice change handler from the live review page, use it
-      onVoiceChange(newVoice);
-    } else {
-      // Otherwise, just store the preference for future sessions
-      appLogger.user.changeVoice(newVoice);
-    }
+    // Store the preference for future sessions
+    appLogger.user.changeVoice(newVoice);
   };
 
   // Environment changes are now set in the setup modal before starting a session
@@ -215,7 +209,6 @@ export default function Layout({ children, onVoiceChange, isSessionActive = fals
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={handleSettingsClose}
-        onVoiceChange={handleVoiceChange}
         isSessionActive={isSessionActive}
       />
     </div>
