@@ -80,8 +80,13 @@ export default function CodeReviewPage() {
   );
 
   const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      hasSessionStartedRef.current && currentLocation.pathname !== nextLocation.pathname,
+    ({ currentLocation, nextLocation }) => {
+      if (!hasSessionStartedRef.current) return false;
+      // With hash routing, check if the full location (pathname + hash) changes
+      const currentFullPath = currentLocation.pathname + currentLocation.hash;
+      const nextFullPath = nextLocation.pathname + nextLocation.hash;
+      return currentFullPath !== nextFullPath;
+    },
   );
   const cleanupAfterProceedRef = useRef(false);
 
@@ -284,6 +289,37 @@ export default function CodeReviewPage() {
       if (!isInitializingRef.current && hasSessionStartedRef.current) shutdownSession();
     };
   }, [shutdownSession]);
+
+  // Cleanup on unmount - ensures mic and screen sharing stop when navigating away
+  // This is especially important with hash routing where the blocker might not always fire
+  // Use refs to track values so cleanup only runs on actual unmount, not on state changes
+  const videoStreamRef = useRef<MediaStream | null>(null);
+  useEffect(() => {
+    videoStreamRef.current = videoStream;
+  }, [videoStream]);
+
+  useEffect(() => {
+    // Capture ref at effect time - we want the latest value at unmount time, but linter requires capture
+    const genaiClientRefValue = genaiClientRef;
+    
+    return () => {
+      // Only cleanup on actual unmount (navigation away), not on pause/resume or stream changes
+      if (hasSessionStartedRef.current) {
+        setForceStopAudio(true);
+        setForceStopVideo(true);
+        // Access current value at cleanup time (refs are stable, current value may have changed)
+        if (genaiClientRefValue.current) genaiClientRefValue.current.terminateSession();
+        if (videoStreamRef.current) {
+          videoStreamRef.current.getTracks().forEach((track) => track.stop());
+        }
+        sessionService.stopReview();
+        hasSessionStartedRef.current = false;
+        setReviewIntentStarted(false);
+      }
+    };
+    // Empty deps array - only run on unmount, not on state changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEndReview = () => {
     setForceStopAudio(true);

@@ -676,14 +676,46 @@ function ControlTray({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connected, shouldStartAudioRecorder, hasLiveAudioTrack]); // Removed audioRecorder and audioDataHandler from deps - they're stable
 
-  // Ensure microphone stream is stopped when component unmounts (e.g., navigation away)
+  // Ensure microphone and screen sharing streams are stopped when component unmounts (e.g., navigation away)
+  // Use refs to track streams so cleanup only runs on actual unmount, not on state changes
+  const activeVideoStreamRef = useRef<MediaStream | null>(null);
+  useEffect(() => {
+    activeVideoStreamRef.current = activeVideoStream;
+  }, [activeVideoStream]);
+
   useEffect(() => {
     return () => {
+      // Only cleanup on actual unmount (navigation away), not on pause/resume
+      // Stop audio stream
       if (audioStreamRef.current) {
         audioStreamRef.current.getTracks().forEach((track) => track.stop());
         audioStreamRef.current = null;
       }
+      // Stop video/screen sharing stream
+      if (videoStreamRef.current) {
+        videoStreamRef.current.getTracks().forEach((track) => track.stop());
+        videoStreamRef.current = null;
+      }
+      // Stop active video stream (video-only stream used for display)
+      if (activeVideoStreamRef.current) {
+        activeVideoStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      // Stop audio recorder
+      if (audioRecorder) {
+        audioRecorder.stop();
+      }
+      // Disconnect from GenAI client (only if still connected)
+      // Use the client directly to check connection state at unmount time
+      try {
+        if (client && client.status === "connected") {
+          disconnect();
+        }
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
     };
+    // Empty deps array - only run on unmount, not on state changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Step 1: Request screen sharing (called from onClick handler synchronously for Safari compatibility)

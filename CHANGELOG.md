@@ -1,3 +1,17 @@
+[0.1.23] - 2025-11-26
+
+### Fixed
+
+- **Media Stream Cleanup on Navigation**: Fixed issue where microphone and screen sharing streams were not stopping when navigating away from the code review page
+  - **Hash Routing Compatibility**: Updated `useBlocker` condition to check both pathname and hash changes (hash routing only changes hash, not pathname)
+  - **Unmount Cleanup in CodeReviewPage**: Added cleanup effect that runs on component unmount to ensure media streams are stopped even if blocker doesn't fire
+  - **Unmount Cleanup in ControlTray**: Enhanced existing cleanup effect to also stop video streams, audio recorder, and disconnect GenAI client on component unmount
+  - **Complete Cleanup**: Ensures all resources (audio streams, video streams, audio recorder, GenAI client, session service) are properly cleaned up when navigating away
+  - **Pause/Resume Fix**: Fixed cleanup effects to only run on actual component unmount (navigation away), not during pause/resume operations
+    - **Root Cause**: Cleanup effects had state dependencies that changed during pause/resume, causing streams to be stopped incorrectly
+    - **Solution**: Changed cleanup effects to use refs and empty dependency arrays so they only run on unmount
+    - **Result**: Pause and resume now work correctly without stopping mic and screen sharing streams
+
 [0.1.22] - 2025-11-26
 
 ### Changed
