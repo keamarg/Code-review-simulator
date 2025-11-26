@@ -4,41 +4,7 @@ import prompts from "../../prompts.json";
 import { appLogger } from "../../lib/utils";
 
 function getLevelSpecificObjectives(level: string): string {
-  switch (level) {
-    case "junior":
-      return `
-- Code readability and clarity
-- Proper naming conventions
-- Basic error handling
-- Code structure and organization
-- Fundamental programming patterns
-- Consistent formatting and styling
-- Documentation practices`;
-    case "intermediate":
-      return `
-- Design patterns and their appropriate application
-- Performance considerations
-- Code reuse and modularity
-- Testing approaches and coverage
-- Error handling strategies
-- API design
-- Code maintainability`;
-    case "senior":
-      return `
-- Architecture decisions and system design
-- Scalability considerations
-- Advanced design patterns
-- Performance optimization
-- Security best practices
-- Code review standards
-- Technical debt management`;
-    default:
-      return `
-- Code quality and structure
-- Best practices
-- Performance considerations
-- Readability and maintainability`;
-  }
+  return (prompts as any).levelObjectives[level] || (prompts as any).levelObjectives.default;
 }
 
 export async function getReviewTask(reviewTemplate: CodeReviewTemplate) {

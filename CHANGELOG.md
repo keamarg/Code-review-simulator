@@ -1,3 +1,17 @@
+[0.1.22] - 2025-11-26
+
+### Changed
+
+- **Centralized All Prompt Instructions**: Moved all hardcoded prompt instruction strings from `prompt.ts` and `getReviewTask.tsx` to `prompts.json` for better maintainability
+  - **Review Focus Headers**: Moved review focus header, precedence message, and separator to `instructionComponents`
+  - **Focus Areas Introductions**: Centralized focus area introduction strings
+  - **Fallback Context Messages**: Moved default context messages to `instructionComponents`
+  - **GitHub-Specific Instructions**: Moved all GitHub repository analysis instructions block to `instructionComponents`
+  - **Level Objectives**: Moved `getLevelSpecificObjectives` function content from `getReviewTask.tsx` to new `levelObjectives` section in `prompts.json`
+  - **Level Guidance Header**: Centralized "Reviewer level guidance:" header
+  - **Default Student Task**: Moved default student task message to `instructionComponents`
+  - **Code Updates**: Updated `prompt.ts` and `getReviewTask.tsx` to use centralized prompts instead of hardcoded strings
+
 [0.1.21] - 2025-11-26
 
 ### Removed
