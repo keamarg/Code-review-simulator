@@ -1,3 +1,22 @@
+[0.1.28] - 2025-11-27
+
+### Fixed
+
+- **Initial Message Image Context**: Fixed issue where initial client content was sent without an image, causing AI hallucinations
+  - **Image Capture on Connect**: Added helper function to capture video frame before sending initial message
+  - **Image-First Sending**: Initial image frame is now sent via `sendRealtimeInput` before the text message to provide context
+  - **Updated Prompt**: Changed initial prompt from asking for "main file(s)" to asking AI to describe the image and request code files if the image doesn't contain code
+  - **Prevents Hallucinations**: AI now has image context from the start, reducing hallucinations when responding to initial greeting
+
+[0.1.27] - 2025-11-27
+
+### Fixed
+
+- **Screen Capture Quality for Portrait Screens**: Improved image quality for 90-degree/portrait orientation screens
+  - **High-Quality Image Smoothing**: Enabled `imageSmoothingEnabled` and `imageSmoothingQuality = "high"` on canvas context for better downscaling quality
+  - **Orientation-Aware Scaling**: Portrait screens (height > width) now use 35% scaling factor instead of 25% for better quality, while landscape screens maintain 25% scaling to keep file sizes unchanged
+  - **Applied to Both Capture Locations**: Updated both `sendVideoFrame` function and the manual capture location in `ControlTrayCustom.tsx`
+
 [0.1.26] - 2025-11-26
 
 ### Fixed

@@ -285,19 +285,138 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     }
   }, [reviewIntentStarted, connected, disconnect]);
 
+  // Helper function to capture an image frame from the video element
+  const captureVideoFrame = useCallback((): string | null => {
+    const video = videoRef.current;
+    if (!video) {
+      appLogger.generic.info("[Capture Frame] No video element");
+      return null;
+    }
+
+    // Check if video has a stream
+    if (!video.srcObject) {
+      appLogger.generic.info("[Capture Frame] No video srcObject");
+      return null;
+    }
+
+    // Check if video metadata is loaded (readyState >= 2 means HAVE_CURRENT_DATA)
+    if (video.readyState < 2) {
+      appLogger.generic.info(`[Capture Frame] Video not ready, readyState: ${video.readyState}`);
+      return null;
+    }
+
+    const vw = video.videoWidth || 0;
+    const vh = video.videoHeight || 0;
+    if (vw === 0 || vh === 0) {
+      appLogger.generic.info(`[Capture Frame] Video dimensions not ready: ${vw}x${vh}`);
+      return null;
+    }
+
+    // Create a temporary canvas to capture the frame
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      appLogger.generic.info("[Capture Frame] Could not get canvas context");
+      return null;
+    }
+
+    // Use the same scaling logic as ControlTrayCustom
+    const isPortrait = vh > vw;
+    const scaleFactor = isPortrait ? 0.35 : 0.25;
+    canvas.width = Math.max(1, Math.floor(vw * scaleFactor));
+    canvas.height = Math.max(1, Math.floor(vh * scaleFactor));
+
+    // Enable high-quality image smoothing
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    // Draw the video frame to canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert to base64 and extract data part
+    const base64 = canvas.toDataURL("image/jpeg", 1.0);
+    const data = base64.slice(base64.indexOf(",") + 1, Infinity);
+    appLogger.generic.info(`[Capture Frame] Successfully captured frame: ${data.length} bytes`);
+    return data;
+  }, [videoRef]);
+
   // Auto-start cue: trigger the AI to begin speaking once on first connect
   useEffect(() => {
     if (!connected || !lastIntentRef.current || !client || hasSentIntroRef.current) return;
-    try {
-      const startCue =
-        "Please begin the code review as instructed: greet briefly, confirm you can see my screen, and ask me to show the main file(s) I want reviewed.";
-      client.send([{ text: startCue }]);
-      hasSentIntroRef.current = true;
-      lastIntroAtRef.current = Date.now();
-      // Do not schedule any post-intro nudge to avoid duplicate prompts
-    } catch {}
+
+    const sendInitialMessage = async () => {
+      try {
+        // Try to capture an image frame with retries (video might not be ready immediately)
+        let imageData: string | null = null;
+        const maxRetries = 10;
+        const retryDelay = 100; // ms
+
+        for (let i = 0; i < maxRetries; i++) {
+          imageData = captureVideoFrame();
+          if (imageData) {
+            break; // Successfully captured frame
+          }
+          // Wait a bit before retrying
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        }
+
+        // Updated prompt: ask AI to describe the image and request code files if it's not code
+        const startCue =
+          "Please begin the code review as instructed: greet briefly, describe what you see in the image I just shared, and if it's not code, ask me to show a file with code that I want reviewed.";
+
+        // Build parts array with text and optionally image
+        const parts: any[] = [{ text: startCue }];
+
+        // Include image as inlineData part if available
+        if (imageData) {
+          parts.push({
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: imageData,
+            },
+          });
+          appLogger.generic.info("[Initial Message] Including image with clientContent", {
+            textLength: startCue.length,
+            imageDataLength: imageData.length,
+            partsCount: parts.length,
+          });
+        } else {
+          appLogger.generic.info("[Initial Message] No image available, sending text only");
+        }
+
+        // Send both text and image in the same clientContent turn
+        // Use session directly to send a single turn with multiple parts
+        // The send() method treats each Part as a separate turn, so we need to use session directly
+        const session = (client as any).session;
+        if (session && imageData) {
+          // Send as a single turn with multiple parts
+          session.sendClientContent({
+            turns: [
+              {
+                parts: parts,
+                role: "user",
+              },
+            ],
+            turnComplete: true,
+          });
+          appLogger.generic.info("[Initial Message] Sent via session with image");
+        } else {
+          // Fallback to regular send if no image or no session
+          client.send(parts);
+        }
+        hasSentIntroRef.current = true;
+        lastIntroAtRef.current = Date.now();
+        // Do not schedule any post-intro nudge to avoid duplicate prompts
+      } catch (error) {
+        appLogger.error.general(
+          `Failed to send initial message: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    };
+
+    sendInitialMessage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, reviewDurationMs]);
+  }, [connected, reviewDurationMs, captureVideoFrame]);
 
   // Timer-driven intro disabled to avoid scripted user prompt
   const handleIntroduction = useCallback(() => {

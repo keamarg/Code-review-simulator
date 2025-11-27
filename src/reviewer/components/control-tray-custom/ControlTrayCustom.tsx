@@ -606,6 +606,10 @@ function ControlTray({
       }
 
       const ctx = canvas.getContext("2d")!;
+      // Enable high-quality image smoothing for better downscaling quality
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
       const vw = video.videoWidth || 0;
       const vh = video.videoHeight || 0;
       if (vw === 0 || vh === 0) {
@@ -613,8 +617,11 @@ function ControlTray({
         timeoutId = window.setTimeout(sendVideoFrame, 100);
         return;
       }
-      canvas.width = vw * 0.25;
-      canvas.height = vh * 0.25;
+      // Use orientation-aware scaling: better quality for portrait screens, same size for landscape
+      const isPortrait = vh > vw;
+      const scaleFactor = isPortrait ? 0.35 : 0.25; // 35% for portrait (better quality), 25% for landscape (same as before)
+      canvas.width = Math.max(1, Math.floor(vw * scaleFactor));
+      canvas.height = Math.max(1, Math.floor(vh * scaleFactor));
       if (canvas.width + canvas.height > 0) {
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         const base64 = canvas.toDataURL("image/jpeg", 1.0);
@@ -1226,8 +1233,15 @@ function ControlTray({
               if (vw === 0 || vh === 0) return;
               const ctx = canvas.getContext("2d");
               if (!ctx) return;
-              canvas.width = Math.max(1, Math.floor(vw * 0.25));
-              canvas.height = Math.max(1, Math.floor(vh * 0.25));
+              // Enable high-quality image smoothing for better downscaling quality
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = "high";
+
+              // Use orientation-aware scaling: better quality for portrait screens, same size for landscape
+              const isPortrait = vh > vw;
+              const scaleFactor = isPortrait ? 0.35 : 0.25; // 35% for portrait (better quality), 25% for landscape (same as before)
+              canvas.width = Math.max(1, Math.floor(vw * scaleFactor));
+              canvas.height = Math.max(1, Math.floor(vh * scaleFactor));
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               const base64 = canvas.toDataURL("image/jpeg", 1.0);
               const data = base64.slice(base64.indexOf(",") + 1);
