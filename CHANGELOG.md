@@ -1,3 +1,33 @@
+[0.1.31] - 2025-11-27
+
+### Fixed
+
+- **Resume and Screen Change Image Context for GitHub Repos**: Fixed issue where resume and screen change messages weren't including images and proper logging for GitHub repo reviews
+  - **Session Wait Logic**: Restored session wait logic in `sendMessageWithImage` to ensure session is ready after resume/reconnect (important for GitHub repos which may take longer to prepare)
+  - **Comprehensive Logging**: Added console.log statements alongside appLogger calls to ensure all logging is visible regardless of log level
+  - **Consistent Behavior**: Resume and screen change now work identically for both GitHub repo and standard reviews
+  - **Error Handling**: Added try-catch around `sendClientContent` with proper fallback to `client.send` if session send fails
+  - **Screen Change Logging**: Added console.log statements to screen change handler in ControlTrayCustom for consistency
+
+[0.1.30] - 2025-11-27
+
+### Changed
+
+- **Priority Prompt Only for Custom Reviews**: Priority prompt (review focus precedence) is now only added for custom reviews, not quick start reviews
+  - **Quick Start Detection**: Added check for `user_id === "quickstart"` or `id.startsWith("quickstart-")` in all prompt functions
+  - **Conditional Priority Prompt**: Priority prompt section is only included when review has description AND is not a quick start review
+  - **Applies to All Prompt Types**: Updated `getPrompt`, `getGithubPrompt`, and `getGeneralPrompt` functions consistently
+
+[0.1.29] - 2025-11-27
+
+### Fixed
+
+- **AudioWorklet Message Channel Error**: Fixed rare "A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received" error
+  - **Removed Async from Handler**: Changed `onmessage` handler from `async` to synchronous since it doesn't await anything
+  - **Proper Handler Cleanup**: Added explicit removal of `onmessage` handlers before disconnecting AudioWorklet nodes in `stop()` method
+  - **Added Safety Checks**: Added checks to ensure worklet exists before processing messages in both recording and VU meter handlers
+  - **Prevents Race Conditions**: Prevents errors when AudioWorklet ports close while message handlers are still processing
+
 [0.1.28] - 2025-11-27
 
 ### Fixed
@@ -7,6 +37,14 @@
   - **Image-First Sending**: Initial image frame is now sent via `sendRealtimeInput` before the text message to provide context
   - **Updated Prompt**: Changed initial prompt from asking for "main file(s)" to asking AI to describe the image and request code files if the image doesn't contain code
   - **Prevents Hallucinations**: AI now has image context from the start, reducing hallucinations when responding to initial greeting
+
+### Changed
+
+- **Loading Screen Until AI Starts Speaking**: Improved UX by keeping loading screen visible until AI actually starts talking
+  - **LoadingAnimation Component**: Replaced simple text loading message with animated LoadingAnimation component
+  - **AI Speech Detection**: UI fade-in now waits for both session UI ready AND AI to start speaking before showing controls
+  - **Better User Feedback**: Users now see animated loading indicator while waiting for AI to process initial image and start responding
+  - **State Reset**: AI speaking state is properly reset when starting new review sessions
 
 [0.1.27] - 2025-11-27
 

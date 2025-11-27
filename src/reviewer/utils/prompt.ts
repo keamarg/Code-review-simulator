@@ -11,11 +11,14 @@ function getPrompt(
   studentTask: string,
 ): string {
   // PRIORITY: Start with review description/focus - this takes precedence
+  // Only add priority prompt for custom reviews, not quick start reviews
   let prompt = "";
   const hasDescription = reviewTemplate.description && reviewTemplate.description.trim();
+  const isQuickStart =
+    reviewTemplate.user_id === "quickstart" || reviewTemplate.id?.startsWith("quickstart-");
 
-  // Add review description/focus at the beginning if it exists
-  if (hasDescription) {
+  // Add review description/focus at the beginning if it exists AND it's a custom review
+  if (hasDescription && !isQuickStart) {
     const reviewFocusHeader: string = (prompts as any).instructionComponents.reviewFocusHeader;
     const reviewFocusPrecedence: string = (prompts as any).instructionComponents
       .reviewFocusPrecedence;
@@ -94,11 +97,14 @@ function getGithubPrompt(
   githubQuestions: string,
 ): string {
   // PRIORITY: Start with review description/focus - this takes precedence
+  // Only add priority prompt for custom reviews, not quick start reviews
   let prompt = "";
   const hasDescription = reviewTemplate.description && reviewTemplate.description.trim();
+  const isQuickStart =
+    reviewTemplate.user_id === "quickstart" || reviewTemplate.id?.startsWith("quickstart-");
 
-  // Add review description/focus at the beginning if it exists
-  if (hasDescription) {
+  // Add review description/focus at the beginning if it exists AND it's a custom review
+  if (hasDescription && !isQuickStart) {
     const reviewFocusHeader: string = (prompts as any).instructionComponents.reviewFocusHeader;
     const reviewFocusPrecedence: string = (prompts as any).instructionComponents
       .reviewFocusPrecedence;
@@ -169,11 +175,14 @@ ${githubBackgroundContextCritical}
 
 function getGeneralPrompt(reviewTemplate: any, studentTask: string): string {
   // PRIORITY: Start with review description/focus - this takes precedence
+  // Only add priority prompt for custom reviews, not quick start reviews
   let prompt = "";
   const hasDescription = reviewTemplate.description && reviewTemplate.description.trim();
+  const isQuickStart =
+    reviewTemplate.user_id === "quickstart" || reviewTemplate.id?.startsWith("quickstart-");
 
-  // Add review description/focus at the beginning if it exists
-  if (hasDescription) {
+  // Add review description/focus at the beginning if it exists AND it's a custom review
+  if (hasDescription && !isQuickStart) {
     const reviewFocusHeader: string = (prompts as any).instructionComponents.reviewFocusHeader;
     const reviewFocusPrecedence: string = (prompts as any).instructionComponents
       .reviewFocusPrecedence;

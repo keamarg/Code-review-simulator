@@ -31,17 +31,22 @@ export function useConversationTracker(
 
   const flushTranscriptBuffer = useCallback(() => {
     if (transcriptBufferRef.current.trim()) {
+      const transcriptText = transcriptBufferRef.current.trim();
       const transcriptEntry: ConversationEntry = {
         type: "ai_transcript",
-        content: transcriptBufferRef.current.trim(),
+        content: transcriptText,
         timestamp: new Date(),
       };
 
       entriesRef.current.push(transcriptEntry);
 
+      // Log AI response (always log, regardless of log level)
+      // eslint-disable-next-line no-console
+      console.log(`[AI RESPONSE] ${transcriptText}`);
+
       // Send to parent callback if provided
       if (onTranscriptChunk) {
-        onTranscriptChunk(transcriptBufferRef.current.trim());
+        onTranscriptChunk(transcriptText);
       }
 
       transcriptBufferRef.current = "";
@@ -61,6 +66,10 @@ export function useConversationTracker(
       };
 
       entriesRef.current.push(userTranscriptEntry);
+
+      // Log user voice prompt (always log, regardless of log level)
+      // eslint-disable-next-line no-console
+      console.log(`[USER PROMPT (voice)] ${cleanedTranscript}`);
 
       // Send to parent callback if provided
       if (onUserTranscriptChunk) {
@@ -251,7 +260,9 @@ export function useConversationTracker(
     };
 
     entriesRef.current.push(textInputEntry);
-    appLogger.generic.info(`[Text Input Tracked] ${text.trim()}`);
+    // Log user text prompt (always log, regardless of log level)
+    // eslint-disable-next-line no-console
+    console.log(`[USER PROMPT (text)] ${text.trim()}`);
   }, []);
 
   const clearConversation = () => {

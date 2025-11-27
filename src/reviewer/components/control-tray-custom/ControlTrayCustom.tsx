@@ -159,7 +159,7 @@ function ControlTray({
     return /^((?!chrome|android).)*safari/i.test(navigator.userAgent) && !ua.includes("chrome");
   }, []);
 
-  const { client, connected, disconnect, volume, status } = useGenAILiveContext();
+  const { client, connected, disconnect, volume, status, stopAudio } = useGenAILiveContext();
 
   const hasLiveAudioTrack = useCallback((stream: MediaStream | null) => {
     if (!stream) return false;
@@ -1215,13 +1215,52 @@ function ControlTray({
           onButtonClicked?.(true);
 
           // After resume: tell AI the screen changed and push a short frame burst so it sees the new screen
+          // Interrupt current AI speech before sending the screen change message
           try {
-            client.send([
-              {
-                text: `Screen changed to: ${newScreenName}. Please continue based on what is visible now.`,
-              },
-            ]);
-          } catch {}
+            // Interrupt current AI output before sending a new message
+            try {
+              (client as any)?.interrupt?.();
+            } catch {}
+            // Ensure audio playback is cut immediately even if interrupt isn't supported
+            try {
+              stopAudio();
+            } catch {}
+            // Wait a moment for the new video stream to be ready before capturing
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            // Send the screen change message with image (if helper function is available)
+            const sendMessageWithImage = (window as any).__cr_sendMessageWithImage;
+            if (sendMessageWithImage) {
+              appLogger.generic.info("[Screen Change] Using sendMessageWithImage helper");
+              // eslint-disable-next-line no-console
+              console.log("[Screen Change] Using sendMessageWithImage helper");
+              await sendMessageWithImage(
+                `Screen changed to: ${newScreenName}. Please continue based on what is visible now.`,
+                client,
+              );
+            } else {
+              // Fallback to regular send if helper not available
+              appLogger.generic.warn(
+                "[Screen Change] sendMessageWithImage helper not available, using fallback",
+              );
+              // eslint-disable-next-line no-console
+              console.warn(
+                "[Screen Change] sendMessageWithImage helper not available, using fallback",
+              );
+              // eslint-disable-next-line no-console
+              console.log(
+                `[USER PROMPT (screen change fallback)] Screen changed to: ${newScreenName}. Please continue based on what is visible now.`,
+              );
+              client.send([
+                {
+                  text: `Screen changed to: ${newScreenName}. Please continue based on what is visible now.`,
+                },
+              ]);
+            }
+          } catch (error) {
+            appLogger.error.general(
+              `[Screen Change] Error sending message: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
 
           const burstOnce = () => {
             try {
@@ -1278,8 +1317,11 @@ function ControlTray({
   // Only hide if requesting permissions AND screen sharing not yet granted
   const shouldHideAllUi = isRequestingPermissions && !screenSharingGranted;
   // Show UI if: connected OR has ever connected (paused state) OR screen sharing granted OR visibleContainer is true
+  // During initial loading (connected=true but visibleContainer=false), hide UI until AI starts speaking
+  // But allow paused state (!connected && hasEverConnected) to show resume button
   const isHidden =
     shouldHideAllUi ||
+    (connected && !visibleContainer) || // Hide during initial loading when connected but AI hasn't started
     (!connected && !hasEverConnected && !screenSharingGranted && !visibleContainer);
 
   return (

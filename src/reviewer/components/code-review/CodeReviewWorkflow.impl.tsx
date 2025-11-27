@@ -6,6 +6,7 @@ import { createLiveConfig } from "../../utils/liveConfigUtils";
 // import prompts from "../../../prompts.json";
 // Timer is now rendered inline in the ControlTrayCustom via props
 import { CodeReviewSummaryModal } from "../ui/CodeReviewSummaryModal";
+import { LoadingAnimation } from "../ui/LoadingAnimation";
 import { useConversationTracker } from "../../hooks/useConversationTracker";
 import { appLogger } from "../../../lib/utils";
 import reviewPrompts from "../../utils/prompt";
@@ -55,6 +56,10 @@ export interface CodeReviewWorkflowProps {
     errorType: "private" | "notFound" | "rateLimit";
     minutesRemaining?: number;
   } | null;
+  /** Callback when AI has started speaking - used to show UI elements */
+  onAiStartedSpeaking?: (hasStarted: boolean) => void;
+  /** Callback to send a message with image - used for screen changes */
+  onSendMessageWithImage?: (text: string, client: any) => Promise<void>;
 }
 
 export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
@@ -137,9 +142,13 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
   useEffect(() => {
     if (reviewIntentStarted && !sessionUidRef.current) {
       sessionUidRef.current = String(Date.now());
+      // Reset AI speaking state for new review session
+      setHasAiStartedSpeaking(false);
     }
     if (!reviewIntentStarted) {
       sessionUidRef.current = "";
+      // Reset AI speaking state when review stops
+      setHasAiStartedSpeaking(false);
     }
   }, [reviewIntentStarted]);
 
@@ -340,6 +349,138 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     return data;
   }, [videoRef]);
 
+  // Helper function to send a message with an image (if available)
+  const sendMessageWithImage = useCallback(
+    async (text: string, client: any) => {
+      if (!client) {
+        appLogger.generic.warn("[Send Message] No client available");
+        return;
+      }
+
+      // Wait for session to be ready (important after resume/reconnect)
+      let session = client.session;
+      const maxSessionWait = 20; // Maximum wait attempts
+      const sessionWaitDelay = 50; // ms between attempts
+
+      for (let i = 0; i < maxSessionWait && !session; i++) {
+        await new Promise((resolve) => setTimeout(resolve, sessionWaitDelay));
+        session = client.session;
+      }
+
+      // Try to capture an image frame with more retries and longer delay
+      let imageData: string | null = null;
+      const maxRetries = 10;
+      const retryDelay = 100; // ms
+
+      for (let i = 0; i < maxRetries; i++) {
+        imageData = captureVideoFrame();
+        if (imageData) {
+          appLogger.generic.info(`[Send Message] Captured image on attempt ${i + 1}`);
+          // eslint-disable-next-line no-console
+          console.log(`[Send Message] Captured image on attempt ${i + 1}`);
+          break; // Successfully captured frame
+        }
+        if (i < maxRetries - 1) {
+          // Wait a bit before retrying (except on last attempt)
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
+        }
+      }
+
+      if (!imageData) {
+        appLogger.generic.warn("[Send Message] Failed to capture image after all retries");
+        // eslint-disable-next-line no-console
+        console.warn("[Send Message] Failed to capture image after all retries");
+      }
+
+      // Build parts array with text and optionally image
+      const parts: any[] = [{ text }];
+
+      // Include image as inlineData part if available
+      if (imageData) {
+        parts.push({
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: imageData,
+          },
+        });
+        appLogger.generic.info("[Send Message] Including image with clientContent");
+        // eslint-disable-next-line no-console
+        console.log("[Send Message] Including image with clientContent");
+      } else {
+        appLogger.generic.info("[Send Message] No image available, sending text only");
+        // eslint-disable-next-line no-console
+        console.log("[Send Message] No image available, sending text only");
+      }
+
+      // Send both text and image in the same clientContent turn
+      // Always use session.sendClientContent to ensure proper structure with multiple parts
+      if (session) {
+        // Log user prompt before sending (always log, regardless of log level)
+        // eslint-disable-next-line no-console
+        console.log(`[USER PROMPT (with image)] ${text}`);
+        if (imageData) {
+          // eslint-disable-next-line no-console
+          console.log(`[USER PROMPT] Image included: ${imageData.length} bytes`);
+        }
+
+        try {
+          // Send as a single turn with multiple parts (text + optional image)
+          session.sendClientContent({
+            turns: [
+              {
+                parts: parts,
+                role: "user",
+              },
+            ],
+            turnComplete: true,
+          });
+          if (imageData) {
+            appLogger.generic.info("[Send Message] Sent via session with image", {
+              textLength: text.length,
+              imageDataLength: imageData.length,
+              partsCount: parts.length,
+            });
+            // eslint-disable-next-line no-console
+            console.log("[Send Message] Sent via session with image", {
+              textLength: text.length,
+              imageDataLength: imageData.length,
+              partsCount: parts.length,
+            });
+          } else {
+            appLogger.generic.info(
+              "[Send Message] Sent via session without image (capture failed)",
+            );
+            // eslint-disable-next-line no-console
+            console.log("[Send Message] Sent via session without image (capture failed)");
+          }
+        } catch (error) {
+          appLogger.error.general(
+            `[Send Message] Error sending clientContent: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          // eslint-disable-next-line no-console
+          console.error("[Send Message] Error sending clientContent:", error);
+          // Fallback to regular send
+          // eslint-disable-next-line no-console
+          console.log(`[USER PROMPT (fallback - error)] ${text}`);
+          client.send(parts);
+        }
+      } else {
+        // Fallback to regular send if no session (shouldn't happen, but handle gracefully)
+        appLogger.generic.warn(
+          "[Send Message] No session available after waiting, using client.send fallback",
+        );
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[Send Message] No session available after waiting, using client.send fallback",
+        );
+        // eslint-disable-next-line no-console
+        console.log(`[USER PROMPT (fallback - no session)] ${text}`);
+        client.send(parts);
+      }
+    },
+    [captureVideoFrame],
+  );
+
   // Auto-start cue: trigger the AI to begin speaking once on first connect
   useEffect(() => {
     if (!connected || !lastIntentRef.current || !client || hasSentIntroRef.current) return;
@@ -364,6 +505,10 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
         const startCue =
           "Please begin the code review as instructed: greet briefly, describe what you see in the image I just shared, and if it's not code, ask me to show a file with code that I want reviewed.";
 
+        // Log initial prompt (always log, regardless of log level)
+        // eslint-disable-next-line no-console
+        console.log(`[USER PROMPT (initial)] ${startCue}`);
+
         // Build parts array with text and optionally image
         const parts: any[] = [{ text: startCue }];
 
@@ -375,6 +520,8 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
               data: imageData,
             },
           });
+          // eslint-disable-next-line no-console
+          console.log(`[USER PROMPT] Image included: ${imageData.length} bytes`);
           appLogger.generic.info("[Initial Message] Including image with clientContent", {
             textLength: startCue.length,
             imageDataLength: imageData.length,
@@ -487,6 +634,14 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     };
   }, [client, hasAiStartedSpeaking]);
 
+  // Notify parent when AI starts speaking
+  const { onAiStartedSpeaking } = props;
+  useEffect(() => {
+    if (onAiStartedSpeaking) {
+      onAiStartedSpeaking(hasAiStartedSpeaking);
+    }
+  }, [hasAiStartedSpeaking, onAiStartedSpeaking]);
+
   // Send a resume message when resuming from a deliberate pause (from history)
   // Note: resume message is wired directly in onButtonClicked wrapper below, matching history
 
@@ -581,18 +736,20 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     };
   }, [client, reviewIntentStarted, promptText, connect]);
 
-  // Compute a single flag: show UI when sharing is ready; do not block on AI speech
+  // Compute a single flag: show UI when sharing is ready AND AI has started speaking
+  // Wait for both session UI ready and AI to start speaking before fading in
   const uiFadeReady = Boolean(sessionUiReady);
+  const shouldFadeIn = uiFadeReady && hasAiStartedSpeaking;
 
   // Add a small delay before fade-in to let layout stabilize
   useEffect(() => {
-    if (!uiFadeReady) {
+    if (!shouldFadeIn) {
       setFadeReady(false);
       return;
     }
     const t = setTimeout(() => setFadeReady(true), 160);
     return () => clearTimeout(t);
-  }, [uiFadeReady]);
+  }, [shouldFadeIn]);
 
   useEffect(() => {
     if (fadeReady) {
@@ -609,6 +766,16 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
     }
   }, [trackTextInput, onTextInputTrackerReady]);
 
+  // Expose sendMessageWithImage to ControlTrayCustom (for screen changes)
+  // Always expose it so it can be used during screen changes
+  useEffect(() => {
+    (window as any).__cr_sendMessageWithImage = sendMessageWithImage;
+    appLogger.generic.info("[CodeReviewWorkflow] Exposed sendMessageWithImage to window");
+    return () => {
+      delete (window as any).__cr_sendMessageWithImage;
+    };
+  }, [sendMessageWithImage]);
+
   return (
     <div>
       {
@@ -619,9 +786,18 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
           onButtonClicked={(on) => {
             try {
               (window as any).__cr_prevPaused = (window as any).__cr_prevPaused ?? false;
-              // When turning ON after having been paused, send a brief resume cue
-              if (on && (window as any).__cr_prevPaused && client) {
-                client.send([{ text: "Session resumed. Please continue with the code review." }]);
+              // When turning ON after having been paused, send a brief resume cue with image
+              // But skip if we're in the middle of a screen change (screen change will send its own message)
+              if (
+                on &&
+                (window as any).__cr_prevPaused &&
+                client &&
+                !(client as any).screenChangeInProgress
+              ) {
+                sendMessageWithImage(
+                  "Session resumed. Please continue with the code review.",
+                  client,
+                );
               }
               (window as any).__cr_prevPaused = !on;
             } catch {}
@@ -636,11 +812,11 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
           forceStopVideo={forceStopVideo}
           isReadyForAutoTrigger={isReadyForAutoTrigger}
           onEnvironmentChange={onEnvironmentChange}
-          showActions={fadeReady || connected || Boolean(reviewIntentStarted)}
-          showIndicators={fadeReady || connected || Boolean(reviewIntentStarted)}
+          showActions={fadeReady}
+          showIndicators={fadeReady}
           onSharingReady={onSharingReady}
           fadeInContainer={fadeReady}
-          visibleContainer={fadeReady || connected || Boolean(reviewIntentStarted)}
+          visibleContainer={fadeReady}
           timerTotalMs={reviewDurationMs}
           timerStartTrigger={connected}
           timerOnTimeUp={handleTimerExpired}
@@ -650,11 +826,11 @@ export function CodeReviewWorkflow(props: CodeReviewWorkflowProps) {
         />
       }
 
-      {/* Show loading message only when review is starting and not yet faded in */}
+      {/* Show loading animation when review is starting and waiting for AI to start speaking */}
       {/* Hide once fadeReady is true (UI has appeared) or when there's a repository error */}
       {reviewIntentStarted && !fadeReady && !repositoryError && (
         <div className="my-6">
-          <div className="text-center text-tokyo-fg-dim mt-2">Preparing code review content...</div>
+          <LoadingAnimation isLoading={true} />
         </div>
       )}
 

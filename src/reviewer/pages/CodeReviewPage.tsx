@@ -48,6 +48,7 @@ export default function CodeReviewPage() {
   }, [videoStream, videoRef]);
 
   const [reviewIntentStarted, setReviewIntentStarted] = useState(false);
+  const [hasAiStartedSpeaking, setHasAiStartedSpeaking] = useState(false);
   const isInitializingRef = useRef(true);
   const hasSessionStartedRef = useRef(false);
   const hasEverStartedRef = useRef(false);
@@ -61,6 +62,7 @@ export default function CodeReviewPage() {
       appLogger.session.start();
     } else if (!reviewIntentStarted && hasSessionStartedRef.current) {
       hasSessionStartedRef.current = false;
+      setHasAiStartedSpeaking(false); // Reset AI speaking state when review stops
       sessionService.stopReview();
       appLogger.session.stop();
     }
@@ -335,6 +337,7 @@ export default function CodeReviewPage() {
   const handleEndReview = () => {
     setForceStopAudio(true);
     setForceStopVideo(true);
+    setHasAiStartedSpeaking(false); // Reset AI speaking state
     appLogger.user.stopReview();
     shutdownSession();
     setTimeout(() => {
@@ -344,6 +347,7 @@ export default function CodeReviewPage() {
   };
 
   const handleTimerExpired = () => {
+    setHasAiStartedSpeaking(false); // Reset AI speaking state
     shutdownSession();
     clearAllSuggestions();
   };
@@ -591,6 +595,9 @@ export default function CodeReviewPage() {
                 setRepositoryError({ repoUrl, errorType, minutesRemaining });
               }}
               repositoryError={repositoryError}
+              onAiStartedSpeaking={(hasStarted) => {
+                setHasAiStartedSpeaking(hasStarted);
+              }}
             />
             {/* Show repository error if detected - appears where "Preparing code review content..." would be */}
             {repositoryError && (
@@ -612,8 +619,8 @@ export default function CodeReviewPage() {
                 }}
               />
             )}
-            {/* Show UserPromptInput and LiveSuggestions when review has started */}
-            {reviewIntentStarted && (
+            {/* Show UserPromptInput and LiveSuggestions when review has started AND AI has started speaking */}
+            {reviewIntentStarted && hasAiStartedSpeaking && (
               <div className="mt-8">
                 <div className="mb-4">
                   <UserPromptInput

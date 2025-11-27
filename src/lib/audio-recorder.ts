@@ -152,9 +152,9 @@ export class AudioRecorder extends EventEmitter {
 
         this.recordingWorklet = new AudioWorkletNode(this.audioContext, workletName);
 
-        this.recordingWorklet.port.onmessage = async (ev: MessageEvent) => {
-          // Check if recording is still active before emitting data
-          if (!this.recording) {
+        this.recordingWorklet.port.onmessage = (ev: MessageEvent) => {
+          // Check if recording is still active and worklet still exists before emitting data
+          if (!this.recording || !this.recordingWorklet) {
             return;
           }
 
@@ -187,6 +187,10 @@ export class AudioRecorder extends EventEmitter {
         this.vuWorklet = new AudioWorkletNode(this.audioContext, vuWorkletName);
 
         this.vuWorklet.port.onmessage = (ev: MessageEvent) => {
+          // Check if worklet still exists before emitting
+          if (!this.vuWorklet) {
+            return;
+          }
           this.emit("volume", ev.data.volume);
         };
 
@@ -211,9 +215,11 @@ export class AudioRecorder extends EventEmitter {
     // Immediately set recording to false to prevent new data emission
     this.recording = false;
 
-    // Immediately disconnect worklets to stop data flow
+    // Immediately remove message handlers and disconnect worklets to stop data flow
     if (this.recordingWorklet) {
       try {
+        // Remove message handler before disconnecting to prevent async message errors
+        this.recordingWorklet.port.onmessage = null;
         this.recordingWorklet.disconnect();
       } catch (e) {
         // Ignore disconnect errors
@@ -222,6 +228,8 @@ export class AudioRecorder extends EventEmitter {
     }
     if (this.vuWorklet) {
       try {
+        // Remove message handler before disconnecting to prevent async message errors
+        this.vuWorklet.port.onmessage = null;
         this.vuWorklet.disconnect();
       } catch (e) {
         // Ignore disconnect errors

@@ -739,12 +739,12 @@ export class GenAILiveClient extends EventEmitter<LiveClientEventTypes> {
   send(parts: Part | Part[], turnComplete: boolean = true) {
     try {
       const turns = Array.isArray(parts) ? parts : [parts];
-      // Log any text content being sent to the model as a prompt
+      // Log any text content being sent to the model as a prompt (always log)
       for (const p of turns) {
         const text = (p as any)?.text;
         if (typeof text === "string" && text.trim()) {
           // eslint-disable-next-line no-console
-          console.log("[USER PROMPT]", text);
+          console.log(`[USER PROMPT (client.send)] ${text.trim()}`);
         }
       }
     } catch {}
